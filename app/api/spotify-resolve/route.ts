@@ -33,7 +33,12 @@ export async function GET(req: NextRequest) {
     }
 
     const tracks = await fetchSpotifyArtistTopTracks(parsed.id, 15);
-    return NextResponse.json({ mode: "artist", tracks, error: null });
+    return NextResponse.json({
+      mode: "artist",
+      tracks,
+      artistId: parsed.id,
+      error: null,
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Spotify feloldási hiba";
     const missingCreds =

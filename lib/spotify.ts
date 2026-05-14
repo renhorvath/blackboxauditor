@@ -124,3 +124,118 @@ export async function searchSpotifyTracks(query: string, limit = 12): Promise<Se
 
   return items.map((t) => mapTrackItem(t));
 }
+
+export type ArtistDiscographyResult = {
+  tracks: SearchTrackHit[];
+  albumsScanned: number;
+  distinctTrackIds: number;
+  cappedByAlbums: boolean;
+  cappedByTracks: boolean;
+};
+
+/** Paginate Spotify artist albums + album tracks; hydrate ISRC via /tracks?ids= */
+export async function fetchArtistDiscographyHits(artistId: string): Promise<ArtistDiscographyResult> {
+  const token = await getClientCredentialsToken();
+  const market = (process.env.SPOTIFY_DISCOGRAPHY_MARKET ?? "US").trim() || "US";
+  const maxAlbums = Math.max(
+    20,
+    Math.min(2000, Number(process.env.SPOTIFY_DISCOGRAPHY_MAX_ALBUMS ?? 400) || 400),
+  );
+  const maxTracks = Math.max(
+    50,
+    Math.min(8000, Number(process.env.SPOTIFY_DISCOGRAPHY_MAX_TRACKS ?? 2500) || 2500),
+  );
+
+  const albumIds = new Set<string>();
+  let albumsNext: string | null =
+    `https://api.spotify.com/v1/artists/${encodeURIComponent(artistId)}/albums?` +
+    new URLSearchParams({
+      include_groups: "album,single,compilation,appears_on",
+      limit: "50",
+      market,
+    }).toString();
+  let cappedByAlbums = false;
+
+  while (albumsNext && albumIds.size < maxAlbums) {
+    const res = await fetch(albumsNext, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) {
+      throw new Error(`Spotify előadó albumok hiba: ${res.status}`);
+    }
+    const page = (await res.json()) as {
+      items?: { id: string }[];
+      next?: string | null;
+    };
+    for (const a of page.items ?? []) {
+      if (albumIds.size >= maxAlbums) break;
+      albumIds.add(a.id);
+    }
+    if (albumIds.size >= maxAlbums && page.next) {
+      cappedByAlbums = true;
+      albumsNext = null;
+    } else {
+      albumsNext = page.next ?? null;
+    }
+  }
+
+  const trackIds = new Set<string>();
+  let cappedByTracks = false;
+
+  for (const albumId of albumIds) {
+    if (trackIds.size >= maxTracks) break;
+    let tracksNext: string | null =
+      `https://api.spotify.com/v1/albums/${encodeURIComponent(albumId)}/tracks?` +
+      new URLSearchParams({ limit: "50", market }).toString();
+
+    while (tracksNext && trackIds.size < maxTracks) {
+      const res = await fetch(tracksNext, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) {
+        throw new Error(`Spotify album tracklista hiba: ${res.status}`);
+      }
+      const tpage = (await res.json()) as {
+        items?: { id?: string }[];
+        next?: string | null;
+      };
+      for (const tr of tpage.items ?? []) {
+        if (trackIds.size >= maxTracks) break;
+        if (tr.id) trackIds.add(tr.id);
+      }
+      if (trackIds.size >= maxTracks && tpage.next) {
+        cappedByTracks = true;
+        tracksNext = null;
+      } else {
+        tracksNext =
+          trackIds.size < maxTracks && tpage.next ? tpage.next : null;
+      }
+    }
+  }
+
+  const idList = [...trackIds];
+  const tracks: SearchTrackHit[] = [];
+  for (let i = 0; i < idList.length; i += 50) {
+    const chunk = idList.slice(i, i + 50);
+    const params = new URLSearchParams({ ids: chunk.join(",") });
+    const res = await fetch(`https://api.spotify.com/v1/tracks?${params}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      throw new Error(`Spotify track tömeges lekérés hiba: ${res.status}`);
+    }
+    const body = (await res.json()) as { tracks?: (SpotifyTrackApi | null)[] };
+    for (const t of body.tracks ?? []) {
+      if (t) tracks.push(mapTrackItem(t));
+    }
+  }
+
+  tracks.sort((a, b) => {
+    const c = a.title.localeCompare(b.title, "hu", { sensitivity: "base" });
+    return c !== 0 ? c : a.spotifyId.localeCompare(b.spotifyId);
+  });
+
+  return {
+    tracks,
+    albumsScanned: albumIds.size,
+    distinctTrackIds: trackIds.size,
+    cappedByAlbums,
+    cappedByTracks,
+  };
+}

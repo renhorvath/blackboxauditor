@@ -25,6 +25,10 @@ export function HomeAuditor() {
   const [resolveStatus, setResolveStatus] = useState<"idle" | "loading">("idle");
   const [resolveError, setResolveError] = useState<string | null>(null);
   const [artistPickList, setArtistPickList] = useState<SearchTrackHit[] | null>(null);
+  const [resolvedArtistId, setResolvedArtistId] = useState<string | null>(null);
+  const [discographyBusy, setDiscographyBusy] = useState(false);
+  const [discographyHint, setDiscographyHint] = useState<string | null>(null);
+  const [fullArtistCatalogLoaded, setFullArtistCatalogLoaded] = useState(false);
 
   const [status, setStatus] = useState<"idle" | "fetching">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -55,35 +59,85 @@ export function HomeAuditor() {
     setResolveStatus("loading");
     setResolveError(null);
     setArtistPickList(null);
+    setResolvedArtistId(null);
+    setDiscographyHint(null);
+    setFullArtistCatalogLoaded(false);
     try {
       const res = await fetch(`/api/spotify-resolve?url=${encodeURIComponent(raw)}`);
       const data = (await res.json()) as {
         mode?: string | null;
         tracks?: SearchTrackHit[];
         error?: string | null;
+        artistId?: string;
       };
       if (!res.ok) {
+        setResolvedArtistId(null);
         setResolveError(data.error ?? "Nem sikerült feloldani ezt a linket.");
         return;
       }
       const tracks = data.tracks ?? [];
       if (data.mode === "track" && tracks[0]) {
+        setResolvedArtistId(null);
         addHit(tracks[0]);
         setSpotifyUrl("");
         return;
       }
       if (data.mode === "artist") {
-        setArtistPickList(tracks);
+        setResolvedArtistId(data.artistId ?? null);
+        setArtistPickList(tracks.length > 0 ? tracks : null);
         if (tracks.length === 0) {
           setResolveError("Ehhez az előadóhoz nem érkeztek top dalok.");
         }
         return;
       }
       setResolveError("Váratlan válasz a Spotify feloldótól.");
+      setResolvedArtistId(null);
     } catch {
       setResolveError("Hálózati hiba a link feloldása közben.");
+      setResolvedArtistId(null);
     } finally {
       setResolveStatus("idle");
+    }
+  }
+
+  async function loadArtistDiscography() {
+    if (!resolvedArtistId) return;
+    setDiscographyBusy(true);
+    setDiscographyHint(null);
+    setResolveError(null);
+    try {
+      const res = await fetch(
+        `/api/spotify-artist-discography?artistId=${encodeURIComponent(resolvedArtistId)}`,
+      );
+      const data = (await res.json()) as {
+        tracks?: SearchTrackHit[];
+        error?: string | null;
+        albumsScanned?: number;
+        distinctTrackIds?: number;
+        cappedByAlbums?: boolean;
+        cappedByTracks?: boolean;
+      };
+      if (!res.ok) {
+        setResolveError(data.error ?? "Nem sikerült betölteni a teljes dallistát.");
+        return;
+      }
+      const tracks = data.tracks ?? [];
+      setArtistPickList(tracks.length > 0 ? tracks : null);
+      setFullArtistCatalogLoaded(true);
+      const parts: string[] = [];
+      parts.push(`${tracks.length} dal betöltve`);
+      if (data.albumsScanned != null) parts.push(`${data.albumsScanned} album / megjelenés`);
+
+      if (data.cappedByAlbums || data.cappedByTracks) {
+        parts.push(
+          "lista a korlát miatt csonkolt — SPOTIFY_DISCOGRAPHY_MAX_ALBUMS / MAX_TRACKS a .env-ben.",
+        );
+      }
+      setDiscographyHint(parts.length > 0 ? parts.join(" · ") : null);
+    } catch {
+      setResolveError("Hálózati hiba a dallista letöltése közben.");
+    } finally {
+      setDiscographyBusy(false);
     }
   }
 
@@ -223,11 +277,50 @@ export function HomeAuditor() {
             </p>
           ) : null}
 
+          {resolvedArtistId ? (
+            <div className="space-y-2 rounded-[10px] border border-[var(--border)] bg-[var(--bg-secondary)] p-4">
+              <div>
+                <p className="text-xs font-medium text-[var(--text-secondary)]">Előadó Spotify katalógusa</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">
+                  A „Betöltés” először néhány népszerű dalt mutat. A teljes dallista összes albumot, szimplét,
+                  közreműködést is begyűjt — több tíz Spotify kérést tesz, előadótól függően akár tíz–több
+                  másodperc vagy több lehet.
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={discographyBusy || !resolvedArtistId}
+                onClick={() => void loadArtistDiscography()}
+                className="w-full rounded-[10px] border border-[var(--border-active)] bg-[var(--bg-primary)] px-4 py-2.5 text-sm font-semibold text-[var(--accent-primary)] transition hover:bg-[color-mix(in_srgb,var(--accent-primary)_8%,transparent)] disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                {discographyBusy ? (
+                  <span className="inline-flex items-center justify-center gap-2">
+                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                    Teljes dallista betöltése…
+                  </span>
+                ) : (
+                  "Teljes Spotify-dallista betöltése"
+                )}
+              </button>
+              {discographyHint ? (
+                <p className="text-[11px] leading-snug text-[var(--text-secondary)]">{discographyHint}</p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {resolvedArtistId && (!artistPickList || artistPickList.length === 0) && !discographyBusy ? (
+            <p className="text-center text-xs text-[var(--text-muted)]">
+              Még nincs választék a listában — használd a teljes dallista gombot, vagy illessz másik linket.
+            </p>
+          ) : null}
+
           {artistPickList && artistPickList.length > 0 ? (
             <div className="rounded-[10px] border border-[var(--border)] bg-[var(--bg-secondary)] p-3">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <p className="text-xs font-medium text-[var(--text-secondary)]">
-                  Top dalok — a + jellel sorba teszed az ISRC-ket
+                  {fullArtistCatalogLoaded
+                    ? `${artistPickList.length} dal (teljes katalógus) — + a sorhoz, ha van ISRC`
+                    : `${artistPickList.length} top dal — + a sorhoz, ha van ISRC`}
                 </p>
                 <button
                   type="button"
@@ -237,7 +330,7 @@ export function HomeAuditor() {
                   Összes ISRC-s sor hozzáadása
                 </button>
               </div>
-              <ul className="max-h-52 space-y-1 overflow-auto">
+              <ul className="max-h-96 space-y-1 overflow-auto">
                 {artistPickList.map((hit) => {
                   const noIsrc = !hit.isrc;
                   return (
