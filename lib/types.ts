@@ -96,6 +96,4 @@ export interface StoredAuditPayload {
   rows: AuditRow[];
   summary: AuditSummary;
   generatedAt: string;
-  /** Optional contact from the request form (stored client-side only). */
-  contactEmail?: string;
 }

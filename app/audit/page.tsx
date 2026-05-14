@@ -69,12 +69,6 @@ export default function AuditPage() {
           <p className="mt-1 text-xs text-[var(--text-muted)]">
             Generálva: {new Date(payload.generatedAt).toLocaleString("hu-HU")}
           </p>
-          {payload.contactEmail ? (
-            <p className="mt-2 text-xs text-[var(--text-secondary)]">
-              Megadott e-mail (munkamenet):{" "}
-              <span className="font-medium text-[var(--text-primary)]">{payload.contactEmail}</span>
-            </p>
-          ) : null}
         </div>
         <Link
           href="/"

@@ -21,7 +21,6 @@ type SelectedTrack = SearchTrackHit & { normalizedIsrc: string };
 export function HomeAuditor() {
   const router = useRouter();
   const [selected, setSelected] = useState<SelectedTrack[]>([]);
-  const [contactEmail, setContactEmail] = useState("");
   const [spotifyUrl, setSpotifyUrl] = useState("");
   const [resolveStatus, setResolveStatus] = useState<"idle" | "loading">("idle");
   const [resolveError, setResolveError] = useState<string | null>(null);
@@ -149,12 +148,10 @@ export function HomeAuditor() {
       );
       const summary = buildAuditSummary(rows);
 
-      const emailTrim = contactEmail.trim();
       const stored: StoredAuditPayload = {
         rows,
         summary,
         generatedAt: new Date().toISOString(),
-        ...(emailTrim ? { contactEmail: emailTrim } : {}),
       };
       sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(stored));
       router.push("/audit");
@@ -277,18 +274,6 @@ export function HomeAuditor() {
             </div>
           ) : null}
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-[var(--text-muted)]">E-mail</label>
-            <input
-              type="email"
-              autoComplete="email"
-              value={contactEmail}
-              onChange={(e) => setContactEmail(e.target.value)}
-              placeholder="pelda@eloado.hu vagy kiado"
-              className="input-bbox w-full"
-            />
-          </div>
-
           <div className="space-y-2 border-t border-[var(--border)] pt-5">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
@@ -362,10 +347,6 @@ export function HomeAuditor() {
               "Audit kérése"
             )}
           </button>
-
-          <p className="text-center text-xs leading-relaxed text-[var(--text-muted)]">
-            Az e-mailt csak ehhez az audit futáshoz társítjuk a böngésző munkamenetében. MVP-ben nincs marketing levél.
-          </p>
 
           <p className="text-center">
             <Link
