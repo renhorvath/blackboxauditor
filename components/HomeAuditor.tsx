@@ -175,9 +175,8 @@ export function HomeAuditor() {
         </h1>
         <p className="mt-5 text-pretty text-base leading-relaxed text-[var(--text-secondary)]">
           Keress előadóra vagy dalra, vagy illessz be egy Spotify-linket. Megmutatjuk, kik szerepelnek a
-          nyilvántartásokban szerzőként és kiadóként, és hogy az adatlánc teljes-e — mert ha hiányzik belőle
-          egy láncszem, a jogdíj nem feltétlenül jut el oda, ahova kellene. Ha valami eltér vagy hiányzik, sorba
-          rendezett teendőket kapsz — nem szakszót kell értelmezned, hanem azt, hol érdemes elkezdeni.
+          nyilvántartásokban szerzőként és kiadóként, és hogy az adatlánc teljes-e — mert egy hiányzó láncszem
+          miatt a jogdíj könnyen elvész útközben. Ha valami nincs rendben, konkrét teendőket kapsz, sorban.
         </p>
       </div>
 
