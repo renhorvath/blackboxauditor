@@ -171,17 +171,13 @@ export function HomeAuditor() {
           BBOX AUDIT
         </p>
         <h1 className="mt-4 text-balance text-3xl font-bold tracking-tight text-[var(--text-primary)] md:text-4xl md:leading-[1.15]">
-          A jogdíjak a „black boxban” vesznek el?
+          Nézd meg, hogy a felvételeid adatai rendben vannak-e
         </h1>
         <p className="mt-5 text-pretty text-base leading-relaxed text-[var(--text-secondary)]">
-          Keress előadóra vagy dalra, válassz a listából, vagy importálj egy Spotify track- vagy előadó linket.
-          Összefoglaljuk, mit mutatnak a közös adatbázisok és összképek (köztük a credits.fm) a felvételedről és a művedről:
-          kik szerepelnek szerzőként és kiadóként, és hogy Amerikában a gépdíjakhoz is rendben vezet-e az adatlánc.
-          Ha hiány vagy eltérés van,{" "}
-          <strong className="font-semibold text-[var(--text-primary)]">
-            világos, sorba rendezett teendőket
-          </strong>{" "}
-          kapsz — nem betűszavakat kell dekódolnod, hanem azt, hol érdemes először utánajárni, hogy a jogdíjaid ne csússzanak el ismeretlen helyre.
+          Keress előadóra vagy dalra, vagy illessz be egy Spotify-linket. Megmutatjuk, kik szerepelnek a
+          nyilvántartásokban szerzőként és kiadóként, és hogy az adatlánc teljes-e — mert ha hiányzik belőle
+          egy láncszem, a jogdíj nem feltétlenül jut el oda, ahova kellene. Ha valami eltér vagy hiányzik, sorba
+          rendezett teendőket kapsz — nem szakszót kell értelmezned, hanem azt, hol érdemes elkezdeni.
         </p>
       </div>
 
