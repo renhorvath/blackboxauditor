@@ -16,7 +16,8 @@
     "cmo:build-index": ".venv/bin/python3 scripts/cmo/build_indexes.py",
     "etl:parquet": ".venv/bin/python3 scripts/etl/tsv_to_parquet.py",
     "etl:catalog": ".venv/bin/python3 scripts/etl/build_catalog.py",
-    "etl:query": ".venv/bin/python3 scripts/etl/query.py"
+    "etl:query": ".venv/bin/python3 scripts/etl/query.py",
+    "etl:export-artist": ".venv/bin/python3 scripts/etl/export_artist_mlc_json.py"
   },
   "dependencies": {
     "@tanstack/react-table": "^8.21.3",

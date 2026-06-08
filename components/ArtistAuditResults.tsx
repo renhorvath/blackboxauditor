@@ -84,11 +84,13 @@ export function ArtistAuditResults({
   if (!rows || !summary || !meta) return null;
 
   const sourceNote =
-    meta.mlcScanSource === "live"
-      ? "Friss adat az MLC TSV-ből."
-      : meta.mlcScanSource === "cache"
-        ? "Mentett MLC export (cache)."
-        : "MLC export nem elérhető — ARTISJUS + CMO indexek.";
+    meta.mlcScanSource === "duckdb"
+      ? "MLC adat a helyi DuckDB katalógusból (gyors)."
+      : meta.mlcScanSource === "live"
+        ? "Friss adat az MLC TSV-ből (lassú scan)."
+        : meta.mlcScanSource === "cache"
+          ? "Mentett MLC export (cache)."
+          : "MLC export nem elérhető — ARTISJUS + CMO indexek.";
 
   const countsLineParts = [
     meta.mlcUnmatchedCount > 0 ? `${meta.mlcUnmatchedCount} MLC unmatched` : null,
@@ -244,16 +246,17 @@ export function ArtistAuditResults({
       )}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {meta.mlcScanSource === "cache" ? (
+        {meta.mlcScanSource === "cache" || meta.mlcScanSource === "duckdb" ? (
           <details className="group text-sm">
             <summary className="flex cursor-pointer list-none items-center gap-1 font-medium text-[var(--text-secondary)] marker:content-none [&::-webkit-details-marker]:hidden">
               <ChevronDown className="size-4 transition group-open:rotate-180" aria-hidden />
-              Frissítés közvetlenül az MLC TSV-ből
+              MLC adat frissítése
             </summary>
             <div className="mt-2 space-y-2 pl-5">
               <p className="text-xs text-[var(--text-muted)]">
-                A cache helyett újra beolvassa a 121 GB-os unmatchedresources.tsv fájlt (ripgrep). Több
-                percig tarthat.
+                {meta.mlcScanSource === "duckdb"
+                  ? "Újra lekérdezi a helyi DuckDB katalógust (másodpercek)."
+                  : "A cache helyett újra lekérdezi az MLC adatot. DuckDB katalógus nélkül a 121 GB-os TSV scan több percig tarthat."}
               </p>
               <button
                 type="button"
@@ -264,19 +267,22 @@ export function ArtistAuditResults({
                 {catalogBusy ? (
                   <span className="inline-flex items-center gap-2">
                     <Loader2 className="size-4 animate-spin" aria-hidden />
-                    MLC TSV scan…
+                    MLC lekérdezés…
                   </span>
                 ) : (
-                  "MLC TSV újraszkennelése"
+                  "MLC újralekérdezése"
                 )}
               </button>
             </div>
           </details>
         ) : meta.mlcScanSource === "live" ? (
-          <p className="text-xs text-[var(--text-muted)]">Adatforrás: MLC unmatched TSV (friss scan).</p>
+          <p className="text-xs text-[var(--text-muted)]">
+            Adatforrás: MLC TSV (ripgrep scan — lassú). Gyorsításhoz: npm run etl:parquet && npm run
+            etl:catalog
+          </p>
         ) : (
           <p className="text-xs text-[var(--text-muted)]">
-            MLC export hiányzik — futtasd: python3 scripts/mlc/scan_tsv_by_artist.py --name „…"
+            MLC adat nem elérhető — építs katalógust: npm run etl:parquet && npm run etl:catalog
           </p>
         )}
 

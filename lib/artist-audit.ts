@@ -65,12 +65,8 @@ export async function runArtistAudit(input: {
       mlcUnclaimedCount: mlcUnclaimedScan?.uniqueIsrcCount ?? 0,
       artisjusCount: artisjusMatches.length,
       cmoCounts: countCmoMatchesBySource(cmoMatches),
-      mlcScanSource: mlcScan ? (mlcScan.fromCache ? "cache" : "live") : "none",
-      mlcUnclaimedScanSource: mlcUnclaimedScan
-        ? mlcUnclaimedScan.fromCache
-          ? "cache"
-          : "live"
-        : "none",
+      mlcScanSource: mlcScan?.scanSource ?? "none",
+      mlcUnclaimedScanSource: mlcUnclaimedScan?.scanSource ?? "none",
     },
   };
 }

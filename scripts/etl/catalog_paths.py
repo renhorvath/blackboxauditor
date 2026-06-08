@@ -6,8 +6,10 @@ import os
 import sys
 from pathlib import Path
 
-# Reuse MLC TSV path resolution from sibling package.
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "mlc"))
+_MLC_DIR = Path(__file__).resolve().parents[1] / "mlc"
+if str(_MLC_DIR) not in sys.path:
+    sys.path.insert(0, str(_MLC_DIR))
+
 from paths import (  # noqa: E402
     PROJECT_ROOT,
     load_dotenv_local,

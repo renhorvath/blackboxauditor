@@ -42,4 +42,4 @@ data/
 
 ## Next step (app integration)
 
-Wire `lib/mlc-artist-scan.ts` to call DuckDB via `scripts/etl/query.py --artist … --json` or a small HTTP query API (`QUERY_API_URL`).
+The artist audit (`lib/mlc-artist-scan.ts`) automatically uses DuckDB when `data/catalog.duckdb` exists (or `CATALOG_DUCKDB_PATH`). Set `MLC_USE_DUCKDB=false` to force the legacy ripgrep path.

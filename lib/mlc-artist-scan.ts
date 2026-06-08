@@ -25,6 +25,7 @@ export interface MlcArtistScanResult {
   uniqueIsrcCount: number;
   hits: MlcArtistHit[];
   fromCache: boolean;
+  scanSource: "cache" | "duckdb" | "live";
 }
 
 export interface MlcUnclaimedScanResult {
@@ -34,6 +35,7 @@ export interface MlcUnclaimedScanResult {
   uniqueIsrcCount: number;
   hits: MlcUnclaimedHit[];
   fromCache: boolean;
+  scanSource: "cache" | "duckdb" | "live";
 }
 
 function slugify(value: string): string {
@@ -53,9 +55,22 @@ function scansBaseDir(): string {
   return path.join(process.cwd(), "derived", "mlc-hu", "hu_artist_scans");
 }
 
+function catalogDbPath(): string {
+  const fromEnv = process.env.CATALOG_DUCKDB_PATH?.trim();
+  if (fromEnv) return fromEnv;
+  return path.join(process.cwd(), "data", "catalog.duckdb");
+}
+
+function duckdbEnabled(): boolean {
+  if (process.env.MLC_USE_DUCKDB?.trim().toLowerCase() === "false") return false;
+  return fs.existsSync(catalogDbPath());
+}
+
 function artistScanDir(artistName: string): string {
   return path.join(scansBaseDir(), slugify(artistName));
 }
+
+type MlcScanKind = "unmatched" | "unclaimed";
 
 function parseCsvLine(line: string): string[] {
   const out: string[] = [];
@@ -219,6 +234,24 @@ function runPythonJsonScript<T>(
   });
 }
 
+async function scanViaDuckdb<T extends { hits: unknown[]; scanSource?: string }>(
+  kind: MlcScanKind,
+  artistName: string,
+): Promise<(T & { fromCache: false; scanSource: "duckdb" }) | null> {
+  const db = catalogDbPath();
+  const parsed = await runPythonJsonScript<T>(
+    "scripts/etl/export_artist_mlc_json.py",
+    artistName,
+    ["--kind", kind, "--db", db],
+  );
+  if (!parsed) return null;
+  return { ...parsed, fromCache: false, scanSource: "duckdb" };
+}
+
+export function catalogAvailable(): boolean {
+  return duckdbEnabled();
+}
+
 export function scanMlcArtistFromCache(artistName: string): MlcArtistScanResult | null {
   const slug = slugify(artistName);
   const exportPath = path.join(artistScanDir(artistName), `${slug}_mlc_export.csv`);
@@ -231,6 +264,7 @@ export function scanMlcArtistFromCache(artistName: string): MlcArtistScanResult 
     uniqueIsrcCount: hits.length,
     hits,
     fromCache: true,
+    scanSource: "cache",
   };
 }
 
@@ -246,6 +280,7 @@ export function scanMlcUnclaimedFromCache(artistName: string): MlcUnclaimedScanR
     uniqueIsrcCount: hits.length,
     hits,
     fromCache: true,
+    scanSource: "cache",
   };
 }
 
@@ -258,15 +293,21 @@ export async function scanMlcArtist(
     if (cached) return cached;
   }
 
+  if (duckdbEnabled()) {
+    const fromDb = await scanViaDuckdb<Omit<MlcArtistScanResult, "fromCache" | "scanSource">>(
+      "unmatched",
+      artistName,
+    );
+    if (fromDb) return fromDb;
+  }
+
   const tsv = process.env.MLC_UNMATCHED_TSV?.trim();
   const extraArgs = tsv ? ["--tsv", tsv] : [];
-  const parsed = await runPythonJsonScript<Omit<MlcArtistScanResult, "fromCache">>(
-    "scripts/mlc/export_artist_mlc_json.py",
-    artistName,
-    extraArgs,
-  );
+  const parsed = await runPythonJsonScript<
+    Omit<MlcArtistScanResult, "fromCache" | "scanSource">
+  >("scripts/mlc/export_artist_mlc_json.py", artistName, extraArgs);
   if (!parsed) return null;
-  return { ...parsed, fromCache: false };
+  return { ...parsed, fromCache: false, scanSource: "live" };
 }
 
 export async function scanMlcUnclaimedArtist(
@@ -278,13 +319,19 @@ export async function scanMlcUnclaimedArtist(
     if (cached) return cached;
   }
 
+  if (duckdbEnabled()) {
+    const fromDb = await scanViaDuckdb<Omit<MlcUnclaimedScanResult, "fromCache" | "scanSource">>(
+      "unclaimed",
+      artistName,
+    );
+    if (fromDb) return fromDb;
+  }
+
   const tsv = process.env.MLC_UNCLAIMED_TSV?.trim();
   const extraArgs = tsv ? ["--tsv", tsv] : [];
-  const parsed = await runPythonJsonScript<Omit<MlcUnclaimedScanResult, "fromCache">>(
-    "scripts/mlc/export_artist_unclaimed_json.py",
-    artistName,
-    extraArgs,
-  );
+  const parsed = await runPythonJsonScript<
+    Omit<MlcUnclaimedScanResult, "fromCache" | "scanSource">
+  >("scripts/mlc/export_artist_unclaimed_json.py", artistName, extraArgs);
   if (!parsed) return null;
-  return { ...parsed, fromCache: false };
+  return { ...parsed, fromCache: false, scanSource: "live" };
 }

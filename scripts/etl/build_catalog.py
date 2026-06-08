@@ -11,7 +11,7 @@ from pathlib import Path
 import duckdb
 
 from config import SOURCES, SourceSpec
-from paths import catalog_db_path, load_dotenv_local, parquet_dir, source_parquet
+from catalog_paths import catalog_db_path, load_dotenv_local, parquet_dir, source_parquet
 
 load_dotenv_local()
 

@@ -157,8 +157,8 @@ export interface ArtistAuditMeta {
   mlcUnclaimedCount: number;
   artisjusCount: number;
   cmoCounts?: Partial<Record<CmoSourceId, number>>;
-  mlcScanSource: "cache" | "live" | "none";
-  mlcUnclaimedScanSource: "cache" | "live" | "none";
+  mlcScanSource: "cache" | "duckdb" | "live" | "none";
+  mlcUnclaimedScanSource: "cache" | "duckdb" | "live" | "none";
   albumsScanned?: number;
   cappedByAlbums?: boolean;
   cappedByTracks?: boolean;
