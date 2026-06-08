@@ -36,6 +36,8 @@ export function buildRowsFromMlcHits(hits: MlcArtistHit[]): AuditRow[] {
     issues: [MLC_UNMATCHED_ISSUE],
     rawBatchData: null,
     artisjusMatched: false,
+    mlcProvider: hit.provider || null,
+    mlcResourceType: hit.resourceType || null,
   }));
 }
 
@@ -68,6 +70,8 @@ export function applyMlcArtistHits(
       title,
       artist,
       mlcMatchStatus: "unmatched" as const,
+      mlcProvider: hit.provider || row.mlcProvider || null,
+      mlcResourceType: hit.resourceType || row.mlcResourceType || null,
       issues,
     };
   });
@@ -91,6 +95,8 @@ export function applyMlcArtistHits(
       issues: [MLC_UNMATCHED_ISSUE],
       rawBatchData: null,
       artisjusMatched: false,
+      mlcProvider: hit.provider || null,
+      mlcResourceType: hit.resourceType || null,
     });
   }
 
@@ -117,6 +123,7 @@ export function mergeMlcUnclaimedHits(
       mlcUnclaimed: true,
       mlcUnclaimedPct: hit.unclaimedPct,
       mlcWorkRecordId: hit.workRecordId || null,
+      mlcDspResourceId: hit.dspResourceId || null,
       issues: hasIssue ? row.issues : [...row.issues, issue],
     };
   });
@@ -144,6 +151,7 @@ export function mergeMlcUnclaimedHits(
       mlcUnclaimed: true,
       mlcUnclaimedPct: hit.unclaimedPct,
       mlcWorkRecordId: hit.workRecordId || null,
+      mlcDspResourceId: hit.dspResourceId || null,
     });
   }
 

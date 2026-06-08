@@ -1,33 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertCircle, CheckCircle2, ChevronDown, Loader2 } from "lucide-react";
-import { rowHasPayoutProblem, rowPayoutSummary, sortArtistAuditRows } from "@/lib/artist-audit-display";
+import { CheckCircle2, ChevronDown, Loader2 } from "lucide-react";
+import { rowHasPayoutProblem, sortArtistAuditRows } from "@/lib/artist-audit-display";
+import { AUDIT_SEARCH_BLURB } from "@/lib/audit-source-labels";
 import type { ArtistAuditMeta } from "@/lib/types";
 import type { AuditRow, AuditSummary } from "@/lib/types";
-import { isArtisjusSyntheticIsrc, isSyntheticAuditIsrc } from "@/lib/types";
-import { CMO_SOURCE_LABELS } from "@/lib/cmo-types";
-import type { CmoSourceId } from "@/lib/cmo-types";
-
-function SourceBadge({
-  label,
-  active,
-  title,
-}: {
-  label: string;
-  active: boolean;
-  title: string;
-}) {
-  if (!active) return null;
-  return (
-    <span
-      title={title}
-      className="inline-flex rounded-md bg-[color-mix(in_srgb,var(--accent-critical)_12%,transparent)] px-2 py-0.5 text-[11px] font-semibold text-[var(--accent-critical)]"
-    >
-      {label}
-    </span>
-  );
-}
+import { ArtistAuditRowCard } from "@/components/ArtistAuditRowCard";
+import { ArtistAuditSummaryHeader } from "@/components/ArtistAuditSummaryHeader";
 
 export function ArtistAuditResults({
   artistName,
@@ -52,20 +32,14 @@ export function ArtistAuditResults({
 }) {
   const [onlyProblems, setOnlyProblems] = useState(true);
 
-  const sorted = useMemo(
-    () => (rows ? sortArtistAuditRows(rows) : []),
-    [rows],
-  );
+  const sorted = useMemo(() => (rows ? sortArtistAuditRows(rows) : []), [rows]);
 
   const visible = useMemo(
     () => (onlyProblems ? sorted.filter(rowHasPayoutProblem) : sorted),
     [sorted, onlyProblems],
   );
 
-  const problemCount = useMemo(
-    () => sorted.filter(rowHasPayoutProblem).length,
-    [sorted],
-  );
+  const problemCount = useMemo(() => sorted.filter(rowHasPayoutProblem).length, [sorted]);
 
   if (loading) {
     return (
@@ -73,8 +47,8 @@ export function ArtistAuditResults({
         <div className="flex flex-col items-center gap-3 text-center">
           <Loader2 className="size-8 animate-spin text-[var(--accent-primary)]" aria-hidden />
           <p className="text-lg font-semibold text-[var(--text-primary)]">{artistName}</p>
-          <p className="max-w-sm text-sm text-[var(--text-secondary)]">
-            MLC unmatched + unclaimed TSV, ARTISJUS, európai CMO-k — hol nem jutott el a jogdíj.
+          <p className="max-w-md text-sm text-[var(--text-secondary)]">
+            Keresés: {AUDIT_SEARCH_BLURB}
           </p>
         </div>
       </section>
@@ -83,75 +57,39 @@ export function ArtistAuditResults({
 
   if (!rows || !summary || !meta) return null;
 
-  const sourceNote =
-    meta.mlcScanSource === "duckdb"
-      ? "MLC adat a helyi DuckDB katalógusból (gyors)."
-      : meta.mlcScanSource === "live"
-        ? "Friss adat az MLC TSV-ből (lassú scan)."
-        : meta.mlcScanSource === "cache"
-          ? "Mentett MLC export (cache)."
-          : "MLC export nem elérhető — ARTISJUS + CMO indexek.";
-
-  const countsLineParts = [
-    meta.mlcUnmatchedCount > 0 ? `${meta.mlcUnmatchedCount} MLC unmatched` : null,
-    meta.mlcUnclaimedCount > 0 ? `${meta.mlcUnclaimedCount} MLC unclaimed` : null,
-    meta.artisjusCount > 0 ? `${meta.artisjusCount} ARTISJUS` : null,
-  ];
-  if (meta.cmoCounts) {
-    const cmoTotal = Object.values(meta.cmoCounts).reduce((a, b) => a + (b ?? 0), 0);
-    if (cmoTotal > 0) countsLineParts.push(`${cmoTotal} európai CMO`);
-  }
-  const countsLine = countsLineParts.filter(Boolean).join(" · ");
-
   return (
     <section className="space-y-4">
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-              Előadó ellenőrzés
-            </p>
-            <h2 className="mt-1 text-2xl font-bold text-[var(--text-primary)]">{artistName}</h2>
-            <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
-              {countsLine || "Nincs találat."} — {sourceNote}{" "}
-              {problemCount === 0
-                ? "Egyik forrás szerint sem találtunk kifizetési problémát."
-                : `${problemCount} dalnál van gond legalább egy forrásban.`}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClearArtist}
-            className="shrink-0 text-xs font-medium text-[var(--text-muted)] underline-offset-2 hover:text-[var(--text-primary)] hover:underline"
-          >
-            Másik előadó
-          </button>
-        </div>
+      <ArtistAuditSummaryHeader
+        artistName={artistName}
+        meta={meta}
+        problemCount={problemCount}
+        totalCount={sorted.length}
+        onClearArtist={onClearArtist}
+      />
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setOnlyProblems(true)}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-              onlyProblems
-                ? "bg-[var(--accent-primary)] text-white"
-                : "bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
-            }`}
-          >
-            Csak ahol van gond ({problemCount})
-          </button>
-          <button
-            type="button"
-            onClick={() => setOnlyProblems(false)}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-              !onlyProblems
-                ? "bg-[var(--accent-primary)] text-white"
-                : "bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
-            }`}
-          >
-            Minden dal ({sorted.length})
-          </button>
-        </div>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setOnlyProblems(true)}
+          className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+            onlyProblems
+              ? "bg-[var(--accent-primary)] text-white"
+              : "bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
+          }`}
+        >
+          Csak ahol elakadt a pénz ({problemCount})
+        </button>
+        <button
+          type="button"
+          onClick={() => setOnlyProblems(false)}
+          className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+            !onlyProblems
+              ? "bg-[var(--accent-primary)] text-white"
+              : "bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
+          }`}
+        >
+          Minden találat ({sorted.length})
+        </button>
       </div>
 
       {visible.length === 0 ? (
@@ -159,8 +97,8 @@ export function ArtistAuditResults({
           <CheckCircle2 className="mx-auto size-8 text-[var(--text-muted)]" aria-hidden />
           <p className="mt-3 font-medium text-[var(--text-primary)]">
             {onlyProblems
-              ? "Nincs kifizetési gond a vizsgált dalokon."
-              : "Nincs megjeleníthető dal."}
+              ? "Nincs elakadt jogdíj a vizsgált találatokon."
+              : "Nincs megjeleníthető találat."}
           </p>
           {onlyProblems && sorted.length > 0 ? (
             <button
@@ -168,85 +106,22 @@ export function ArtistAuditResults({
               onClick={() => setOnlyProblems(false)}
               className="mt-2 text-sm font-semibold text-[var(--accent-primary)] underline-offset-2 hover:underline"
             >
-              Mind a {sorted.length} dal megtekintése
+              Mind a {sorted.length} találat megtekintése
             </button>
           ) : null}
         </div>
       ) : (
         <ul className="divide-y divide-[var(--border)] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-primary)]">
-          {visible.map((row) => {
-            const hasProblem = rowHasPayoutProblem(row);
-            const title = row.title ?? "(névtelen dal)";
-            return (
-              <li key={row.isrc} className="px-4 py-4">
-                <div className="flex items-start gap-3">
-                  {hasProblem ? (
-                    <AlertCircle
-                      className="mt-0.5 size-4 shrink-0 text-[var(--accent-critical)]"
-                      aria-hidden
-                    />
-                  ) : (
-                    <CheckCircle2
-                      className="mt-0.5 size-4 shrink-0 text-[var(--text-muted)]"
-                      aria-hidden
-                    />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-[var(--text-primary)]">{title}</p>
-                    {row.artist ? (
-                      <p className="mt-0.5 text-xs text-[var(--text-muted)]">{row.artist}</p>
-                    ) : null}
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      <SourceBadge
-                        label="ARTISJUS"
-                        active={row.artisjusMatched === true}
-                        title="Magyarországon lejátszották, de nem tudták kinek kifizetni"
-                      />
-                      <SourceBadge
-                        label="MLC unmatched"
-                        active={row.mlcMatchStatus === "unmatched"}
-                        title="USA: a felvétel nincs műhöz párosítva az MLC-nél"
-                      />
-                      <SourceBadge
-                        label="MLC unclaimed"
-                        active={row.mlcUnclaimed === true}
-                        title={
-                          row.mlcUnclaimedPct != null
-                            ? `USA: ${row.mlcUnclaimedPct}% mechanikai share claim nélkül`
-                            : "USA: mechanikai share claim nélkül (black box)"
-                        }
-                      />
-                      {(row.cmoHits ?? []).map((hit) => (
-                        <SourceBadge
-                          key={`${hit.source}:${hit.recordId}`}
-                          label={CMO_SOURCE_LABELS[hit.source].replace(" (AT)", "").replace(" (NL)", "")}
-                          active
-                          title={`${CMO_SOURCE_LABELS[hit.source]} azonosítatlan listán`}
-                        />
-                      ))}
-                      {isSyntheticAuditIsrc(row.isrc) ? (
-                        <span className="inline-flex rounded-md bg-[var(--bg-secondary)] px-2 py-0.5 text-[11px] text-[var(--text-muted)]">
-                          {isArtisjusSyntheticIsrc(row.isrc) ? "csak ARTISJUS-listán" : "csak CMO-listán"}
-                        </span>
-                      ) : null}
-                    </div>
-                    <p
-                      className={`mt-2 text-sm leading-snug ${
-                        hasProblem ? "text-[var(--text-secondary)]" : "text-[var(--text-muted)]"
-                      }`}
-                    >
-                      {rowPayoutSummary(row)}
-                    </p>
-                  </div>
-                </div>
-              </li>
-            );
-          })}
+          {visible.map((row) => (
+            <ArtistAuditRowCard key={row.isrc} row={row} />
+          ))}
         </ul>
       )}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {meta.mlcScanSource === "cache" || meta.mlcScanSource === "duckdb" ? (
+        {meta.mlcScanSource === "cache" ||
+        meta.mlcScanSource === "duckdb" ||
+        meta.mlcUnclaimedScanSource === "duckdb" ? (
           <details className="group text-sm">
             <summary className="flex cursor-pointer list-none items-center gap-1 font-medium text-[var(--text-secondary)] marker:content-none [&::-webkit-details-marker]:hidden">
               <ChevronDown className="size-4 transition group-open:rotate-180" aria-hidden />
@@ -254,9 +129,7 @@ export function ArtistAuditResults({
             </summary>
             <div className="mt-2 space-y-2 pl-5">
               <p className="text-xs text-[var(--text-muted)]">
-                {meta.mlcScanSource === "duckdb"
-                  ? "Újra lekérdezi a helyi DuckDB katalógust (másodpercek)."
-                  : "A cache helyett újra lekérdezi az MLC adatot. DuckDB katalógus nélkül a 121 GB-os TSV scan több percig tarthat."}
+                Újra lekérdezi az MLC adatbázist (DuckDB: másodpercek, TSV scan: percek).
               </p>
               <button
                 type="button"
@@ -275,16 +148,11 @@ export function ArtistAuditResults({
               </button>
             </div>
           </details>
-        ) : meta.mlcScanSource === "live" ? (
+        ) : meta.mlcScanSource === "live" || meta.mlcUnclaimedScanSource === "live" ? (
           <p className="text-xs text-[var(--text-muted)]">
-            Adatforrás: MLC TSV (ripgrep scan — lassú). Gyorsításhoz: npm run etl:parquet && npm run
-            etl:catalog
+            MLC: lassú TSV scan. Gyorsítás: npm run etl:parquet && npm run etl:catalog
           </p>
-        ) : (
-          <p className="text-xs text-[var(--text-muted)]">
-            MLC adat nem elérhető — építs katalógust: npm run etl:parquet && npm run etl:catalog
-          </p>
-        )}
+        ) : null}
 
         <button
           type="button"
@@ -292,7 +160,7 @@ export function ArtistAuditResults({
           disabled={sorted.length === 0}
           className="shrink-0 rounded-[12px] bg-[var(--accent-primary)] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-105 disabled:opacity-40"
         >
-          Részletes jelentés ({sorted.length} dal)
+          Részletes jelentés ({sorted.length})
         </button>
       </div>
     </section>

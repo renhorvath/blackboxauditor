@@ -51,7 +51,7 @@ def fetch_unmatched(
     patterns = [sql_like_pattern(t) for t in terms]
     clause = " OR ".join("DisplayArtistName ILIKE ?" for _ in patterns)
     sql = f"""
-        SELECT ISRC, ResourceTitle, DisplayArtistName, OriginalDataProviderName
+        SELECT ISRC, ResourceTitle, DisplayArtistName, OriginalDataProviderName, ResourceType
         FROM mlc_unmatched
         WHERE {clause}
         LIMIT ?
@@ -62,7 +62,7 @@ def fetch_unmatched(
 
     seen: set[str] = set()
     hits: list[dict] = []
-    for isrc, title, artist, provider in rows:
+    for isrc, title, artist, provider, resource_type in rows:
         if not artist_matches(str(artist or ""), terms, match_mode):
             continue
         key = (isrc or "").strip().upper()
@@ -75,6 +75,7 @@ def fetch_unmatched(
                 "title": (title or "").strip(),
                 "artist": (artist or "").strip(),
                 "provider": (provider or "").strip(),
+                "resourceType": (resource_type or "").strip() or None,
             }
         )
         if len(hits) >= limit:

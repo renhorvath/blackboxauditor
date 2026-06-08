@@ -7,6 +7,7 @@ export interface MlcArtistHit {
   title: string;
   artist: string;
   provider: string;
+  resourceType?: string;
 }
 
 export interface MlcUnclaimedHit {
@@ -110,6 +111,7 @@ function parseUnmatchedExportCsv(filePath: string): MlcArtistHit[] {
     title: header.indexOf("ResourceTitle"),
     artist: header.indexOf("DisplayArtistName"),
     provider: header.indexOf("OriginalDataProviderName"),
+    resourceType: header.indexOf("ResourceType"),
   };
   if (idx.isrc < 0) return [];
 
@@ -126,6 +128,7 @@ function parseUnmatchedExportCsv(filePath: string): MlcArtistHit[] {
       title: (cols[idx.title] ?? "").trim(),
       artist: (cols[idx.artist] ?? "").trim(),
       provider: (cols[idx.provider] ?? "").trim(),
+      resourceType: idx.resourceType >= 0 ? (cols[idx.resourceType] ?? "").trim() : undefined,
     });
   }
   return hits;

@@ -21,7 +21,7 @@ export interface ArtistAuditResult {
 }
 
 /**
- * Előadó-ellenőrzés: MLC unmatched + unclaimed TSV, ARTISJUS, európai CMO indexek.
+ * Előadó-ellenőrzés: ARTISJUS, MLC (USA), AKM, AUME, SENA azonosítatlan listák.
  */
 export async function runArtistAudit(input: {
   artistName: string;

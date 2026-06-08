@@ -71,6 +71,8 @@ function mergeCmoHit(row: AuditRow, hit: CmoArtistMatch): AuditRow {
       title: hit.record.title,
       score: hit.score,
       senaRole: hit.record.senaRole,
+      remark: hit.record.remark,
+      identification: hit.record.identification,
     },
   ];
 
@@ -125,6 +127,8 @@ export function buildCmoOnlyRow(hit: CmoArtistMatch): AuditRow {
         title: record.title,
         score,
         senaRole: record.senaRole,
+        remark: record.remark,
+        identification: record.identification,
       },
     ],
   };

@@ -50,10 +50,15 @@ export interface AuditRow {
     title: string;
     score: number;
     senaRole?: "producenten" | "muzikanten";
+    remark?: string | null;
+    identification?: string | null;
   }[];
   mlcUnclaimed?: boolean;
   mlcUnclaimedPct?: number | null;
   mlcWorkRecordId?: string | null;
+  mlcDspResourceId?: string | null;
+  mlcProvider?: string | null;
+  mlcResourceType?: string | null;
 }
 
 export interface AuditSummary {

@@ -19,7 +19,9 @@ import { buildAuditRows, buildAuditSummary } from "@/lib/audit-engine";
 import { applyArtisjusEnrichment } from "@/lib/artisjus-enrich";
 import type { ArtisjusWork } from "@/lib/artisjus-types";
 import { ArtistAuditResults } from "@/components/ArtistAuditResults";
+import { ArtistNameAuditForm } from "@/components/ArtistNameAuditForm";
 import { ArtistSearchCombobox } from "@/components/ArtistSearchCombobox";
+import { AUDIT_SEARCH_BLURB } from "@/lib/audit-source-labels";
 import { TrackSearchCombobox } from "@/components/TrackSearchCombobox";
 
 export function HomeAuditor() {
@@ -92,13 +94,17 @@ export function HomeAuditor() {
     }
   }
 
+  function activateArtistByName(artistName: string) {
+    void runArtistAudit("", artistName, "top15");
+  }
+
   function activateArtist(artistId: string, artistName: string) {
     void runArtistAudit(artistId, artistName, "top15");
   }
 
   function loadFullCatalog() {
-    if (!resolvedArtistId || !resolvedArtistName) return;
-    void runArtistAudit(resolvedArtistId, resolvedArtistName, "full");
+    if (!resolvedArtistName) return;
+    void runArtistAudit(resolvedArtistId ?? "", resolvedArtistName, "full");
   }
 
   function openReport() {
@@ -216,20 +222,32 @@ export function HomeAuditor() {
           Hol akadt el a jogdíj?
         </h1>
         <p className="mt-5 text-pretty text-base leading-relaxed text-[var(--text-secondary)]">
-          Írd be az előadó nevét. Megnézzük az MLC unmatched listáját (USA) és az ARTISJUS azonosítatlan
-          műveit (Magyarország) — hol nem jutott el a jogdíj.
+          Írd be az előadó nevét — Spotify profil nem kell. {AUDIT_SEARCH_BLURB}
         </p>
       </div>
 
       <div className="mx-auto mt-12 max-w-xl space-y-5">
         {showSearch ? (
           <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] px-6 py-8 shadow-[0_1px_3px_rgba(0,0,0,0.06)] md:px-8">
-            <ArtistSearchCombobox
+            <ArtistNameAuditForm
               disabled={resolveStatus === "loading" || singleTrackBusy}
-              onPick={(hit) => activateArtist(hit.spotifyId, hit.name)}
+              busy={resolveStatus === "loading"}
+              onAudit={activateArtistByName}
             />
 
-            <details className="group mt-5 rounded-[10px] border border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-3">
+            <details className="group mt-6 rounded-[10px] border border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-3">
+              <summary className="cursor-pointer text-sm font-medium text-[var(--text-secondary)]">
+                Spotify kereső (opcionális — pontosításhoz)
+              </summary>
+              <div className="mt-4 space-y-4 border-t border-[var(--border)] pt-4">
+                <ArtistSearchCombobox
+                  disabled={resolveStatus === "loading" || singleTrackBusy}
+                  onPick={(hit) => activateArtist(hit.spotifyId, hit.name)}
+                />
+              </div>
+            </details>
+
+            <details className="group mt-3 rounded-[10px] border border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-3">
               <summary className="cursor-pointer text-sm font-medium text-[var(--text-secondary)]">
                 Egy dal, vagy Spotify-link
               </summary>
