@@ -13,6 +13,7 @@ export function AuditSummaryCards({ summary }: { summary: AuditSummary }) {
     { label: "Nincs share", value: missingShares },
     { label: "Hiányzó IPI (MLC)", value: missingIpi },
     { label: "Nincs szerző adat", value: summary.withNoSongwriter },
+    { label: "ARTISJUS listán", value: summary.withArtisjusUnmatched ?? 0 },
     { label: "Nem található", value: summary.notFound },
   ];
 

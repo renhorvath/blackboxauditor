@@ -204,6 +204,7 @@ export function buildAuditSummary(rows: AuditRow[]): AuditSummary {
     withNoSongwriter: rows.filter((r) =>
       r.issues.some((i) => i.type === "no_songwriter"),
     ).length,
+    withArtisjusUnmatched: rows.filter((r) => r.artisjusMatched === true).length,
     notFound: rows.filter((r) => r.issues.some((i) => i.type === "not_found")).length,
   };
 }

@@ -3,10 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, Music2, Plus, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import type {
+  ArtistAuditMeta,
+  AuditRow,
+  AuditSummary,
   BatchResult,
-  SearchTrackHit,
   ShareAuditResult,
   StoredAuditPayload,
   UnmatchedAuditResult,
@@ -14,43 +16,100 @@ import type {
 import { SESSION_STORAGE_KEY } from "@/lib/types";
 import { validateIsrc } from "@/lib/isrc-validator";
 import { buildAuditRows, buildAuditSummary } from "@/lib/audit-engine";
+import { applyArtisjusEnrichment } from "@/lib/artisjus-enrich";
+import type { ArtisjusWork } from "@/lib/artisjus-types";
+import { ArtistAuditResults } from "@/components/ArtistAuditResults";
+import { ArtistSearchCombobox } from "@/components/ArtistSearchCombobox";
 import { TrackSearchCombobox } from "@/components/TrackSearchCombobox";
-
-type SelectedTrack = SearchTrackHit & { normalizedIsrc: string };
 
 export function HomeAuditor() {
   const router = useRouter();
-  const [selected, setSelected] = useState<SelectedTrack[]>([]);
   const [spotifyUrl, setSpotifyUrl] = useState("");
   const [resolveStatus, setResolveStatus] = useState<"idle" | "loading">("idle");
   const [resolveError, setResolveError] = useState<string | null>(null);
-  const [artistPickList, setArtistPickList] = useState<SearchTrackHit[] | null>(null);
-  const [resolvedArtistId, setResolvedArtistId] = useState<string | null>(null);
-  const [discographyBusy, setDiscographyBusy] = useState(false);
-  const [discographyHint, setDiscographyHint] = useState<string | null>(null);
-  const [fullArtistCatalogLoaded, setFullArtistCatalogLoaded] = useState(false);
 
-  const [status, setStatus] = useState<"idle" | "fetching">("idle");
+  const [resolvedArtistId, setResolvedArtistId] = useState<string | null>(null);
+  const [resolvedArtistName, setResolvedArtistName] = useState<string | null>(null);
+  const [auditRows, setAuditRows] = useState<AuditRow[] | null>(null);
+  const [auditSummary, setAuditSummary] = useState<AuditSummary | null>(null);
+  const [auditMeta, setAuditMeta] = useState<ArtistAuditMeta | null>(null);
+  const [catalogBusy, setCatalogBusy] = useState(false);
+
+  const [singleTrackBusy, setSingleTrackBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canRun = selected.length > 0 && status !== "fetching";
-
-  function addHit(hit: SearchTrackHit) {
-    if (!hit.isrc) return;
-    const { valid, normalized } = validateIsrc(hit.isrc);
-    if (!valid) {
-      setError(`Érvénytelen ISRC a Spotify válaszában: ${hit.isrc}`);
-      return;
-    }
-    setError(null);
-    setSelected((prev) => {
-      if (prev.some((p) => p.normalizedIsrc === normalized)) return prev;
-      return [...prev, { ...hit, normalizedIsrc: normalized }];
-    });
+  function clearArtist() {
+    setResolvedArtistId(null);
+    setResolvedArtistName(null);
+    setAuditRows(null);
+    setAuditSummary(null);
+    setAuditMeta(null);
+    setResolveError(null);
+    setSpotifyUrl("");
   }
 
-  function removeIsrc(isrc: string) {
-    setSelected((prev) => prev.filter((p) => p.normalizedIsrc !== isrc));
+  async function runArtistAudit(artistId: string, artistName: string, scope: "top15" | "full") {
+    if (scope === "top15") {
+      setResolveStatus("loading");
+      setResolveError(null);
+      setAuditRows(null);
+      setAuditSummary(null);
+      setAuditMeta(null);
+    } else {
+      setCatalogBusy(true);
+      setResolveError(null);
+    }
+
+    setResolvedArtistId(artistId);
+    setResolvedArtistName(artistName);
+
+    try {
+      const res = await fetch("/api/artist-audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ artistId, artistName, scope }),
+      });
+      const data = (await res.json()) as {
+        rows?: AuditRow[];
+        summary?: AuditSummary;
+        meta?: ArtistAuditMeta;
+        error?: string;
+      };
+      if (!res.ok) {
+        setResolveError(data.error ?? "Az ellenőrzés nem sikerült.");
+        if (scope === "top15") clearArtist();
+        return;
+      }
+      setAuditRows(data.rows ?? []);
+      setAuditSummary(data.summary ?? null);
+      setAuditMeta(data.meta ?? null);
+    } catch {
+      setResolveError("Hálózati hiba az ellenőrzés közben.");
+      if (scope === "top15") clearArtist();
+    } finally {
+      setResolveStatus("idle");
+      setCatalogBusy(false);
+    }
+  }
+
+  function activateArtist(artistId: string, artistName: string) {
+    void runArtistAudit(artistId, artistName, "top15");
+  }
+
+  function loadFullCatalog() {
+    if (!resolvedArtistId || !resolvedArtistName) return;
+    void runArtistAudit(resolvedArtistId, resolvedArtistName, "full");
+  }
+
+  function openReport() {
+    if (!auditRows || !auditSummary) return;
+    const stored: StoredAuditPayload = {
+      rows: auditRows,
+      summary: auditSummary,
+      generatedAt: new Date().toISOString(),
+    };
+    sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(stored));
+    router.push("/audit");
   }
 
   async function importSpotifyUrl() {
@@ -58,165 +117,94 @@ export function HomeAuditor() {
     if (!raw) return;
     setResolveStatus("loading");
     setResolveError(null);
-    setArtistPickList(null);
-    setResolvedArtistId(null);
-    setDiscographyHint(null);
-    setFullArtistCatalogLoaded(false);
+    clearArtist();
     try {
       const res = await fetch(`/api/spotify-resolve?url=${encodeURIComponent(raw)}`);
       const data = (await res.json()) as {
         mode?: string | null;
-        tracks?: SearchTrackHit[];
+        tracks?: { isrc?: string | null }[];
         error?: string | null;
         artistId?: string;
+        artistName?: string | null;
       };
       if (!res.ok) {
-        setResolvedArtistId(null);
         setResolveError(data.error ?? "Nem sikerült feloldani ezt a linket.");
         return;
       }
-      const tracks = data.tracks ?? [];
-      if (data.mode === "track" && tracks[0]) {
-        setResolvedArtistId(null);
-        addHit(tracks[0]);
+      if (data.mode === "artist" && data.artistId) {
+        setResolveStatus("idle");
+        await runArtistAudit(data.artistId, data.artistName ?? "Előadó", "top15");
         setSpotifyUrl("");
         return;
       }
-      if (data.mode === "artist") {
-        setResolvedArtistId(data.artistId ?? null);
-        setArtistPickList(tracks.length > 0 ? tracks : null);
-        if (tracks.length === 0) {
-          setResolveError("Ehhez az előadóhoz nem érkeztek top dalok.");
-        }
+      if (data.mode === "track" && data.tracks?.[0]?.isrc) {
+        setResolveStatus("idle");
+        await auditSingleIsrc(data.tracks[0].isrc);
+        setSpotifyUrl("");
         return;
       }
-      setResolveError("Váratlan válasz a Spotify feloldótól.");
-      setResolvedArtistId(null);
+      setResolveError("Csak előadó vagy dal link támogatott.");
     } catch {
       setResolveError("Hálózati hiba a link feloldása közben.");
-      setResolvedArtistId(null);
     } finally {
       setResolveStatus("idle");
     }
   }
 
-  async function loadArtistDiscography() {
-    if (!resolvedArtistId) return;
-    setDiscographyBusy(true);
-    setDiscographyHint(null);
-    setResolveError(null);
-    try {
-      const res = await fetch(
-        `/api/spotify-artist-discography?artistId=${encodeURIComponent(resolvedArtistId)}`,
-      );
-      const data = (await res.json()) as {
-        tracks?: SearchTrackHit[];
-        error?: string | null;
-        albumsScanned?: number;
-        distinctTrackIds?: number;
-        cappedByAlbums?: boolean;
-        cappedByTracks?: boolean;
-      };
-      if (!res.ok) {
-        setResolveError(data.error ?? "Nem sikerült betölteni a teljes dallistát.");
-        return;
-      }
-      const tracks = data.tracks ?? [];
-      setArtistPickList(tracks.length > 0 ? tracks : null);
-      setFullArtistCatalogLoaded(true);
-      const parts: string[] = [];
-      parts.push(`${tracks.length} dal betöltve`);
-      if (data.albumsScanned != null) parts.push(`${data.albumsScanned} album / megjelenés`);
-
-      if (data.cappedByAlbums || data.cappedByTracks) {
-        parts.push(
-          "lista a korlát miatt csonkolt — SPOTIFY_DISCOGRAPHY_MAX_ALBUMS / MAX_TRACKS a .env-ben.",
-        );
-      }
-      setDiscographyHint(parts.length > 0 ? parts.join(" · ") : null);
-    } catch {
-      setResolveError("Hálózati hiba a dallista letöltése közben.");
-    } finally {
-      setDiscographyBusy(false);
+  async function auditSingleIsrc(isrcRaw: string) {
+    const { valid, normalized } = validateIsrc(isrcRaw);
+    if (!valid) {
+      setError(`Érvénytelen ISRC: ${isrcRaw}`);
+      return;
     }
-  }
-
-  function addAllWithIsrc() {
-    if (!artistPickList) return;
-    for (const t of artistPickList) {
-      if (t.isrc) addHit(t);
-    }
-    setArtistPickList(null);
-    setSpotifyUrl("");
-  }
-
-  async function runAudit() {
-    const isrcs = [...new Set(selected.map((s) => s.normalizedIsrc))];
-    if (isrcs.length === 0) return;
-
-    setStatus("fetching");
+    setSingleTrackBusy(true);
     setError(null);
-
+    clearArtist();
     try {
-      const payload = JSON.stringify({ isrcs });
-
+      const payload = JSON.stringify({ isrcs: [normalized] });
       const [batchRes, shareRes, unmatchedRes] = await Promise.all([
-        fetch("/api/batch", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: payload,
-        }),
-        fetch("/api/audit-shares", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: payload,
-        }),
-        fetch("/api/audit-unmatched", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: payload,
-        }),
+        fetch("/api/batch", { method: "POST", headers: { "Content-Type": "application/json" }, body: payload }),
+        fetch("/api/audit-shares", { method: "POST", headers: { "Content-Type": "application/json" }, body: payload }),
+        fetch("/api/audit-unmatched", { method: "POST", headers: { "Content-Type": "application/json" }, body: payload }),
       ]);
-
-      const batchJson = (await batchRes.json()) as {
-        results?: BatchResult[];
-        error?: string;
-      };
-      const shareJson = (await shareRes.json()) as {
-        results?: ShareAuditResult[];
-        error?: string;
-      };
-      const unmatchedJson = (await unmatchedRes.json()) as {
-        results?: UnmatchedAuditResult[];
-        error?: string;
-      };
-
-      if (!batchRes.ok) throw new Error(batchJson.error ?? "Batch API hiba");
-      if (!shareRes.ok) throw new Error(shareJson.error ?? "Shares API hiba");
-      if (!unmatchedRes.ok) throw new Error(unmatchedJson.error ?? "Unmatched API hiba");
-
-      const rows = buildAuditRows(
-        batchJson.results ?? [],
-        shareJson.results ?? [],
-        unmatchedJson.results ?? [],
-      );
+      const batchJson = (await batchRes.json()) as { results?: BatchResult[] };
+      const shareJson = (await shareRes.json()) as { results?: ShareAuditResult[] };
+      const unmatchedJson = (await unmatchedRes.json()) as { results?: UnmatchedAuditResult[] };
+      if (!batchRes.ok || !shareRes.ok || !unmatchedRes.ok) {
+        throw new Error("API hiba");
+      }
+      let rows = buildAuditRows(batchJson.results ?? [], shareJson.results ?? [], unmatchedJson.results ?? []);
+      try {
+        const artRes = await fetch("/api/artisjus-match", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tracks: rows.map((r) => ({ isrc: r.isrc, title: r.title, artist: r.artist })),
+          }),
+        });
+        const artJson = (await artRes.json()) as {
+          matches?: Array<{ isrc: string; matched: boolean; score: number; work?: ArtisjusWork }>;
+        };
+        if (artRes.ok && artJson.matches) {
+          rows = applyArtisjusEnrichment(rows, artJson.matches);
+        }
+      } catch {
+        /* optional */
+      }
       const summary = buildAuditSummary(rows);
-
-      const stored: StoredAuditPayload = {
-        rows,
-        summary,
-        generatedAt: new Date().toISOString(),
-      };
-      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(stored));
+      sessionStorage.setItem(
+        SESSION_STORAGE_KEY,
+        JSON.stringify({ rows, summary, generatedAt: new Date().toISOString() } satisfies StoredAuditPayload),
+      );
       router.push("/audit");
     } catch (e) {
-      const msg =
-        e instanceof Error ? e.message : "Ismeretlen hiba történt az audit során.";
-      setError(msg);
+      setError(e instanceof Error ? e.message : "Hiba");
     } finally {
-      setStatus("idle");
+      setSingleTrackBusy(false);
     }
   }
+
+  const showSearch = !resolvedArtistName || resolveStatus === "loading";
 
   return (
     <div className="mx-auto w-full max-w-5xl px-6 pb-20 pt-10 md:pt-14">
@@ -225,226 +213,100 @@ export function HomeAuditor() {
           BBOX AUDIT
         </p>
         <h1 className="mt-4 text-balance text-3xl font-bold tracking-tight text-[var(--text-primary)] md:text-4xl md:leading-[1.15]">
-          Nézd meg, hogy a felvételeid adatai rendben vannak-e
+          Hol akadt el a jogdíj?
         </h1>
         <p className="mt-5 text-pretty text-base leading-relaxed text-[var(--text-secondary)]">
-          Keress előadóra vagy dalra, vagy illessz be egy Spotify-linket. Megmutatjuk, kik szerepelnek a
-          nyilvántartásokban szerzőként és kiadóként, és hogy az adatlánc teljes-e — mert egy hiányzó láncszem
-          miatt a jogdíj könnyen elvész útközben. Ha valami nincs rendben, konkrét teendőket kapsz, sorban.
+          Írd be az előadó nevét. Megnézzük az MLC unmatched listáját (USA) és az ARTISJUS azonosítatlan
+          műveit (Magyarország) — hol nem jutott el a jogdíj.
         </p>
       </div>
 
-      <div className="mx-auto mt-12 max-w-xl rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] px-6 py-8 shadow-[0_1px_3px_rgba(0,0,0,0.06)] md:px-8">
-        <div className="space-y-5">
-          <TrackSearchCombobox onPick={addHit} />
+      <div className="mx-auto mt-12 max-w-xl space-y-5">
+        {showSearch ? (
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] px-6 py-8 shadow-[0_1px_3px_rgba(0,0,0,0.06)] md:px-8">
+            <ArtistSearchCombobox
+              disabled={resolveStatus === "loading" || singleTrackBusy}
+              onPick={(hit) => activateArtist(hit.spotifyId, hit.name)}
+            />
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
-            <div className="min-w-0 flex-1">
-              <label className="mb-1 block text-xs font-medium text-[var(--text-muted)]">
-                Spotify link
-              </label>
-              <input
-                type="url"
-                value={spotifyUrl}
-                onChange={(e) => setSpotifyUrl(e.target.value)}
-                placeholder="Vagy illessz be Spotify track / előadó URL-t"
-                className="input-bbox w-full"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") void importSpotifyUrl();
-                }}
-              />
-            </div>
-            <button
-              type="button"
-              disabled={resolveStatus === "loading" || !spotifyUrl.trim()}
-              onClick={() => void importSpotifyUrl()}
-              className="shrink-0 rounded-[10px] border border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--bg-elevated)] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {resolveStatus === "loading" ? (
-                <span className="inline-flex items-center gap-2">
-                  <Loader2 className="size-4 animate-spin" aria-hidden />
-                  Betöltés…
-                </span>
-              ) : (
-                "Betöltés"
-              )}
-            </button>
-          </div>
-
-          {resolveError ? (
-            <p className="text-sm text-[var(--accent-critical)]" role="alert">
-              {resolveError}
-            </p>
-          ) : null}
-
-          {resolvedArtistId ? (
-            <div className="space-y-2 rounded-[10px] border border-[var(--border)] bg-[var(--bg-secondary)] p-4">
-              <div>
-                <p className="text-xs font-medium text-[var(--text-secondary)]">Előadó Spotify katalógusa</p>
-                <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">
-                  A „Betöltés” először néhány népszerű dalt mutat. A teljes dallista összes albumot, szimplét,
-                  közreműködést is begyűjt — több tíz Spotify kérést tesz, előadótól függően akár tíz–több
-                  másodperc vagy több lehet.
-                </p>
-              </div>
-              <button
-                type="button"
-                disabled={discographyBusy || !resolvedArtistId}
-                onClick={() => void loadArtistDiscography()}
-                className="w-full rounded-[10px] border border-[var(--border-active)] bg-[var(--bg-primary)] px-4 py-2.5 text-sm font-semibold text-[var(--accent-primary)] transition hover:bg-[color-mix(in_srgb,var(--accent-primary)_8%,transparent)] disabled:cursor-not-allowed disabled:opacity-45"
-              >
-                {discographyBusy ? (
-                  <span className="inline-flex items-center justify-center gap-2">
-                    <Loader2 className="size-4 animate-spin" aria-hidden />
-                    Teljes dallista betöltése…
-                  </span>
-                ) : (
-                  "Teljes Spotify-dallista betöltése"
-                )}
-              </button>
-              {discographyHint ? (
-                <p className="text-[11px] leading-snug text-[var(--text-secondary)]">{discographyHint}</p>
-              ) : null}
-            </div>
-          ) : null}
-
-          {resolvedArtistId && (!artistPickList || artistPickList.length === 0) && !discographyBusy ? (
-            <p className="text-center text-xs text-[var(--text-muted)]">
-              Még nincs választék a listában — használd a teljes dallista gombot, vagy illessz másik linket.
-            </p>
-          ) : null}
-
-          {artistPickList && artistPickList.length > 0 ? (
-            <div className="rounded-[10px] border border-[var(--border)] bg-[var(--bg-secondary)] p-3">
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs font-medium text-[var(--text-secondary)]">
-                  {fullArtistCatalogLoaded
-                    ? `${artistPickList.length} dal (teljes katalógus) — + a sorhoz, ha van ISRC`
-                    : `${artistPickList.length} top dal — + a sorhoz, ha van ISRC`}
-                </p>
-                <button
-                  type="button"
-                  onClick={addAllWithIsrc}
-                  className="text-xs font-semibold text-[var(--accent-primary)] underline-offset-2 hover:underline"
-                >
-                  Összes ISRC-s sor hozzáadása
-                </button>
-              </div>
-              <ul className="max-h-96 space-y-1 overflow-auto">
-                {artistPickList.map((hit) => {
-                  const noIsrc = !hit.isrc;
-                  return (
-                    <li
-                      key={hit.spotifyId}
-                      className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 hover:bg-[var(--bg-primary)]"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-[var(--text-primary)]">{hit.title}</p>
-                        <p className="truncate text-xs text-[var(--text-muted)]">{hit.artists.join(", ")}</p>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={noIsrc}
-                        title={
-                          noIsrc
-                            ? "Ehhez a Spotify sorhoz nem tartozik ISRC."
-                            : "Hozzáadás a sorhoz"
-                        }
-                        onClick={() => !noIsrc && addHit(hit)}
-                        className="shrink-0 rounded-lg p-2 text-[var(--accent-primary)] hover:bg-[color-mix(in_srgb,var(--accent-primary)_12%,transparent)] disabled:cursor-not-allowed disabled:opacity-35"
-                      >
-                        <Plus className="size-4" aria-hidden />
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ) : null}
-
-          <div className="space-y-2 border-t border-[var(--border)] pt-5">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
-                Sor ({selected.length})
-              </h2>
-              {selected.length > 0 ? (
-                <button
-                  type="button"
-                  onClick={() => setSelected([])}
-                  className="text-xs font-semibold text-[var(--accent-primary)] underline-offset-2 hover:underline"
-                >
-                  Összes törlése
-                </button>
-              ) : null}
-            </div>
-
-            {selected.length === 0 ? (
-              <p className="rounded-[10px] border border-dashed border-[var(--border)] px-4 py-8 text-center text-sm text-[var(--text-muted)]">
-                Még nincs felvétel a sorban — keress felül, vagy tölts be Spotify linket.
-              </p>
-            ) : (
-              <ul className="flex max-h-56 flex-col gap-2 overflow-auto">
-                {selected.map((s) => (
-                  <li
-                    key={s.normalizedIsrc}
-                    className="flex items-start justify-between gap-3 rounded-[10px] border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2.5"
+            <details className="group mt-5 rounded-[10px] border border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-3">
+              <summary className="cursor-pointer text-sm font-medium text-[var(--text-secondary)]">
+                Egy dal, vagy Spotify-link
+              </summary>
+              <div className="mt-4 space-y-4 border-t border-[var(--border)] pt-4">
+                <TrackSearchCombobox
+                  onPick={(hit) => {
+                    if (hit.isrc) void auditSingleIsrc(hit.isrc);
+                  }}
+                />
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
+                  <div className="min-w-0 flex-1">
+                    <input
+                      type="url"
+                      value={spotifyUrl}
+                      onChange={(e) => setSpotifyUrl(e.target.value)}
+                      placeholder="open.spotify.com/artist/…"
+                      className="input-bbox w-full"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") void importSpotifyUrl();
+                      }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    disabled={resolveStatus === "loading" || !spotifyUrl.trim()}
+                    onClick={() => void importSpotifyUrl()}
+                    className="shrink-0 rounded-[10px] border border-[var(--border)] bg-[var(--bg-primary)] px-4 py-2.5 text-sm font-semibold disabled:opacity-40"
                   >
-                    <div className="flex min-w-0 gap-2.5">
-                      <Music2 className="mt-0.5 size-4 shrink-0 text-[var(--text-muted)]" aria-hidden />
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-[var(--text-primary)]">{s.title}</p>
-                        <p className="truncate text-xs text-[var(--text-secondary)]">
-                          {s.artists.join(", ")}
-                          {s.album ? ` · ${s.album}` : ""}
-                        </p>
-                        <p className="mt-1 font-mono text-[11px] text-[var(--text-muted)]">{s.normalizedIsrc}</p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      aria-label="Eltávolítás"
-                      onClick={() => removeIsrc(s.normalizedIsrc)}
-                      className="shrink-0 rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
-                    >
-                      <X className="size-4" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+                    Betöltés
+                  </button>
+                </div>
+              </div>
+            </details>
           </div>
+        ) : null}
 
-          {error ? (
-            <p className="text-sm text-[var(--accent-critical)]" role="alert">
-              {error}
-            </p>
-          ) : null}
-
-          <button
-            type="button"
-            disabled={!canRun}
-            onClick={() => void runAudit()}
-            className="flex w-full items-center justify-center gap-2 rounded-[12px] bg-[var(--accent-primary)] py-3.5 text-base font-semibold text-white shadow-sm transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {status === "fetching" ? (
-              <>
-                <Loader2 className="size-5 animate-spin" aria-hidden />
-                Audit fut…
-              </>
-            ) : (
-              "Audit kérése"
-            )}
-          </button>
-
-          <p className="text-center">
-            <Link
-              href="/audit"
-              className="text-sm font-medium text-[var(--text-secondary)] underline-offset-4 hover:text-[var(--accent-primary)] hover:underline"
-            >
-              Korábbi eredmények (ugyanabban a böngészőlapon)
-            </Link>
+        {resolveError ? (
+          <p className="text-sm text-[var(--accent-critical)]" role="alert">
+            {resolveError}
           </p>
-        </div>
+        ) : null}
+
+        {error ? (
+          <p className="text-sm text-[var(--accent-critical)]" role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        {singleTrackBusy ? (
+          <div className="flex items-center justify-center gap-2 py-8 text-[var(--text-secondary)]">
+            <Loader2 className="size-5 animate-spin" aria-hidden />
+            Dal ellenőrzése…
+          </div>
+        ) : null}
+
+        {resolvedArtistName ? (
+          <ArtistAuditResults
+            artistName={resolvedArtistName}
+            loading={resolveStatus === "loading"}
+            rows={auditRows}
+            summary={auditSummary}
+            meta={auditMeta}
+            catalogBusy={catalogBusy}
+            onLoadFullCatalog={loadFullCatalog}
+            onOpenReport={openReport}
+            onClearArtist={clearArtist}
+          />
+        ) : null}
+
+        <p className="text-center">
+          <Link
+            href="/audit"
+            className="text-sm font-medium text-[var(--text-secondary)] underline-offset-4 hover:text-[var(--accent-primary)] hover:underline"
+          >
+            Korábbi jelentés megnyitása
+          </Link>
+        </p>
       </div>
     </div>
   );

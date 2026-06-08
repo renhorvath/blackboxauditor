@@ -3,10 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3002",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "mlc:mb-artists": "python3 scripts/mlc/fetch_mb_hu_artists.py",
+    "mlc:spotify-check": "python3 scripts/mlc/spotify_hu_crosscheck.py",
+    "mlc:filter-non-hu": "python3 scripts/mlc/filter_non_hu_hungarian.py",
+    "mlc:popular-artists": "python3 scripts/mlc/fetch_hu_popular_artists.py",
+    "mlc:summary": "python3 scripts/mlc/summarize_isrc_conflicts.py",
+    "artisjus:build-index": "node scripts/artisjus/build-index.mjs"
   },
   "dependencies": {
     "@tanstack/react-table": "^8.21.3",

@@ -1,19 +1,28 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Search } from "lucide-react";
-import type { SearchTrackHit } from "@/lib/types";
+import { Loader2, Search, Users } from "lucide-react";
+import type { SearchArtistHit } from "@/lib/types";
 
-export function TrackSearchCombobox({
+function formatFollowers(n: number | null): string {
+  if (n == null) return "";
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M követő`;
+  if (n >= 1_000) return `${Math.round(n / 1_000)}k követő`;
+  return `${n} követő`;
+}
+
+export function ArtistSearchCombobox({
   onPick,
+  disabled,
 }: {
-  onPick: (hit: SearchTrackHit) => void;
+  onPick: (hit: SearchArtistHit) => void;
+  disabled?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hits, setHits] = useState<SearchTrackHit[]>([]);
+  const [hits, setHits] = useState<SearchArtistHit[]>([]);
   const [highlight, setHighlight] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -35,7 +44,7 @@ export function TrackSearchCombobox({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(q.trim())}`);
+      const res = await fetch(`/api/search-artists?q=${encodeURIComponent(q.trim())}`);
       const contentType = res.headers.get("content-type") ?? "";
       if (!contentType.includes("application/json")) {
         setHits([]);
@@ -47,7 +56,7 @@ export function TrackSearchCombobox({
         return;
       }
       const data = (await res.json()) as {
-        tracks?: SearchTrackHit[];
+        artists?: SearchArtistHit[];
         error?: string;
       };
       if (!res.ok) {
@@ -55,7 +64,7 @@ export function TrackSearchCombobox({
         setError(data.error ?? "Keresési hiba");
         return;
       }
-      setHits(data.tracks ?? []);
+      setHits(data.artists ?? []);
     } catch {
       setHits([]);
       setError("Hálózati hiba a keresés során.");
@@ -74,7 +83,7 @@ export function TrackSearchCombobox({
     };
   }, [query, runSearch]);
 
-  function pick(hit: SearchTrackHit) {
+  function pick(hit: SearchArtistHit) {
     onPick(hit);
     setOpen(false);
     setQuery("");
@@ -107,17 +116,18 @@ export function TrackSearchCombobox({
 
   return (
     <div ref={rootRef} className="relative w-full">
-      <label className="mb-1 block text-xs font-medium text-[var(--text-muted)]">Előadó / dal</label>
+      <label className="mb-1 block text-xs font-medium text-[var(--text-muted)]">Előadó</label>
       <div className="relative mt-0">
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--text-muted)]" />
         <input
           type="search"
           role="combobox"
           aria-expanded={open}
-          aria-controls="track-search-listbox"
+          aria-controls="artist-search-listbox"
           aria-autocomplete="list"
-          placeholder="Kezdj el gépelni egy nevet…"
+          placeholder="Kezdj el gépelni egy előadónevet…"
           autoComplete="off"
+          disabled={disabled}
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -141,44 +151,53 @@ export function TrackSearchCombobox({
 
       {open && query.trim().length >= 2 ? (
         <ul
-          id="track-search-listbox"
+          id="artist-search-listbox"
           role="listbox"
           className="absolute z-50 mt-2 max-h-72 w-full overflow-auto rounded-[10px] border border-[var(--border)] bg-[var(--bg-primary)] py-1 shadow-lg"
         >
           {hits.length === 0 && !loading ? (
-            <li className="px-3 py-2 text-sm text-[var(--text-muted)]">
-              Nincs találat.
-            </li>
+            <li className="px-3 py-2 text-sm text-[var(--text-muted)]">Nincs találat.</li>
           ) : (
             hits.map((hit, idx) => {
-              const subtitle = [hit.artists.join(", "), hit.album].filter(Boolean).join(" · ");
               const active = idx === highlight;
-              const noIsrc = !hit.isrc;
+              const meta = [
+                formatFollowers(hit.followers),
+                hit.genres.slice(0, 2).join(", "),
+              ]
+                .filter(Boolean)
+                .join(" · ");
               return (
                 <li key={hit.spotifyId} role="presentation">
                   <button
                     type="button"
                     role="option"
                     aria-selected={active}
-                    disabled={noIsrc}
-                    title={
-                      noIsrc
-                        ? "Ehhez a Spotify felvételhez nem tartozik ISRC az API szerint."
-                        : undefined
-                    }
-                    className={`flex w-full flex-col items-start px-3 py-2 text-left text-sm transition ${
-                      active ? "bg-[var(--bg-secondary)]" : ""
-                    } ${noIsrc ? "cursor-not-allowed opacity-50" : "hover:bg-[var(--bg-secondary)]"}`}
+                    className={`flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition ${
+                      active ? "bg-[var(--bg-secondary)]" : "hover:bg-[var(--bg-secondary)]"
+                    }`}
                     onMouseEnter={() => setHighlight(idx)}
                     onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => {
-                      if (!noIsrc) pick(hit);
-                    }}
+                    onClick={() => pick(hit)}
                   >
-                    <span className="font-medium text-[var(--text-primary)]">{hit.title}</span>
-                    <span className="mt-0.5 text-xs text-[var(--text-secondary)]">{subtitle}</span>
-                    <span className="mt-1 font-mono text-[11px] text-[var(--text-muted)]">
-                      {noIsrc ? "Nincs ISRC (nem sorba tehető)" : hit.isrc}
+                    {hit.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={hit.imageUrl}
+                        alt=""
+                        className="size-10 shrink-0 rounded-full object-cover"
+                      />
+                    ) : (
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--bg-secondary)] text-[var(--text-muted)]">
+                        <Users className="size-4" aria-hidden />
+                      </span>
+                    )}
+                    <span className="min-w-0">
+                      <span className="block font-medium text-[var(--text-primary)]">{hit.name}</span>
+                      {meta ? (
+                        <span className="mt-0.5 block truncate text-xs text-[var(--text-muted)]">
+                          {meta}
+                        </span>
+                      ) : null}
                     </span>
                   </button>
                 </li>

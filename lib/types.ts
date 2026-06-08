@@ -7,7 +7,10 @@ export type IssueType =
   | "over_allocated"
   | "no_songwriter"
   | "missing_ipi_mlc"
-  | "not_found";
+  | "not_found"
+  | "artisjus_unmatched"
+  | "artisjus_foreign_only"
+  | "artisjus_partial_rights";
 
 export type IssueSeverity = "critical" | "warning" | "info";
 
@@ -30,6 +33,13 @@ export interface AuditRow {
   publisherCount: number;
   issues: AuditIssue[];
   rawBatchData: unknown;
+  artisjusMatched?: boolean;
+  artisjusScore?: number | null;
+  artisjusMukod?: string | null;
+  artisjusRowCount?: number | null;
+  artisjusFeloTips?: string[];
+  artisjusTopSources?: string[];
+  artisjusForeignOnly?: boolean;
 }
 
 export interface AuditSummary {
@@ -41,6 +51,7 @@ export interface AuditSummary {
   withMissingShares: number;
   withMissingIpiMlc: number;
   withNoSongwriter: number;
+  withArtisjusUnmatched: number;
   notFound: number;
 }
 
@@ -90,10 +101,40 @@ export interface SearchTrackHit {
   isrc: string | null;
 }
 
+export interface SearchArtistHit {
+  spotifyId: string;
+  name: string;
+  followers: number | null;
+  genres: string[];
+  imageUrl: string | null;
+}
+
+export const ARTISJUS_ISRC_PREFIX = "artisjus:";
+
+export function isArtisjusSyntheticIsrc(isrc: string): boolean {
+  return isrc.startsWith(ARTISJUS_ISRC_PREFIX);
+}
+
 export const SESSION_STORAGE_KEY = "music-metadata-auditor:v1";
 
 export interface StoredAuditPayload {
   rows: AuditRow[];
   summary: AuditSummary;
   generatedAt: string;
+}
+
+export type ArtistAuditScope = "top15" | "full";
+
+export interface ArtistAuditMeta {
+  artistName: string;
+  scope: ArtistAuditScope;
+  /** @deprecated Spotify no longer drives artist audit rows */
+  spotifyTrackCount: number;
+  isrcCount: number;
+  mlcUnmatchedCount: number;
+  artisjusCount: number;
+  mlcScanSource: "cache" | "live" | "none";
+  albumsScanned?: number;
+  cappedByAlbums?: boolean;
+  cappedByTracks?: boolean;
 }

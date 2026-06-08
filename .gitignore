@@ -40,3 +40,33 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# --- Local data (never commit — see DATA_SETUP.md) ---
+
+# ARTISJUS / CMO raw exports (large CSVs, xlsx, Numbers)
+/Artisjus azonosítatlan művek/
+
+# Generated indexes & query catalogs (build on each machine)
+/data/*
+!/data/.gitkeep
+*.duckdb
+*.duckdb.wal
+*.parquet
+
+# MLC & other large raw dumps (any path)
+**/unmatchedresources.tsv
+*.tsv
+
+# Derived pipeline outputs (regenerate via scripts/mlc/)
+**/hu_artist_scans/
+
+# Office / spreadsheet exports
+*.xlsx
+*.numbers
+
+# Python
+__pycache__/
+*.py[cod]
+
+# ARTISJUS search index (generated — npm run artisjus:build-index)
+/data/artisjus-index.json

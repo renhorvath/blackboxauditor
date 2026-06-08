@@ -1,4 +1,4 @@
-import type { SearchTrackHit } from "@/lib/types";
+import type { SearchArtistHit, SearchTrackHit } from "@/lib/types";
 
 type TokenCache = { accessToken: string; expiresAtMs: number };
 
@@ -75,12 +75,30 @@ export async function fetchSpotifyTrackById(trackId: string): Promise<SearchTrac
   return mapTrackItem(t);
 }
 
+export async function fetchSpotifyArtistById(
+  artistId: string,
+): Promise<{ id: string; name: string } | null> {
+  const token = await getClientCredentialsToken();
+  const res = await fetch(
+    `https://api.spotify.com/v1/artists/${encodeURIComponent(artistId)}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    throw new Error(`Spotify előadó hiba: ${res.status}`);
+  }
+  const json = (await res.json()) as { id?: string; name?: string };
+  if (!json.id || !json.name) return null;
+  return { id: json.id, name: json.name };
+}
+
 export async function fetchSpotifyArtistTopTracks(
   artistId: string,
   limit = 15,
 ): Promise<SearchTrackHit[]> {
   const token = await getClientCredentialsToken();
-  const params = new URLSearchParams({ market: "US" });
+  const market = (process.env.SPOTIFY_DISCOGRAPHY_MARKET ?? "HU").trim() || "HU";
+  const params = new URLSearchParams({ market });
   const res = await fetch(
     `https://api.spotify.com/v1/artists/${encodeURIComponent(artistId)}/top-tracks?${params}`,
     { headers: { Authorization: `Bearer ${token}` } },
@@ -91,6 +109,67 @@ export async function fetchSpotifyArtistTopTracks(
   const json = (await res.json()) as { tracks?: SpotifyTrackApi[] };
   const tracks = json.tracks ?? [];
   return tracks.slice(0, limit).map(mapTrackItem);
+}
+
+function normalizeArtistName(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export async function searchSpotifyArtists(
+  query: string,
+  limit = 10,
+): Promise<SearchArtistHit[]> {
+  const token = await getClientCredentialsToken();
+  const market = (process.env.SPOTIFY_DISCOGRAPHY_MARKET ?? "HU").trim() || "HU";
+  const params = new URLSearchParams({
+    q: query,
+    type: "artist",
+    limit: String(limit),
+    market,
+  });
+  const res = await fetch(`https://api.spotify.com/v1/search?${params}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Spotify előadó keresés hiba: ${res.status}`);
+  }
+
+  const json = (await res.json()) as {
+    artists?: {
+      items?: Array<{
+        id: string;
+        name: string;
+        followers?: { total?: number };
+        genres?: string[];
+        images?: { url?: string }[];
+      }>;
+    };
+  };
+
+  const items = json.artists?.items ?? [];
+  const mapped: SearchArtistHit[] = items.map((a) => ({
+    spotifyId: a.id,
+    name: a.name,
+    followers: a.followers?.total ?? null,
+    genres: a.genres ?? [],
+    imageUrl: a.images?.[0]?.url ?? null,
+  }));
+
+  const target = normalizeArtistName(query);
+  mapped.sort((a, b) => {
+    const aExact = normalizeArtistName(a.name) === target ? 1 : 0;
+    const bExact = normalizeArtistName(b.name) === target ? 1 : 0;
+    if (aExact !== bExact) return bExact - aExact;
+    return (b.followers ?? 0) - (a.followers ?? 0);
+  });
+
+  return mapped;
 }
 
 export async function searchSpotifyTracks(query: string, limit = 12): Promise<SearchTrackHit[]> {

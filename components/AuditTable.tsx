@@ -39,6 +39,9 @@ const ISSUE_LABELS: Record<AuditIssue["type"], string> = {
   no_songwriter: "Szerző",
   missing_ipi_mlc: "IPI (MLC)",
   not_found: "Nincs adat",
+  artisjus_unmatched: "ARTISJUS",
+  artisjus_foreign_only: "KA/KM",
+  artisjus_partial_rights: "Jogosult+",
 };
 
 type AugmentedRow = AuditRow & { _severity: number };
@@ -73,11 +76,15 @@ export function AuditTable({ data }: { data: AuditRow[] }) {
       {
         accessorKey: "isrc",
         header: "ISRC",
-        cell: (info) => (
-          <span className="font-mono text-[13px] text-[var(--text-primary)]">
-            {info.getValue() as string}
-          </span>
-        ),
+        cell: (info) => {
+          const value = String(info.getValue() ?? "");
+          const display = value.startsWith("artisjus:")
+            ? value.replace(/^artisjus:/, "műkód ")
+            : value;
+          return (
+            <span className="font-mono text-[13px] text-[var(--text-primary)]">{display}</span>
+          );
+        },
       },
       {
         accessorKey: "title",
@@ -117,6 +124,20 @@ export function AuditTable({ data }: { data: AuditRow[] }) {
           return (
             <span className="tabular-nums">{v != null ? `${v}%` : "—"}</span>
           );
+        },
+      },
+      {
+        id: "artisjus",
+        header: "ARTISJUS",
+        cell: ({ row }) => {
+          if (row.original.artisjusMatched) {
+            return (
+              <span className="font-mono text-[12px] text-[var(--accent-critical)]">
+                listán
+              </span>
+            );
+          }
+          return <span className="text-[var(--text-muted)]">—</span>;
         },
       },
       {
@@ -199,6 +220,7 @@ export function AuditTable({ data }: { data: AuditRow[] }) {
             <option value="over_allocated">Over-allocated</option>
             <option value="missing_ipi_mlc">Hiányzó IPI</option>
             <option value="no_songwriter">Nincs szerző</option>
+            <option value="artisjus_unmatched">ARTISJUS listán</option>
             <option value="not_found">Nem található</option>
           </select>
         </label>

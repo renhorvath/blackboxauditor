@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  fetchSpotifyArtistById,
   fetchSpotifyArtistTopTracks,
   fetchSpotifyTrackById,
 } from "@/lib/spotify";
@@ -33,10 +34,12 @@ export async function GET(req: NextRequest) {
     }
 
     const tracks = await fetchSpotifyArtistTopTracks(parsed.id, 15);
+    const artist = await fetchSpotifyArtistById(parsed.id);
     return NextResponse.json({
       mode: "artist",
       tracks,
       artistId: parsed.id,
+      artistName: artist?.name ?? null,
       error: null,
     });
   } catch (e) {

@@ -3,16 +3,21 @@
 import Papa from "papaparse";
 import { Download } from "lucide-react";
 import type { AuditRow } from "@/lib/types";
+import { isArtisjusSyntheticIsrc } from "@/lib/types";
 
 function rowsToRecords(rows: AuditRow[]) {
   return rows.map((r) => ({
-    ISRC: r.isrc,
+    ISRC: isArtisjusSyntheticIsrc(r.isrc) ? "" : r.isrc,
     Cím: r.title ?? "",
     Előadó: r.artist ?? "",
     ISWC: r.iswc ?? "",
     "MLC státusz": r.mlcMatchStatus,
     "Share %": r.shareTotal ?? "",
     "Share státusz": r.shareStatus,
+    ARTISJUS: r.artisjusMatched ? "listán" : "",
+    "ARTISJUS műkód": r.artisjusMukod ?? "",
+    "ARTISJUS score": r.artisjusScore ?? "",
+    "ARTISJUS források": r.artisjusTopSources?.join("; ") ?? "",
     Problémák: r.issues.map((i) => i.message).join(" | "),
     Javaslatok: r.issues.map((i) => i.action).join(" | "),
   }));
