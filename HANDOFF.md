@@ -32,12 +32,12 @@ flowchart LR
     AA --> AJ
   end
 
-  subgraph goal ["Cél — még nincs bekötve"]
+  subgraph goal ["Cél — Query API + Vercel"]
     Vercel["Vercel UI"]
-  Proxy["Next.js proxy"]
-  API["Query API 24/7"]
-  DDB["DuckDB + Parquet"]
-  Vercel --> Proxy --> API --> DDB
+    Proxy["artist-audit.ts"]
+    API["query-api/server.mts"]
+    DDB["DuckDB + JSON indexes"]
+    Vercel --> Proxy --> API --> DDB
   end
 ```
 
@@ -68,15 +68,15 @@ flowchart LR
 
 | Feladat | Állapot |
 |---------|---------|
-| TSV → Parquet → DuckDB ETL | `scripts/etl/` — `npm run etl:parquet`, `etl:catalog`, `etl:query` |
-| `catalog.duckdb` gyors keresés | Tervezett |
-| Query API (FastAPI/Node, 24/7) | Tervezett — `QUERY_API_URL` placeholder `.env.example`-ben |
-| Vercel → backend proxy | Tervezett |
-| Cloudflare Tunnel / VPS | Tervezett |
-| Teljes MLC online (nem csak per-artist rg scan) | Tervezett |
+| TSV → Parquet → DuckDB ETL | ✅ `scripts/etl/` — catalog rebuild az adatgépen |
+| Query API (Node, 24/7) | ✅ `npm run query-api:start` — `scripts/query-api/README.md` |
+| Vercel → backend proxy | ✅ `QUERY_API_URL` + `lib/query-api-client.ts` |
+| Cloudflare Tunnel / VPS | **Te telepíted** — tunnel URL → Vercel env |
 | Több CMO forrás unified schema | Tervezett |
 
-**Jelenlegi MLC keresés lassú:** előadónként `ripgrep` a 121 GB TSV-n (~percek). Ezért kell a DuckDB warm réteg.
+**Vercel éles:** állítsd be `QUERY_API_URL` + `QUERY_API_KEY`; az adatgépen fusson a query API + tunnel.
+
+**Jelenlegi MLC keresés (adatgép):** DuckDB catalog ms-szinten; legacy rg path fallback.
 
 ---
 

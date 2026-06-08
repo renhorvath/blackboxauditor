@@ -15,6 +15,7 @@
     "artisjus:build-index": "node scripts/artisjus/build-index.mjs",
     "cmo:build-index": ".venv/bin/python3 scripts/cmo/build_indexes.py",
     "eji:search": "npx tsx scripts/cmo/search_eji.mts",
+    "query-api:start": "npx tsx scripts/query-api/server.mts",
     "etl:parquet": ".venv/bin/python3 scripts/etl/tsv_to_parquet.py",
     "etl:catalog": ".venv/bin/python3 scripts/etl/build_catalog.py",
     "etl:query": ".venv/bin/python3 scripts/etl/query.py",
@@ -26,7 +27,8 @@
     "next": "16.2.6",
     "papaparse": "^5.5.3",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

@@ -1,0 +1,74 @@
+import type { ArtistAuditSourcesPayload, QueryApiHealthResponse } from "@/lib/query-api-types";
+import {
+  queryApiBaseUrl,
+  queryApiKey,
+  queryApiTimeoutMs,
+} from "@/lib/query-api-config";
+
+function authHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  };
+  const key = queryApiKey();
+  if (key) headers.Authorization = `Bearer ${key}`;
+  return headers;
+}
+
+export class QueryApiError extends Error {
+  constructor(
+    message: string,
+    readonly status?: number,
+  ) {
+    super(message);
+    this.name = "QueryApiError";
+  }
+}
+
+export async function fetchArtistSourcesFromQueryApi(
+  artistName: string,
+  options?: { forceRefresh?: boolean },
+): Promise<ArtistAuditSourcesPayload> {
+  const base = queryApiBaseUrl();
+  if (!base) {
+    throw new QueryApiError("QUERY_API_URL is not configured");
+  }
+
+  const res = await fetch(`${base}/v1/artist/sources`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({
+      artistName,
+      forceRefresh: options?.forceRefresh ?? false,
+    }),
+    signal: AbortSignal.timeout(queryApiTimeoutMs()),
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const detail = (await res.text()).slice(0, 300);
+    throw new QueryApiError(
+      `Query API ${res.status}${detail ? `: ${detail}` : ""}`,
+      res.status,
+    );
+  }
+
+  return (await res.json()) as ArtistAuditSourcesPayload;
+}
+
+export async function fetchQueryApiHealth(): Promise<QueryApiHealthResponse | null> {
+  const base = queryApiBaseUrl();
+  if (!base) return null;
+
+  try {
+    const res = await fetch(`${base}/health`, {
+      headers: authHeaders(),
+      signal: AbortSignal.timeout(10_000),
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as QueryApiHealthResponse;
+  } catch {
+    return null;
+  }
+}

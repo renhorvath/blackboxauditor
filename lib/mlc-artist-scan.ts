@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { isServerlessRuntime, mlcPythonAvailable } from "@/lib/runtime-env";
 
 export interface MlcArtistHit {
   isrc: string;
@@ -26,7 +27,7 @@ export interface MlcArtistScanResult {
   uniqueIsrcCount: number;
   hits: MlcArtistHit[];
   fromCache: boolean;
-  scanSource: "cache" | "duckdb" | "live";
+  scanSource: "cache" | "duckdb" | "live" | "remote";
 }
 
 export interface MlcUnclaimedScanResult {
@@ -36,7 +37,7 @@ export interface MlcUnclaimedScanResult {
   uniqueIsrcCount: number;
   hits: MlcUnclaimedHit[];
   fromCache: boolean;
-  scanSource: "cache" | "duckdb" | "live";
+  scanSource: "cache" | "duckdb" | "live" | "remote";
 }
 
 function slugify(value: string): string {
@@ -64,6 +65,7 @@ function catalogDbPath(): string {
 
 function duckdbEnabled(): boolean {
   if (process.env.MLC_USE_DUCKDB?.trim().toLowerCase() === "false") return false;
+  if (isServerlessRuntime()) return false;
   return fs.existsSync(catalogDbPath());
 }
 
@@ -190,14 +192,17 @@ function runPythonJsonScript<T>(
   artistName: string,
   extraArgs: string[],
 ): Promise<T | null> {
+  if (!mlcPythonAvailable()) return Promise.resolve(null);
+
   const script = path.join(process.cwd(), scriptRel);
   if (!fs.existsSync(script)) return Promise.resolve(null);
 
+  const python = process.env.MLC_PYTHON?.trim() || "python3";
   const outDir = scansBaseDir();
 
   return new Promise((resolve) => {
     const args = [script, "--name", artistName, "--out-dir", outDir, ...extraArgs];
-    const proc = spawn("python3", args, {
+    const proc = spawn(python, args, {
       cwd: process.cwd(),
       stdio: ["ignore", "pipe", "pipe"],
       env: {
@@ -216,22 +221,33 @@ function runPythonJsonScript<T>(
     });
 
     const timeoutMs = Number(process.env.MLC_ARTIST_SCAN_TIMEOUT_MS ?? 600_000) || 600_000;
-    const timer = setTimeout(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const finish = (result: T | null) => {
+      if (timer) clearTimeout(timer);
+      resolve(result);
+    };
+
+    timer = setTimeout(() => {
       proc.kill("SIGTERM");
-      resolve(null);
+      finish(null);
     }, timeoutMs);
 
+    proc.on("error", (err) => {
+      console.error(`MLC script spawn failed (${scriptRel}):`, err.message);
+      finish(null);
+    });
+
     proc.on("close", (code) => {
-      clearTimeout(timer);
       if (code !== 0) {
         console.error(`MLC script failed (${scriptRel}):`, stderr.slice(0, 500));
-        resolve(null);
+        finish(null);
         return;
       }
       try {
-        resolve(JSON.parse(stdout) as T);
+        finish(JSON.parse(stdout) as T);
       } catch {
-        resolve(null);
+        finish(null);
       }
     });
   });
@@ -305,7 +321,8 @@ export async function scanMlcArtist(
   }
 
   const tsv = process.env.MLC_UNMATCHED_TSV?.trim();
-  const extraArgs = tsv ? ["--tsv", tsv] : [];
+  if (!mlcPythonAvailable() || !tsv) return null;
+  const extraArgs = ["--tsv", tsv];
   const parsed = await runPythonJsonScript<
     Omit<MlcArtistScanResult, "fromCache" | "scanSource">
   >("scripts/mlc/export_artist_mlc_json.py", artistName, extraArgs);
@@ -331,7 +348,8 @@ export async function scanMlcUnclaimedArtist(
   }
 
   const tsv = process.env.MLC_UNCLAIMED_TSV?.trim();
-  const extraArgs = tsv ? ["--tsv", tsv] : [];
+  if (!mlcPythonAvailable() || !tsv) return null;
+  const extraArgs = ["--tsv", tsv];
   const parsed = await runPythonJsonScript<
     Omit<MlcUnclaimedScanResult, "fromCache" | "scanSource">
   >("scripts/mlc/export_artist_unclaimed_json.py", artistName, extraArgs);

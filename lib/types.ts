@@ -181,8 +181,11 @@ export interface ArtistAuditMeta {
   cmoCounts?: Partial<Record<CmoSourceId, number>>;
   ejiCount?: number;
   ejiFromCache?: boolean;
-  mlcScanSource: "cache" | "duckdb" | "live" | "none";
-  mlcUnclaimedScanSource: "cache" | "duckdb" | "live" | "none";
+  queryApiUsed?: boolean;
+  /** Where MLC/ARTISJUS/CMO data came from (EJI always from current host). */
+  dataBackend?: "local" | "query-api" | "unavailable";
+  mlcScanSource: "cache" | "duckdb" | "live" | "remote" | "none";
+  mlcUnclaimedScanSource: "cache" | "duckdb" | "live" | "remote" | "none";
   albumsScanned?: number;
   cappedByAlbums?: boolean;
   cappedByTracks?: boolean;

@@ -1,15 +1,14 @@
 import { buildAuditSummary } from "@/lib/audit-engine";
+import { fetchLocalArtistSources } from "@/lib/artist-audit-sources";
 import {
   appendArtisjusArtistWorks,
   linkArtisjusWorksToRows,
 } from "@/lib/artisjus-enrich";
-import { searchArtisjusByArtist } from "@/lib/artisjus-index";
 import {
   appendCmoArtistRecords,
   countCmoMatchesBySource,
   linkCmoMatchesToRows,
 } from "@/lib/cmo-enrich";
-import { searchCmoByArtist } from "@/lib/cmo-index";
 import {
   appendEjiHits,
   countEjiHits,
@@ -18,7 +17,14 @@ import {
 } from "@/lib/cmo-web/eji-enrich";
 import { searchEjiByArtist } from "@/lib/cmo-web/eji-search";
 import { buildRowsFromMlcHits, mergeMlcUnclaimedHits } from "@/lib/mlc-enrich";
-import { scanMlcArtist, scanMlcUnclaimedArtist } from "@/lib/mlc-artist-scan";
+import type { MlcArtistScanResult, MlcUnclaimedScanResult } from "@/lib/mlc-artist-scan";
+import { shouldUseQueryApi, queryApiBaseUrl } from "@/lib/query-api-config";
+import { isServerlessRuntime } from "@/lib/runtime-env";
+import {
+  fetchArtistSourcesFromQueryApi,
+  QueryApiError,
+} from "@/lib/query-api-client";
+import type { ArtistAuditSourcesPayload } from "@/lib/query-api-types";
 import type { AuditRow, AuditSummary, ArtistAuditMeta, ArtistAuditScope } from "@/lib/types";
 
 export interface ArtistAuditResult {
@@ -27,8 +33,51 @@ export interface ArtistAuditResult {
   meta: ArtistAuditMeta;
 }
 
+function asRemoteScan<T extends { scanSource: string }>(
+  result: T | null,
+): (T & { scanSource: "remote" }) | null {
+  if (!result) return null;
+  return { ...result, scanSource: "remote" };
+}
+
+async function loadArtistSources(
+  artistName: string,
+  forceRefresh: boolean,
+): Promise<{ payload: ArtistAuditSourcesPayload; viaQueryApi: boolean }> {
+  // Vercel without QUERY_API_URL — skip local files/python; EJI runs separately.
+  if (isServerlessRuntime() && !queryApiBaseUrl()) {
+    return {
+      payload: {
+        artistName,
+        mlcUnmatched: null,
+        mlcUnclaimed: null,
+        artisjusMatches: [],
+        cmoMatches: [],
+        capabilities: { catalog: false, artisjusIndex: false, cmoIndex: false },
+      },
+      viaQueryApi: false,
+    };
+  }
+
+  if (shouldUseQueryApi()) {
+    try {
+      const payload = await fetchArtistSourcesFromQueryApi(artistName, { forceRefresh });
+      return { payload, viaQueryApi: true };
+    } catch (err) {
+      if (err instanceof QueryApiError) {
+        console.error("[artist-audit] Query API failed:", err.message);
+      }
+      throw err;
+    }
+  }
+
+  const payload = await fetchLocalArtistSources(artistName, { forceRefresh });
+  return { payload, viaQueryApi: false };
+}
+
 /**
  * Előadó-ellenőrzés: ARTISJUS, EJI, MLC (USA), AKM, AUME, SENA azonosítatlan listák.
+ * Vercelen: MLC/ARTISJUS/CMO a QUERY_API_URL backendről (adatgép).
  */
 export async function runArtistAudit(input: {
   artistName: string;
@@ -36,43 +85,62 @@ export async function runArtistAudit(input: {
 }): Promise<ArtistAuditResult> {
   const forceRefresh = input.scope === "full";
 
-  const [mlcScan, mlcUnclaimedScan] = await Promise.all([
-    scanMlcArtist(input.artistName, { forceRefresh }),
-    scanMlcUnclaimedArtist(input.artistName, { forceRefresh }),
+  const [loaded, ejiResult] = await Promise.all([
+    loadArtistSources(input.artistName, forceRefresh).catch((err) => {
+      if (shouldUseQueryApi()) throw err;
+      return {
+        payload: {
+          artistName: input.artistName,
+          mlcUnmatched: null,
+          mlcUnclaimed: null,
+          artisjusMatches: [],
+          cmoMatches: [],
+          capabilities: { catalog: false, artisjusIndex: false, cmoIndex: false },
+        },
+        viaQueryApi: false,
+      };
+    }),
+    searchEjiByArtist(input.artistName, { forceRefresh }).catch(() => null),
   ]);
+
+  const payload = loaded.payload;
+  const viaQueryApi = loaded.viaQueryApi;
+
+  const dataBackend = viaQueryApi
+    ? "query-api"
+    : isServerlessRuntime() && !queryApiBaseUrl()
+      ? "unavailable"
+      : "local";
+
+  const mlcScan: MlcArtistScanResult | null = viaQueryApi
+    ? asRemoteScan(payload.mlcUnmatched)
+    : payload.mlcUnmatched;
+  const mlcUnclaimedScan: MlcUnclaimedScanResult | null = viaQueryApi
+    ? asRemoteScan(payload.mlcUnclaimed)
+    : payload.mlcUnclaimed;
 
   let rows: AuditRow[] = buildRowsFromMlcHits(mlcScan?.hits ?? []);
   rows = mergeMlcUnclaimedHits(rows, mlcUnclaimedScan?.hits ?? []);
 
-  const artisjusMatches = searchArtisjusByArtist(input.artistName, 150);
+  const artisjusMatches = payload.artisjusMatches;
   const artistWorks = artisjusMatches.map((m) => m.work);
   const scores = new Map(artisjusMatches.map((m) => [m.work.mukod, m.score]));
 
   rows = linkArtisjusWorksToRows(rows, artistWorks, scores);
   rows = appendArtisjusArtistWorks(rows, artistWorks, scores);
 
-  let cmoMatches: ReturnType<typeof searchCmoByArtist> = [];
-  try {
-    cmoMatches = searchCmoByArtist(input.artistName, { limit: 120 });
-    rows = linkCmoMatchesToRows(rows, cmoMatches);
-    rows = appendCmoArtistRecords(rows, cmoMatches);
-  } catch {
-    // CMO index optional until npm run cmo:build-index
-  }
+  const cmoMatches = payload.cmoMatches;
+  rows = linkCmoMatchesToRows(rows, cmoMatches);
+  rows = appendCmoArtistRecords(rows, cmoMatches);
 
   let ejiCount = 0;
   let ejiFromCache = false;
-  try {
-    const ejiResult = await searchEjiByArtist(input.artistName, {
-      forceRefresh: input.scope === "full",
-    });
+  if (ejiResult) {
     const ejiHits = flattenEjiHits(ejiResult);
     ejiCount = countEjiHits(ejiHits);
     ejiFromCache = ejiResult.fromCache;
     rows = linkEjiHitsToRows(rows, ejiHits);
     rows = appendEjiHits(rows, ejiHits);
-  } catch {
-    // EJI web scrape optional — network / parse failures should not block audit
   }
 
   return {
@@ -89,6 +157,8 @@ export async function runArtistAudit(input: {
       cmoCounts: countCmoMatchesBySource(cmoMatches),
       ejiCount,
       ejiFromCache,
+      queryApiUsed: viaQueryApi,
+      dataBackend,
       mlcScanSource: mlcScan?.scanSource ?? "none",
       mlcUnclaimedScanSource: mlcUnclaimedScan?.scanSource ?? "none",
     },

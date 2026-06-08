@@ -10,8 +10,11 @@ import {
   EJI_TRACK_SEARCH_URL,
 } from "@/lib/cmo-web/eji-types";
 import { normalizeArtisjusText } from "@/lib/artisjus-normalize";
+import { isServerlessRuntime } from "@/lib/runtime-env";
 
-const CACHE_DIR = path.join(process.cwd(), "derived", "cmo-web-cache", "eji");
+const CACHE_DIR = isServerlessRuntime()
+  ? path.join("/tmp", "cmo-web-cache", "eji")
+  : path.join(process.cwd(), "derived", "cmo-web-cache", "eji");
 
 function cachePath(query: string): string {
   const hash = createHash("sha256").update(query.toLowerCase()).digest("hex").slice(0, 16);
@@ -46,8 +49,12 @@ async function readCache(query: string, maxAgeMs: number): Promise<EjiSearchResu
 }
 
 async function writeCache(result: EjiSearchResult): Promise<void> {
-  await mkdir(CACHE_DIR, { recursive: true });
-  await writeFile(cachePath(result.query), JSON.stringify(result, null, 2), "utf8");
+  try {
+    await mkdir(CACHE_DIR, { recursive: true });
+    await writeFile(cachePath(result.query), JSON.stringify(result, null, 2), "utf8");
+  } catch {
+    // cache is best-effort (read-only FS on serverless without /tmp)
+  }
 }
 
 /**

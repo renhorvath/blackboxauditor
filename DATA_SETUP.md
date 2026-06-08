@@ -71,7 +71,7 @@ npm run dev
 
 Ugyanaz a `git clone` + `.env.local`. Ha nincs lokális TSV, az MLC/ARTISJUS funkciók nem lesznek elérhetők — UI és credits.fm audit így is fut.
 
-Később (online query): a Vercel env-ben lesz `QUERY_API_URL` egy állandó backend felé (adatgép vagy VPS).
+Később (online query): lásd `scripts/query-api/README.md` — `npm run query-api:start` + Cloudflare Tunnel → Vercel `QUERY_API_URL`.
 
 ## Szinkron gépek között
 
