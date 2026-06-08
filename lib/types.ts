@@ -1,3 +1,5 @@
+import type { CmoSourceId } from "@/lib/cmo-types";
+
 export type IssueType =
   | "no_iswc"
   | "no_mlc_match"
@@ -10,7 +12,9 @@ export type IssueType =
   | "not_found"
   | "artisjus_unmatched"
   | "artisjus_foreign_only"
-  | "artisjus_partial_rights";
+  | "artisjus_partial_rights"
+  | "cmo_unmatched"
+  | "mlc_unclaimed_share";
 
 export type IssueSeverity = "critical" | "warning" | "info";
 
@@ -40,6 +44,16 @@ export interface AuditRow {
   artisjusFeloTips?: string[];
   artisjusTopSources?: string[];
   artisjusForeignOnly?: boolean;
+  cmoHits?: {
+    source: CmoSourceId;
+    recordId: string;
+    title: string;
+    score: number;
+    senaRole?: "producenten" | "muzikanten";
+  }[];
+  mlcUnclaimed?: boolean;
+  mlcUnclaimedPct?: number | null;
+  mlcWorkRecordId?: string | null;
 }
 
 export interface AuditSummary {
@@ -115,6 +129,14 @@ export function isArtisjusSyntheticIsrc(isrc: string): boolean {
   return isrc.startsWith(ARTISJUS_ISRC_PREFIX);
 }
 
+export function isCmoSyntheticIsrc(isrc: string): boolean {
+  return isrc.startsWith("cmo:");
+}
+
+export function isSyntheticAuditIsrc(isrc: string): boolean {
+  return isArtisjusSyntheticIsrc(isrc) || isCmoSyntheticIsrc(isrc);
+}
+
 export const SESSION_STORAGE_KEY = "music-metadata-auditor:v1";
 
 export interface StoredAuditPayload {
@@ -132,8 +154,11 @@ export interface ArtistAuditMeta {
   spotifyTrackCount: number;
   isrcCount: number;
   mlcUnmatchedCount: number;
+  mlcUnclaimedCount: number;
   artisjusCount: number;
+  cmoCounts?: Partial<Record<CmoSourceId, number>>;
   mlcScanSource: "cache" | "live" | "none";
+  mlcUnclaimedScanSource: "cache" | "live" | "none";
   albumsScanned?: number;
   cappedByAlbums?: boolean;
   cappedByTracks?: boolean;

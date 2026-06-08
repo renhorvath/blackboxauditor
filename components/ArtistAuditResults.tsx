@@ -5,7 +5,9 @@ import { AlertCircle, CheckCircle2, ChevronDown, Loader2 } from "lucide-react";
 import { rowHasPayoutProblem, rowPayoutSummary, sortArtistAuditRows } from "@/lib/artist-audit-display";
 import type { ArtistAuditMeta } from "@/lib/types";
 import type { AuditRow, AuditSummary } from "@/lib/types";
-import { isArtisjusSyntheticIsrc } from "@/lib/types";
+import { isArtisjusSyntheticIsrc, isSyntheticAuditIsrc } from "@/lib/types";
+import { CMO_SOURCE_LABELS } from "@/lib/cmo-types";
+import type { CmoSourceId } from "@/lib/cmo-types";
 
 function SourceBadge({
   label,
@@ -72,7 +74,7 @@ export function ArtistAuditResults({
           <Loader2 className="size-8 animate-spin text-[var(--accent-primary)]" aria-hidden />
           <p className="text-lg font-semibold text-[var(--text-primary)]">{artistName}</p>
           <p className="max-w-sm text-sm text-[var(--text-secondary)]">
-            MLC unmatched TSV + ARTISJUS — hol nem jutott el a jogdíj.
+            MLC unmatched + unclaimed TSV, ARTISJUS, európai CMO-k — hol nem jutott el a jogdíj.
           </p>
         </div>
       </section>
@@ -86,14 +88,18 @@ export function ArtistAuditResults({
       ? "Friss adat az MLC TSV-ből."
       : meta.mlcScanSource === "cache"
         ? "Mentett MLC export (cache)."
-        : "MLC export nem elérhető — csak ARTISJUS találatok.";
+        : "MLC export nem elérhető — ARTISJUS + CMO indexek.";
 
-  const countsLine = [
+  const countsLineParts = [
     meta.mlcUnmatchedCount > 0 ? `${meta.mlcUnmatchedCount} MLC unmatched` : null,
+    meta.mlcUnclaimedCount > 0 ? `${meta.mlcUnclaimedCount} MLC unclaimed` : null,
     meta.artisjusCount > 0 ? `${meta.artisjusCount} ARTISJUS` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  ];
+  if (meta.cmoCounts) {
+    const cmoTotal = Object.values(meta.cmoCounts).reduce((a, b) => a + (b ?? 0), 0);
+    if (cmoTotal > 0) countsLineParts.push(`${cmoTotal} európai CMO`);
+  }
+  const countsLine = countsLineParts.filter(Boolean).join(" · ");
 
   return (
     <section className="space-y-4">
@@ -195,13 +201,30 @@ export function ArtistAuditResults({
                         title="Magyarországon lejátszották, de nem tudták kinek kifizetni"
                       />
                       <SourceBadge
-                        label="MLC (US)"
+                        label="MLC unmatched"
                         active={row.mlcMatchStatus === "unmatched"}
-                        title="Az USA-ban összegyűjtötték a pénzt, de nem találják a jogost"
+                        title="USA: a felvétel nincs műhöz párosítva az MLC-nél"
                       />
-                      {isArtisjusSyntheticIsrc(row.isrc) ? (
+                      <SourceBadge
+                        label="MLC unclaimed"
+                        active={row.mlcUnclaimed === true}
+                        title={
+                          row.mlcUnclaimedPct != null
+                            ? `USA: ${row.mlcUnclaimedPct}% mechanikai share claim nélkül`
+                            : "USA: mechanikai share claim nélkül (black box)"
+                        }
+                      />
+                      {(row.cmoHits ?? []).map((hit) => (
+                        <SourceBadge
+                          key={`${hit.source}:${hit.recordId}`}
+                          label={CMO_SOURCE_LABELS[hit.source].replace(" (AT)", "").replace(" (NL)", "")}
+                          active
+                          title={`${CMO_SOURCE_LABELS[hit.source]} azonosítatlan listán`}
+                        />
+                      ))}
+                      {isSyntheticAuditIsrc(row.isrc) ? (
                         <span className="inline-flex rounded-md bg-[var(--bg-secondary)] px-2 py-0.5 text-[11px] text-[var(--text-muted)]">
-                          csak ARTISJUS-listán
+                          {isArtisjusSyntheticIsrc(row.isrc) ? "csak ARTISJUS-listán" : "csak CMO-listán"}
                         </span>
                       ) : null}
                     </div>

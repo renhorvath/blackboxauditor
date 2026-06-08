@@ -49,9 +49,11 @@ flowchart LR
 |---------|--------|----------|
 | Előadó audit UI | `components/HomeAuditor.tsx`, `ArtistAuditResults.tsx` | Spotify kereső opcionális |
 | Előadó audit API | `app/api/artist-audit/route.ts` → `lib/artist-audit.ts` | `artistName` |
-| MLC scan | `lib/mlc-artist-scan.ts` → `scripts/mlc/export_artist_mlc_json.py` → `scan_tsv_by_artist.py` | `MLC_UNMATCHED_TSV`, `python3`, `rg` (ripgrep) |
+| MLC unmatched scan | `lib/mlc-artist-scan.ts` → `export_artist_mlc_json.py` | `MLC_UNMATCHED_TSV`, `rg` vagy `--no-rg` |
+| MLC unclaimed scan | `lib/mlc-artist-scan.ts` → `export_artist_unclaimed_json.py` | `MLC_UNCLAIMED_TSV`, ~7.6 GB |
 | MLC cache | `{MLC_HU_DATA_DIR}/hu_artist_scans/{slug}/` | Korábbi scan CSV újrahasználata |
 | ARTISJUS index | `lib/artisjus-index.ts`, `npm run artisjus:build-index` | `ARTISJUS_CSV_PATH` → `data/artisjus-index.json` |
+| CMO index (AKM, AUME, SENA) | `lib/cmo-index.ts`, `npm run cmo:build-index` | `data/cmo-index.json` |
 | ARTISJUS API | `/api/artisjus-match`, `/api/artisjus-artist-search` | Index fájl létezése |
 | ARTISJUS enrichment | `lib/artisjus-enrich.ts` | Audit sorokhoz issue-k |
 | ISRC audit (credits.fm) | `app/audit/page.tsx`, `lib/credits-fm.ts`, `/api/batch` stb. | `CREDITS_FM_API_KEY` opcionális |
@@ -66,7 +68,7 @@ flowchart LR
 
 | Feladat | Állapot |
 |---------|---------|
-| TSV → Parquet → DuckDB ETL | Nincs script még |
+| TSV → Parquet → DuckDB ETL | `scripts/etl/` — `npm run etl:parquet`, `etl:catalog`, `etl:query` |
 | `catalog.duckdb` gyors keresés | Tervezett |
 | Query API (FastAPI/Node, 24/7) | Tervezett — `QUERY_API_URL` placeholder `.env.example`-ben |
 | Vercel → backend proxy | Tervezett |
@@ -130,7 +132,8 @@ cp .env.example .env.local
 `.env.local` — **a te tényleges pathjaidra** állítsd:
 
 ```env
-MLC_UNMATCHED_TSV=<ahol a unmatchedresources.tsv van>
+MLC_UNMATCHED_TSV=<unmatchedresources.tsv>
+MLC_UNCLAIMED_TSV=<unclaimedmusicalworkrightshares.tsv>
 MLC_HU_DATA_DIR=<derived mappa, pl. scan cache + exportok>
 ARTISJUS_CSV_PATH=<artisjus_azonositatlan_muvek_2025.csv>
 ARTISJUS_INDEX_PATH=./data/artisjus-index.json
@@ -158,7 +161,8 @@ Teszt: előadónév keresés a főoldalon (pl. ismert magyar előadó). Első ML
 
 | Változó | Kötelező | Mihez |
 |---------|----------|-------|
-| `MLC_UNMATCHED_TSV` | Előadó audit MLC részéhez | 121 GB TSV path |
+| `MLC_UNMATCHED_TSV` | Unmatched felvételek (121 GB) | Igen |
+| `MLC_UNCLAIMED_TSV` | Unclaimed work shares (~7.6 GB) | Igen |
 | `MLC_HU_DATA_DIR` | Ajánlott | Scan cache, pipeline output |
 | `ARTISJUS_CSV_PATH` | ARTISJUS-hoz | Nyers CSV |
 | `ARTISJUS_INDEX_PATH` | ARTISJUS-hoz | Generált JSON (default: `./data/artisjus-index.json`) |

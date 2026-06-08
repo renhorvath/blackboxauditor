@@ -6,8 +6,9 @@ import os
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_DATA_DIR = Path("/Users/ren/synchreload")
-DEFAULT_TSV = Path("/Users/ren/autotrader/unmatchedresources.tsv")
+DEFAULT_DATA_DIR = PROJECT_ROOT / "derived" / "mlc-hu"
+DEFAULT_TSV = PROJECT_ROOT / "raw" / "mlc" / "unmatchedresources.tsv"
+DEFAULT_UNCLAIMED_TSV = PROJECT_ROOT / "raw" / "mlc" / "unclaimedmusicalworkrightshares.tsv"
 ENV_LOCAL = PROJECT_ROOT / ".env.local"
 
 
@@ -34,6 +35,11 @@ def data_dir() -> Path:
 def tsv_path() -> Path:
     raw = os.environ.get("MLC_UNMATCHED_TSV", "").strip()
     return Path(raw) if raw else DEFAULT_TSV
+
+
+def unclaimed_tsv_path() -> Path:
+    raw = os.environ.get("MLC_UNCLAIMED_TSV", "").strip()
+    return Path(raw) if raw else DEFAULT_UNCLAIMED_TSV
 
 
 def export_path() -> Path:

@@ -42,6 +42,8 @@ const ISSUE_LABELS: Record<AuditIssue["type"], string> = {
   artisjus_unmatched: "ARTISJUS",
   artisjus_foreign_only: "KA/KM",
   artisjus_partial_rights: "Jogosult+",
+  cmo_unmatched: "Európai CMO",
+  mlc_unclaimed_share: "MLC unclaimed",
 };
 
 type AugmentedRow = AuditRow & { _severity: number };

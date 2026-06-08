@@ -13,9 +13,24 @@ import Papa from "papaparse";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "../..");
 
+function loadEnvLocal() {
+  const envPath = path.join(projectRoot, ".env.local");
+  if (!fs.existsSync(envPath)) return;
+  for (const line of fs.readFileSync(envPath, "utf-8").split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#") || !trimmed.includes("=")) continue;
+    const eq = trimmed.indexOf("=");
+    const key = trimmed.slice(0, eq).trim();
+    const value = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
+    if (key && process.env[key] === undefined) process.env[key] = value;
+  }
+}
+
+loadEnvLocal();
+
 const csvPath =
   process.env.ARTISJUS_CSV_PATH ??
-  "/Users/ren/synchreload/artisjus_azonositatlan_muvek_2025.csv";
+  path.join(projectRoot, "raw/cmo/hu-artisjus/artisjus_azonositatlan_muvek_2025.csv");
 const outPath =
   process.env.ARTISJUS_INDEX_PATH ??
   path.join(projectRoot, "data", "artisjus-index.json");

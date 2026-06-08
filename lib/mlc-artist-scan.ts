@@ -9,12 +9,30 @@ export interface MlcArtistHit {
   provider: string;
 }
 
+export interface MlcUnclaimedHit {
+  isrc: string;
+  title: string;
+  artist: string;
+  workRecordId: string;
+  unclaimedPct: number | null;
+  dspResourceId: string;
+}
+
 export interface MlcArtistScanResult {
   artistName: string;
   slug: string;
   exportPath: string;
   uniqueIsrcCount: number;
   hits: MlcArtistHit[];
+  fromCache: boolean;
+}
+
+export interface MlcUnclaimedScanResult {
+  artistName: string;
+  slug: string;
+  exportPath: string;
+  uniqueIsrcCount: number;
+  hits: MlcUnclaimedHit[];
   fromCache: boolean;
 }
 
@@ -32,46 +50,11 @@ function slugify(value: string): string {
 function scansBaseDir(): string {
   const fromEnv = process.env.MLC_HU_DATA_DIR?.trim();
   if (fromEnv) return path.join(fromEnv, "hu_artist_scans");
-  return "/Users/ren/synchreload/hu_artist_scans";
+  return path.join(process.cwd(), "derived", "mlc-hu", "hu_artist_scans");
 }
 
-function exportCsvPath(artistName: string): string {
-  const slug = slugify(artistName);
-  return path.join(scansBaseDir(), slug, `${slug}_mlc_export.csv`);
-}
-
-function parseExportCsv(filePath: string): MlcArtistHit[] {
-  if (!fs.existsSync(filePath)) return [];
-  const raw = fs.readFileSync(filePath, "utf-8");
-  const lines = raw.split(/\r?\n/).filter(Boolean);
-  if (lines.length < 2) return [];
-
-  const header = lines[0].split(",");
-  const idx = {
-    isrc: header.indexOf("ISRC"),
-    title: header.indexOf("ResourceTitle"),
-    artist: header.indexOf("DisplayArtistName"),
-    provider: header.indexOf("OriginalDataProviderName"),
-  };
-  if (idx.isrc < 0) return [];
-
-  const seen = new Set<string>();
-  const hits: MlcArtistHit[] = [];
-
-  for (const line of lines.slice(1)) {
-    // Simple CSV — Carson export has quoted fields rarely in first columns
-    const cols = parseCsvLine(line);
-    const isrc = (cols[idx.isrc] ?? "").trim().toUpperCase();
-    if (!isrc || seen.has(isrc)) continue;
-    seen.add(isrc);
-    hits.push({
-      isrc,
-      title: (cols[idx.title] ?? "").trim(),
-      artist: (cols[idx.artist] ?? "").trim(),
-      provider: (cols[idx.provider] ?? "").trim(),
-    });
-  }
-  return hits;
+function artistScanDir(artistName: string): string {
+  return path.join(scansBaseDir(), slugify(artistName));
 }
 
 function parseCsvLine(line: string): string[] {
@@ -100,42 +83,109 @@ function parseCsvLine(line: string): string[] {
   return out;
 }
 
-export function scanMlcArtistFromCache(artistName: string): MlcArtistScanResult | null {
-  const exportPath = exportCsvPath(artistName);
-  const hits = parseExportCsv(exportPath);
-  if (hits.length === 0) return null;
-  return {
-    artistName,
-    slug: slugify(artistName),
-    exportPath,
-    uniqueIsrcCount: hits.length,
-    hits,
-    fromCache: true,
+function parseUnmatchedExportCsv(filePath: string): MlcArtistHit[] {
+  if (!fs.existsSync(filePath)) return [];
+  const raw = fs.readFileSync(filePath, "utf-8");
+  const lines = raw.split(/\r?\n/).filter(Boolean);
+  if (lines.length < 2) return [];
+
+  const header = lines[0].split(",");
+  const idx = {
+    isrc: header.indexOf("ISRC"),
+    title: header.indexOf("ResourceTitle"),
+    artist: header.indexOf("DisplayArtistName"),
+    provider: header.indexOf("OriginalDataProviderName"),
   };
+  if (idx.isrc < 0) return [];
+
+  const seen = new Set<string>();
+  const hits: MlcArtistHit[] = [];
+
+  for (const line of lines.slice(1)) {
+    const cols = parseCsvLine(line);
+    const isrc = (cols[idx.isrc] ?? "").trim().toUpperCase();
+    if (!isrc || seen.has(isrc)) continue;
+    seen.add(isrc);
+    hits.push({
+      isrc,
+      title: (cols[idx.title] ?? "").trim(),
+      artist: (cols[idx.artist] ?? "").trim(),
+      provider: (cols[idx.provider] ?? "").trim(),
+    });
+  }
+  return hits;
 }
 
-export async function scanMlcArtist(
-  artistName: string,
-  options?: { forceRefresh?: boolean },
-): Promise<MlcArtistScanResult | null> {
-  if (!options?.forceRefresh) {
-    const cached = scanMlcArtistFromCache(artistName);
-    if (cached) return cached;
+function parseUnclaimedExportCsv(filePath: string): MlcUnclaimedHit[] {
+  if (!fs.existsSync(filePath)) return [];
+  const raw = fs.readFileSync(filePath, "utf-8");
+  const lines = raw.split(/\r?\n/).filter(Boolean);
+  if (lines.length < 2) return [];
+
+  const header = lines[0].split(",");
+  const idx = {
+    isrc: header.indexOf("ISRC"),
+    title: header.indexOf("ResourceTitle"),
+    artist: header.indexOf("DisplayArtistName"),
+    workRecordId: header.indexOf("MusicalWorkRecordId"),
+    unclaimedPct: header.indexOf("UnclaimedRightSharePercentage"),
+    dspResourceId: header.indexOf("DspResourceId"),
+  };
+  if (idx.isrc < 0) return [];
+
+  const byIsrc = new Map<string, MlcUnclaimedHit>();
+
+  for (const line of lines.slice(1)) {
+    const cols = parseCsvLine(line);
+    const isrc = (cols[idx.isrc] ?? "").trim().toUpperCase();
+    if (!isrc) continue;
+
+    const pctRaw = (cols[idx.unclaimedPct] ?? "").trim();
+    const pct = pctRaw ? Number.parseFloat(pctRaw) : null;
+    const hit: MlcUnclaimedHit = {
+      isrc,
+      title: (cols[idx.title] ?? "").trim(),
+      artist: (cols[idx.artist] ?? "").trim(),
+      workRecordId: (cols[idx.workRecordId] ?? "").trim(),
+      unclaimedPct: pct !== null && !Number.isNaN(pct) ? pct : null,
+      dspResourceId: (cols[idx.dspResourceId] ?? "").trim(),
+    };
+
+    const existing = byIsrc.get(isrc);
+    if (!existing) {
+      byIsrc.set(isrc, hit);
+      continue;
+    }
+    if (
+      hit.unclaimedPct !== null &&
+      (existing.unclaimedPct === null || hit.unclaimedPct > existing.unclaimedPct)
+    ) {
+      byIsrc.set(isrc, { ...existing, unclaimedPct: hit.unclaimedPct });
+    }
   }
 
-  const script = path.join(process.cwd(), "scripts/mlc/export_artist_mlc_json.py");
-  if (!fs.existsSync(script)) return null;
+  return [...byIsrc.values()];
+}
 
-  const tsv = process.env.MLC_UNMATCHED_TSV?.trim();
-  const outDir = scansBaseDir().replace(/\/hu_artist_scans$/, "") + "/hu_artist_scans";
+function runPythonJsonScript<T>(
+  scriptRel: string,
+  artistName: string,
+  extraArgs: string[],
+): Promise<T | null> {
+  const script = path.join(process.cwd(), scriptRel);
+  if (!fs.existsSync(script)) return Promise.resolve(null);
+
+  const outDir = scansBaseDir();
 
   return new Promise((resolve) => {
-    const args = [script, "--name", artistName, "--out-dir", outDir];
-    if (tsv) args.push("--tsv", tsv);
-
+    const args = [script, "--name", artistName, "--out-dir", outDir, ...extraArgs];
     const proc = spawn("python3", args, {
       cwd: process.cwd(),
       stdio: ["ignore", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        PATH: `${path.join(process.cwd(), ".venv/bin")}:${process.env.PATH ?? ""}`,
+      },
     });
 
     let stdout = "";
@@ -156,16 +206,85 @@ export async function scanMlcArtist(
     proc.on("close", (code) => {
       clearTimeout(timer);
       if (code !== 0) {
-        console.error("MLC artist scan failed:", stderr.slice(0, 500));
+        console.error(`MLC script failed (${scriptRel}):`, stderr.slice(0, 500));
         resolve(null);
         return;
       }
       try {
-        const parsed = JSON.parse(stdout) as MlcArtistScanResult;
-        resolve({ ...parsed, fromCache: false });
+        resolve(JSON.parse(stdout) as T);
       } catch {
         resolve(null);
       }
     });
   });
+}
+
+export function scanMlcArtistFromCache(artistName: string): MlcArtistScanResult | null {
+  const slug = slugify(artistName);
+  const exportPath = path.join(artistScanDir(artistName), `${slug}_mlc_export.csv`);
+  const hits = parseUnmatchedExportCsv(exportPath);
+  if (hits.length === 0) return null;
+  return {
+    artistName,
+    slug,
+    exportPath,
+    uniqueIsrcCount: hits.length,
+    hits,
+    fromCache: true,
+  };
+}
+
+export function scanMlcUnclaimedFromCache(artistName: string): MlcUnclaimedScanResult | null {
+  const slug = slugify(artistName);
+  const exportPath = path.join(artistScanDir(artistName), `${slug}_mlc_unclaimed_export.csv`);
+  const hits = parseUnclaimedExportCsv(exportPath);
+  if (hits.length === 0) return null;
+  return {
+    artistName,
+    slug,
+    exportPath,
+    uniqueIsrcCount: hits.length,
+    hits,
+    fromCache: true,
+  };
+}
+
+export async function scanMlcArtist(
+  artistName: string,
+  options?: { forceRefresh?: boolean },
+): Promise<MlcArtistScanResult | null> {
+  if (!options?.forceRefresh) {
+    const cached = scanMlcArtistFromCache(artistName);
+    if (cached) return cached;
+  }
+
+  const tsv = process.env.MLC_UNMATCHED_TSV?.trim();
+  const extraArgs = tsv ? ["--tsv", tsv] : [];
+  const parsed = await runPythonJsonScript<Omit<MlcArtistScanResult, "fromCache">>(
+    "scripts/mlc/export_artist_mlc_json.py",
+    artistName,
+    extraArgs,
+  );
+  if (!parsed) return null;
+  return { ...parsed, fromCache: false };
+}
+
+export async function scanMlcUnclaimedArtist(
+  artistName: string,
+  options?: { forceRefresh?: boolean },
+): Promise<MlcUnclaimedScanResult | null> {
+  if (!options?.forceRefresh) {
+    const cached = scanMlcUnclaimedFromCache(artistName);
+    if (cached) return cached;
+  }
+
+  const tsv = process.env.MLC_UNCLAIMED_TSV?.trim();
+  const extraArgs = tsv ? ["--tsv", tsv] : [];
+  const parsed = await runPythonJsonScript<Omit<MlcUnclaimedScanResult, "fromCache">>(
+    "scripts/mlc/export_artist_unclaimed_json.py",
+    artistName,
+    extraArgs,
+  );
+  if (!parsed) return null;
+  return { ...parsed, fromCache: false };
 }

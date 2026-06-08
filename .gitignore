@@ -49,6 +49,8 @@ next-env.d.ts
 # Generated indexes & query catalogs (build on each machine)
 /data/*
 !/data/.gitkeep
+/raw/
+/exports/
 *.duckdb
 *.duckdb.wal
 *.parquet
