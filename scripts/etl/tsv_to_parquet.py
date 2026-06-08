@@ -14,14 +14,10 @@ from pathlib import Path
 
 import duckdb
 
-from config import SOURCES, SourceSpec
+from config import SOURCES, SourceSpec, column_select_list
 from catalog_paths import load_dotenv_local, parquet_dir, source_parquet, source_tsv
 
 load_dotenv_local()
-
-
-def column_select_list(spec: SourceSpec) -> str:
-    return ", ".join(f'"{c}"' for c in spec.columns)
 
 
 def convert_source(spec: SourceSpec, *, force: bool = False) -> Path:
@@ -45,22 +41,23 @@ def convert_source(spec: SourceSpec, *, force: bool = False) -> Path:
     started = time.time()
     con = duckdb.connect()
     cols = column_select_list(spec)
+    tsv_sql = str(tsv).replace("'", "''")
+    out_sql = str(out).replace("'", "''")
     # BWARM files use # prefix on header row; tab-delimited.
     sql = f"""
         COPY (
             SELECT {cols}
             FROM read_csv(
-                ?,
+                '{tsv_sql}',
                 delim='\\t',
                 header=true,
-                comment='#',
                 ignore_errors=true,
                 parallel=true
             )
         )
-        TO ? (FORMAT PARQUET, COMPRESSION ZSTD)
+        TO '{out_sql}' (FORMAT PARQUET, COMPRESSION ZSTD)
     """
-    con.execute(sql, [str(tsv), str(out)])
+    con.execute(sql)
     con.close()
 
     elapsed = time.time() - started

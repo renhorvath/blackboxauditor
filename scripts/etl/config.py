@@ -63,3 +63,20 @@ SOURCES: dict[str, SourceSpec] = {
     MLC_UNMATCHED.id: MLC_UNMATCHED,
     MLC_UNCLAIMED.id: MLC_UNCLAIMED,
 }
+
+# BWARM v2 headers: first column name includes a leading # in the TSV file.
+TSV_COLUMN_ALIASES: dict[str, str] = {
+    "UnclaimedMusicalWorkRightShareRecordId": "#UnclaimedMusicalWorkRightShareRecordId",
+    "UnmatchedResourceRecordId": "#UnmatchedResourceRecordId",
+}
+
+
+def column_select_list(spec: SourceSpec) -> str:
+    parts: list[str] = []
+    for col in spec.columns:
+        src = TSV_COLUMN_ALIASES.get(col, col)
+        if src != col:
+            parts.append(f'"{src}" AS "{col}"')
+        else:
+            parts.append(f'"{col}"')
+    return ", ".join(parts)
