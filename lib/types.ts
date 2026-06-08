@@ -14,7 +14,8 @@ export type IssueType =
   | "artisjus_foreign_only"
   | "artisjus_partial_rights"
   | "cmo_unmatched"
-  | "mlc_unclaimed_share";
+  | "mlc_unclaimed_share"
+  | "eji_unidentified";
 
 export type IssueSeverity = "critical" | "warning" | "info";
 
@@ -52,6 +53,18 @@ export interface AuditRow {
     senaRole?: "producenten" | "muzikanten";
     remark?: string | null;
     identification?: string | null;
+  }[];
+  ejiHits?: {
+    kind: "track" | "artist";
+    recordId: string;
+    title?: string;
+    mainArtist?: string;
+    publisher?: string;
+    publicationYear?: number | null;
+    album?: string;
+    tipus?: string;
+    name?: string;
+    distributionPeriod?: string;
   }[];
   mlcUnclaimed?: boolean;
   mlcUnclaimedPct?: number | null;
@@ -138,8 +151,12 @@ export function isCmoSyntheticIsrc(isrc: string): boolean {
   return isrc.startsWith("cmo:");
 }
 
+export function isEjiSyntheticIsrc(isrc: string): boolean {
+  return isrc.startsWith("eji:");
+}
+
 export function isSyntheticAuditIsrc(isrc: string): boolean {
-  return isArtisjusSyntheticIsrc(isrc) || isCmoSyntheticIsrc(isrc);
+  return isArtisjusSyntheticIsrc(isrc) || isCmoSyntheticIsrc(isrc) || isEjiSyntheticIsrc(isrc);
 }
 
 export const SESSION_STORAGE_KEY = "music-metadata-auditor:v1";
@@ -162,6 +179,8 @@ export interface ArtistAuditMeta {
   mlcUnclaimedCount: number;
   artisjusCount: number;
   cmoCounts?: Partial<Record<CmoSourceId, number>>;
+  ejiCount?: number;
+  ejiFromCache?: boolean;
   mlcScanSource: "cache" | "duckdb" | "live" | "none";
   mlcUnclaimedScanSource: "cache" | "duckdb" | "live" | "none";
   albumsScanned?: number;

@@ -44,6 +44,7 @@ const ISSUE_LABELS: Record<AuditIssue["type"], string> = {
   artisjus_partial_rights: "Jogosult+",
   cmo_unmatched: "Európai CMO",
   mlc_unclaimed_share: "MLC unclaimed",
+  eji_unidentified: "EJI",
 };
 
 type AugmentedRow = AuditRow & { _severity: number };
@@ -82,7 +83,9 @@ export function AuditTable({ data }: { data: AuditRow[] }) {
           const value = String(info.getValue() ?? "");
           const display = value.startsWith("artisjus:")
             ? value.replace(/^artisjus:/, "műkód ")
-            : value;
+            : value.startsWith("eji:")
+              ? value.replace(/^eji:/, "EJI ")
+              : value;
           return (
             <span className="font-mono text-[13px] text-[var(--text-primary)]">{display}</span>
           );

@@ -61,6 +61,7 @@ next-env.d.ts
 
 # Derived pipeline outputs (regenerate via scripts/mlc/)
 **/hu_artist_scans/
+/derived/
 
 # Office / spreadsheet exports
 *.xlsx

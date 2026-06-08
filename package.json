@@ -14,6 +14,7 @@
     "mlc:summary": "python3 scripts/mlc/summarize_isrc_conflicts.py",
     "artisjus:build-index": "node scripts/artisjus/build-index.mjs",
     "cmo:build-index": ".venv/bin/python3 scripts/cmo/build_indexes.py",
+    "eji:search": "npx tsx scripts/cmo/search_eji.mts",
     "etl:parquet": ".venv/bin/python3 scripts/etl/tsv_to_parquet.py",
     "etl:catalog": ".venv/bin/python3 scripts/etl/build_catalog.py",
     "etl:query": ".venv/bin/python3 scripts/etl/query.py",

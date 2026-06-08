@@ -33,6 +33,7 @@ export function ArtistAuditSummaryHeader({
     mlcUnmatchedCount: meta.mlcUnmatchedCount,
     mlcUnclaimedCount: meta.mlcUnclaimedCount,
     cmoCounts: meta.cmoCounts,
+    ejiCount: meta.ejiCount,
   });
 
   const verdict =

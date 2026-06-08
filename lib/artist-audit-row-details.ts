@@ -64,7 +64,7 @@ export function getSourceDetailsForRow(row: AuditRow): SourceDetailBlock[] {
     const facts: SourceFact[] = [];
     if (row.mlcProvider) facts.push({ label: "Streaming szolgáltató (DSP)", value: row.mlcProvider });
     if (row.mlcResourceType) facts.push({ label: "Felvétel típusa", value: row.mlcResourceType });
-    if (row.isrc && !row.isrc.startsWith("artisjus:") && !row.isrc.startsWith("cmo:")) {
+    if (row.isrc && !row.isrc.startsWith("artisjus:") && !row.isrc.startsWith("cmo:") && !row.isrc.startsWith("eji:")) {
       facts.push({ label: "ISRC", value: row.isrc });
     }
     blocks.push({
@@ -84,7 +84,7 @@ export function getSourceDetailsForRow(row: AuditRow): SourceDetailBlock[] {
     }
     if (row.mlcWorkRecordId) facts.push({ label: "Műkód (MLC)", value: row.mlcWorkRecordId });
     if (row.mlcDspResourceId) facts.push({ label: "DSP azonosító", value: row.mlcDspResourceId });
-    if (row.isrc && !row.isrc.startsWith("artisjus:") && !row.isrc.startsWith("cmo:")) {
+    if (row.isrc && !row.isrc.startsWith("artisjus:") && !row.isrc.startsWith("cmo:") && !row.isrc.startsWith("eji:")) {
       facts.push({ label: "ISRC", value: row.isrc });
     }
     blocks.push({
@@ -94,6 +94,32 @@ export function getSourceDetailsForRow(row: AuditRow): SourceDetailBlock[] {
       headline: "Mechanikai jogdíj összegyűlt, de nincs regisztrált tulajdonos (black box)",
       facts,
       action: "Regisztráld a művet és a share-eket az MLC Member Portalon.",
+    });
+  }
+
+  for (const hit of row.ejiHits ?? []) {
+    const facts: SourceFact[] = [];
+    if (hit.kind === "track") {
+      if (hit.title) facts.push({ label: "Hangfelvétel címe", value: hit.title });
+      if (hit.mainArtist) facts.push({ label: "Vezető előadó", value: hit.mainArtist });
+      if (hit.publisher) facts.push({ label: "Kiadó", value: hit.publisher });
+      if (hit.publicationYear) facts.push({ label: "Kiadás éve", value: String(hit.publicationYear) });
+      if (hit.album) facts.push({ label: "Album", value: hit.album });
+      if (hit.tipus) facts.push({ label: "Felvétel típusa", value: hit.tipus });
+      if (hit.recordId) facts.push({ label: "EJI azonosító", value: hit.recordId });
+    } else {
+      if (hit.name) facts.push({ label: "Előadóművész", value: hit.name });
+      if (hit.distributionPeriod) facts.push({ label: "Felosztási időszak", value: hit.distributionPeriod });
+      if (hit.recordId) facts.push({ label: "EJI ref. azonosító", value: hit.recordId });
+    }
+
+    blocks.push({
+      id: `eji-${hit.kind}-${hit.recordId}`,
+      region: "Magyarország",
+      sourceLabel: "EJI",
+      headline: "Szomszédjogi jogdíj — hiányzó adat miatt nem tudták kifizetni",
+      facts,
+      action: "Regisztráld magad az EJI-nál (eji.hu/jogosultkutatas), vagy jelezd a hiányzó adatot.",
     });
   }
 

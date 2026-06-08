@@ -33,6 +33,10 @@ export const AUDIT_SOURCE_HELP: { label: string; text: string }[] = [
     label: "SENA (Hollandia)",
     text: "Holland szomszédjogi kezelő — külföldi, nem claimelt felvételek.",
   },
+  {
+    label: "EJI (Magyarország)",
+    text: "Magyar szomszédjogi kezelő — jogosultkutatás: hiányzó adat miatt nem tudták kifizetni a jogdíjat.",
+  },
 ];
 
 export function buildAuditSourceChips(input: {
@@ -40,6 +44,7 @@ export function buildAuditSourceChips(input: {
   mlcUnmatchedCount: number;
   mlcUnclaimedCount: number;
   cmoCounts?: Partial<Record<CmoSourceId, number>>;
+  ejiCount?: number;
 }): AuditSourceChip[] {
   const chips: AuditSourceChip[] = [];
 
@@ -61,6 +66,10 @@ export function buildAuditSourceChips(input: {
     });
   }
 
+  if ((input.ejiCount ?? 0) > 0) {
+    chips.push({ id: "eji", label: "EJI", count: input.ejiCount ?? 0 });
+  }
+
   const cmoOrder: CmoSourceId[] = ["at-akm", "at-aume", "nl-sena"];
   for (const id of cmoOrder) {
     const count = input.cmoCounts?.[id] ?? 0;
@@ -78,8 +87,8 @@ export function buildAuditSourceChips(input: {
 
 /** Plain-language intro for the results header glossary. */
 export const AUDIT_SOURCES_INTRO =
-  "Minden chip egy jogdíjat kezelő szervezet (CMO / collecting society). Az ARTISJUS a magyar, az MLC az amerikai mechanikai központ; az AKM, AUME és SENA külföldi listáink.";
+  "Minden chip egy jogdíjat kezelő szervezet (CMO / collecting society). Az ARTISJUS a magyar szerzői, az EJI a magyar szomszédjogi kezelő; az MLC az amerikai mechanikai központ; az AKM, AUME és SENA külföldi listáink.";
 
 /** Homepage / search helper copy — no fake „európai CMO” bucket. */
 export const AUDIT_SEARCH_BLURB =
-  "Az ARTISJUS, MLC (USA), AKM, AUME és SENA azonosítatlan-mű listáiban keresünk.";
+  "Az ARTISJUS, EJI, MLC (USA), AKM, AUME és SENA listáiban / jogosultkutatásában keresünk.";
