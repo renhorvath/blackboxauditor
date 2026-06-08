@@ -10,8 +10,11 @@ import http from "node:http";
 import { fetchLocalArtistSources } from "../../lib/artist-audit-sources";
 import { artisjusIndexAvailable } from "../../lib/artisjus-index";
 import { cmoIndexAvailable } from "../../lib/cmo-index";
+import { loadDotenvLocal } from "../../lib/load-dotenv-local";
 import { catalogAvailable } from "../../lib/mlc-artist-scan";
 import type { QueryApiHealthResponse } from "../../lib/query-api-types";
+
+loadDotenvLocal();
 
 const PORT = Number(process.env.QUERY_API_PORT ?? 8787);
 const HOST = process.env.QUERY_API_HOST?.trim() || "127.0.0.1";
