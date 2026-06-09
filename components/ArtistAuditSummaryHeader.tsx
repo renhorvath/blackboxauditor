@@ -6,6 +6,7 @@ import {
   AUDIT_SOURCES_INTRO,
   buildAuditSourceChips,
 } from "@/lib/audit-source-labels";
+import { ArtistAuditSourceCoverage } from "@/components/ArtistAuditSourceCoverage";
 
 function SourceCountChip({ label, count }: { label: string; count: number }) {
   return (
@@ -42,7 +43,9 @@ export function ArtistAuditSummaryHeader({
       : `${problemCount} dal szerepel legalább egy kifizetetlen vagy azonosítatlan listán.`;
 
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5">
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5 space-y-4">
+      <ArtistAuditSourceCoverage meta={meta} />
+
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">

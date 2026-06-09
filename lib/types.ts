@@ -190,6 +190,12 @@ export interface ArtistAuditMeta {
   mlcUnmatchedSkipped?: boolean;
   /** MLC unclaimed omitted (ARTIST_AUDIT_SKIP_MLC_ALL on Vercel). */
   mlcUnclaimedSkipped?: boolean;
+  /** Which indexes were reachable on the data backend (if any). */
+  sourceCapabilities?: {
+    catalog: boolean;
+    artisjusIndex: boolean;
+    cmoIndex: boolean;
+  };
   albumsScanned?: number;
   cappedByAlbums?: boolean;
   cappedByTracks?: boolean;

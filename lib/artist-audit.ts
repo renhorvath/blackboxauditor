@@ -1,5 +1,6 @@
 import { buildAuditSummary } from "@/lib/audit-engine";
 import { fetchLocalArtistSources } from "@/lib/artist-audit-sources";
+import { artisjusIndexAvailable } from "@/lib/artisjus-index";
 import {
   appendArtisjusArtistWorks,
   linkArtisjusWorksToRows,
@@ -9,6 +10,7 @@ import {
   countCmoMatchesBySource,
   linkCmoMatchesToRows,
 } from "@/lib/cmo-enrich";
+import { cmoIndexAvailable } from "@/lib/cmo-index";
 import {
   appendEjiHits,
   countEjiHits,
@@ -17,7 +19,11 @@ import {
 } from "@/lib/cmo-web/eji-enrich";
 import { searchEjiByArtist } from "@/lib/cmo-web/eji-search";
 import { buildRowsFromMlcHits, mergeMlcUnclaimedHits } from "@/lib/mlc-enrich";
-import type { MlcArtistScanResult, MlcUnclaimedScanResult } from "@/lib/mlc-artist-scan";
+import {
+  catalogAvailable,
+  type MlcArtistScanResult,
+  type MlcUnclaimedScanResult,
+} from "@/lib/mlc-artist-scan";
 import { artistAuditSkipMlcUnclaimed, artistAuditSkipMlcUnmatched, shouldUseQueryApi, queryApiBaseUrl } from "@/lib/query-api-config";
 import { isServerlessRuntime } from "@/lib/runtime-env";
 import {
@@ -143,6 +149,17 @@ export async function runArtistAudit(input: {
     rows = appendEjiHits(rows, ejiHits);
   }
 
+  const sourceCapabilities: ArtistAuditMeta["sourceCapabilities"] =
+    dataBackend === "unavailable"
+      ? { catalog: false, artisjusIndex: false, cmoIndex: false }
+      : viaQueryApi
+        ? payload.capabilities
+        : {
+            catalog: catalogAvailable(),
+            artisjusIndex: artisjusIndexAvailable(),
+            cmoIndex: cmoIndexAvailable(),
+          };
+
   return {
     rows,
     summary: buildAuditSummary(rows),
@@ -163,6 +180,7 @@ export async function runArtistAudit(input: {
       mlcUnclaimedScanSource: mlcUnclaimedScan?.scanSource ?? "none",
       mlcUnmatchedSkipped: artistAuditSkipMlcUnmatched(),
       mlcUnclaimedSkipped: artistAuditSkipMlcUnclaimed(),
+      sourceCapabilities,
     },
   };
 }

@@ -116,3 +116,125 @@ export const AUDIT_SOURCES_INTRO =
 
 /** @deprecated use AUDIT_FORM_HINT */
 export const AUDIT_SEARCH_BLURB = AUDIT_FORM_HINT;
+
+export type AuditSourceCoverageStatus = "found" | "clear" | "skipped" | "unavailable";
+
+export interface AuditSourceCoverageItem {
+  id: string;
+  label: string;
+  status: AuditSourceCoverageStatus;
+  count: number;
+  detail: string;
+}
+
+export function buildAuditSourceCoverage(meta: {
+  artisjusCount: number;
+  mlcUnmatchedCount: number;
+  mlcUnclaimedCount: number;
+  cmoCounts?: Partial<Record<CmoSourceId, number>>;
+  ejiCount?: number;
+  mlcUnmatchedSkipped?: boolean;
+  mlcUnclaimedSkipped?: boolean;
+  dataBackend?: "local" | "query-api" | "unavailable";
+  sourceCapabilities?: {
+    catalog: boolean;
+    artisjusIndex: boolean;
+    cmoIndex: boolean;
+  };
+}): AuditSourceCoverageItem[] {
+  const caps = meta.sourceCapabilities;
+  const backendDown = meta.dataBackend === "unavailable";
+
+  function detail(
+    status: AuditSourceCoverageStatus,
+    count: number,
+    skippedReason?: string,
+  ): string {
+    if (status === "skipped") return skippedReason ?? "Most kihagyva";
+    if (status === "unavailable") return "Adatbázis nem elérhető";
+    if (status === "found") return `${count} találat`;
+    return "Nincs találat";
+  }
+
+  function artisjusStatus(): AuditSourceCoverageStatus {
+    if (backendDown || caps?.artisjusIndex === false) return "unavailable";
+    return meta.artisjusCount > 0 ? "found" : "clear";
+  }
+
+  function mlcUnmatchedStatus(): AuditSourceCoverageStatus {
+    if (meta.mlcUnmatchedSkipped) return "skipped";
+    if (backendDown || caps?.catalog === false) return "unavailable";
+    return meta.mlcUnmatchedCount > 0 ? "found" : "clear";
+  }
+
+  function mlcUnclaimedStatus(): AuditSourceCoverageStatus {
+    if (meta.mlcUnclaimedSkipped) return "skipped";
+    if (backendDown || caps?.catalog === false) return "unavailable";
+    return meta.mlcUnclaimedCount > 0 ? "found" : "clear";
+  }
+
+  function cmoStatus(id: CmoSourceId): AuditSourceCoverageStatus {
+    if (backendDown || caps?.cmoIndex === false) return "unavailable";
+    const count = meta.cmoCounts?.[id] ?? 0;
+    return count > 0 ? "found" : "clear";
+  }
+
+  function ejiStatus(): AuditSourceCoverageStatus {
+    return (meta.ejiCount ?? 0) > 0 ? "found" : "clear";
+  }
+
+  const cmoLabels: Record<CmoSourceId, string> = {
+    "at-akm": "Ausztria · AKM",
+    "at-aume": "Ausztria · AUME",
+    "nl-sena": "Hollandia · SENA",
+  };
+
+  const items: AuditSourceCoverageItem[] = [
+    {
+      id: "artisjus",
+      label: "Magyarország · ARTISJUS (szerzői)",
+      status: artisjusStatus(),
+      count: meta.artisjusCount,
+      detail: detail(artisjusStatus(), meta.artisjusCount),
+    },
+    {
+      id: "eji",
+      label: "Magyarország · EJI (szomszédjog)",
+      status: ejiStatus(),
+      count: meta.ejiCount ?? 0,
+      detail: detail(ejiStatus(), meta.ejiCount ?? 0),
+    },
+    {
+      id: "mlc-unmatched",
+      label: "USA · MLC streaming (unmatched)",
+      status: mlcUnmatchedStatus(),
+      count: meta.mlcUnmatchedCount,
+      detail: detail(
+        mlcUnmatchedStatus(),
+        meta.mlcUnmatchedCount,
+        "Most kihagyva (lassú lista)",
+      ),
+    },
+    {
+      id: "mlc-unclaimed",
+      label: "USA · MLC mechanikai (unclaimed)",
+      status: mlcUnclaimedStatus(),
+      count: meta.mlcUnclaimedCount,
+      detail: detail(mlcUnclaimedStatus(), meta.mlcUnclaimedCount, "Kihagyva"),
+    },
+  ];
+
+  for (const id of ["at-akm", "at-aume", "nl-sena"] as CmoSourceId[]) {
+    const status = cmoStatus(id);
+    const count = meta.cmoCounts?.[id] ?? 0;
+    items.push({
+      id,
+      label: cmoLabels[id],
+      status,
+      count,
+      detail: detail(status, count),
+    });
+  }
+
+  return items;
+}
