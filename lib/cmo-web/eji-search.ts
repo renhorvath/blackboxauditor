@@ -27,12 +27,16 @@ function artistTokens(name: string): string[] {
     .filter((t) => t.length >= 2);
 }
 
-/** Loose match — EJI often returns ALL-CAPS or partial names (e.g. JOSEPH QUIMBY). */
+/** Loose match — EJI often returns ALL-CAPS or partial names; whole-word tokens only. */
 export function ejiArtistMatchesQuery(mainArtist: string, query: string): boolean {
-  const hay = normalizeArtisjusText(mainArtist);
-  const tokens = artistTokens(query);
-  if (tokens.length === 0) return true;
-  return tokens.every((token) => hay.includes(token));
+  const hayTokens = new Set(
+    normalizeArtisjusText(mainArtist)
+      .split(/\s+/)
+      .filter((t) => t.length >= 2),
+  );
+  const queryTokens = artistTokens(query);
+  if (queryTokens.length === 0) return true;
+  return queryTokens.every((token) => hayTokens.has(token));
 }
 
 async function readCache(query: string, maxAgeMs: number): Promise<EjiSearchResult | null> {

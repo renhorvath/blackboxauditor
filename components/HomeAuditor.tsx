@@ -21,7 +21,7 @@ import type { ArtisjusWork } from "@/lib/artisjus-types";
 import { ArtistAuditResults } from "@/components/ArtistAuditResults";
 import { ArtistNameAuditForm } from "@/components/ArtistNameAuditForm";
 import { ArtistSearchCombobox } from "@/components/ArtistSearchCombobox";
-import { AUDIT_SEARCH_BLURB } from "@/lib/audit-source-labels";
+import { AUDIT_HERO_SUBTITLE, AUDIT_HERO_TITLE } from "@/lib/audit-source-labels";
 import { TrackSearchCombobox } from "@/components/TrackSearchCombobox";
 
 export function HomeAuditor() {
@@ -219,10 +219,10 @@ export function HomeAuditor() {
           BBOX AUDIT
         </p>
         <h1 className="mt-4 text-balance text-3xl font-bold tracking-tight text-[var(--text-primary)] md:text-4xl md:leading-[1.15]">
-          Hol akadt el a jogdíj?
+          {AUDIT_HERO_TITLE}
         </h1>
         <p className="mt-5 text-pretty text-base leading-relaxed text-[var(--text-secondary)]">
-          Írd be az előadó nevét — Spotify profil nem kell. {AUDIT_SEARCH_BLURB}
+          {AUDIT_HERO_SUBTITLE}
         </p>
       </div>
 

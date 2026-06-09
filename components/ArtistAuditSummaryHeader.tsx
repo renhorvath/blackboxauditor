@@ -38,8 +38,8 @@ export function ArtistAuditSummaryHeader({
 
   const verdict =
     problemCount === 0
-      ? "Egyik szervezet listáján sem találtunk elakadt jogdíjat."
-      : `${problemCount} dalnál akadt el a pénz legalább egy szervezetnél.`;
+      ? "A vizsgált listákon nem találtunk kifizetetlen bejegyzést ehhez a névhez."
+      : `${problemCount} dal szerepel legalább egy kifizetetlen vagy azonosítatlan listán.`;
 
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5">
@@ -71,7 +71,7 @@ export function ArtistAuditSummaryHeader({
 
       <details className="group mt-4 text-sm">
         <summary className="cursor-pointer text-xs font-medium text-[var(--text-muted)] marker:content-none">
-          Mit jelentenek a szervezetek?
+          Honnan jönnek ezek a számok?
         </summary>
         <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">{AUDIT_SOURCES_INTRO}</p>
         <ul className="mt-2 space-y-2 border-t border-[var(--border)] pt-3">

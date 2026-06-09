@@ -1,20 +1,27 @@
 import type { AuditRow } from "@/lib/types";
 import { CMO_SOURCE_LABELS } from "@/lib/cmo-types";
 import type { CmoSourceId } from "@/lib/cmo-types";
+import { isUncertainNameMatch } from "@/lib/artist-name-match";
 
 export function rowHasPayoutProblem(row: AuditRow): boolean {
   if (row.artisjusMatched) return true;
   if (row.mlcMatchStatus === "unmatched") return true;
   if (row.mlcUnclaimed) return true;
   if (row.cmoHits && row.cmoHits.length > 0) return true;
+  if (row.ejiHits && row.ejiHits.length > 0) return true;
   return row.issues.some(
     (i) =>
       i.type === "artisjus_unmatched" ||
       i.type === "cmo_unmatched" ||
       i.type === "mlc_unclaimed_share" ||
       i.type === "no_mlc_match" ||
-      i.type === "artisjus_foreign_only",
+      i.type === "artisjus_foreign_only" ||
+      i.type === "eji_unidentified",
   );
+}
+
+export function rowIsVisibleByDefault(query: string, row: AuditRow): boolean {
+  return !isUncertainNameMatch(query, row.artist);
 }
 
 const CMO_SUMMARY: Record<CmoSourceId, string> = {

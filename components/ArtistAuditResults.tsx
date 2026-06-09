@@ -3,7 +3,12 @@
 import { useMemo, useState } from "react";
 import { CheckCircle2, ChevronDown, Loader2 } from "lucide-react";
 import { rowHasPayoutProblem, sortArtistAuditRows } from "@/lib/artist-audit-display";
-import { AUDIT_SEARCH_BLURB } from "@/lib/audit-source-labels";
+import {
+  AUDIT_FILTER_ALL,
+  AUDIT_FILTER_HINT,
+  AUDIT_FILTER_PROBLEMS,
+  AUDIT_LOADING_MESSAGE,
+} from "@/lib/audit-source-labels";
 import type { ArtistAuditMeta } from "@/lib/types";
 import type { AuditRow, AuditSummary } from "@/lib/types";
 import { ArtistAuditRowCard } from "@/components/ArtistAuditRowCard";
@@ -47,9 +52,7 @@ export function ArtistAuditResults({
         <div className="flex flex-col items-center gap-3 text-center">
           <Loader2 className="size-8 animate-spin text-[var(--accent-primary)]" aria-hidden />
           <p className="text-lg font-semibold text-[var(--text-primary)]">{artistName}</p>
-          <p className="max-w-md text-sm text-[var(--text-secondary)]">
-            Keresés: {AUDIT_SEARCH_BLURB}
-          </p>
+          <p className="max-w-md text-sm text-[var(--text-secondary)]">{AUDIT_LOADING_MESSAGE}</p>
         </div>
       </section>
     );
@@ -67,29 +70,32 @@ export function ArtistAuditResults({
         onClearArtist={onClearArtist}
       />
 
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => setOnlyProblems(true)}
-          className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-            onlyProblems
-              ? "bg-[var(--accent-primary)] text-white"
-              : "bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
-          }`}
-        >
-          Csak ahol elakadt a pénz ({problemCount})
-        </button>
-        <button
-          type="button"
-          onClick={() => setOnlyProblems(false)}
-          className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-            !onlyProblems
-              ? "bg-[var(--accent-primary)] text-white"
-              : "bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
-          }`}
-        >
-          Minden találat ({sorted.length})
-        </button>
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setOnlyProblems(true)}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+              onlyProblems
+                ? "bg-[var(--accent-primary)] text-white"
+                : "bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
+            }`}
+          >
+            {AUDIT_FILTER_PROBLEMS} ({problemCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setOnlyProblems(false)}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+              !onlyProblems
+                ? "bg-[var(--accent-primary)] text-white"
+                : "bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
+            }`}
+          >
+            {AUDIT_FILTER_ALL} ({sorted.length})
+          </button>
+        </div>
+        <p className="text-xs text-[var(--text-muted)]">{AUDIT_FILTER_HINT}</p>
       </div>
 
       {visible.length === 0 ? (
@@ -97,7 +103,7 @@ export function ArtistAuditResults({
           <CheckCircle2 className="mx-auto size-8 text-[var(--text-muted)]" aria-hidden />
           <p className="mt-3 font-medium text-[var(--text-primary)]">
             {onlyProblems
-              ? "Nincs elakadt jogdíj a vizsgált találatokon."
+              ? "Ezeken a dalokon nem találtunk kifizetetlen listás bejegyzést."
               : "Nincs megjeleníthető találat."}
           </p>
           {onlyProblems && sorted.length > 0 ? (

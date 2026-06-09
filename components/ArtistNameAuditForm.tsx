@@ -1,7 +1,7 @@
 "use client";
 
 import { Search } from "lucide-react";
-import { AUDIT_SEARCH_BLURB } from "@/lib/audit-source-labels";
+import { AUDIT_FORM_HINT, AUDIT_FORM_PLACEHOLDER } from "@/lib/audit-source-labels";
 
 export function ArtistNameAuditForm({
   disabled,
@@ -35,13 +35,11 @@ export function ArtistNameAuditForm({
             minLength={2}
             required
             disabled={disabled || busy}
-            placeholder="pl. Jazzbois, Demjén Ferenc, Carson Coma"
+            placeholder={AUDIT_FORM_PLACEHOLDER}
             className="input-bbox w-full py-2.5 pl-10 pr-4"
           />
         </div>
-        <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">
-          Spotify profil nem kell. {AUDIT_SEARCH_BLURB}
-        </p>
+        <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">{AUDIT_FORM_HINT}</p>
       </div>
       <button
         type="submit"

@@ -1,5 +1,4 @@
 import type { CmoSourceId } from "@/lib/cmo-types";
-import { CMO_SOURCE_LABELS } from "@/lib/cmo-types";
 
 /** One chip per jogkezelő / collecting society — same logic for ARTISJUS, MLC, AKM, … */
 export interface AuditSourceChip {
@@ -8,34 +7,55 @@ export interface AuditSourceChip {
   count: number;
 }
 
+export const AUDIT_HERO_TITLE =
+  "Van zenéd, aminek a jogdíja esetleg nem jutott el hozzád?";
+
+export const AUDIT_HERO_SUBTITLE =
+  "Írd be, milyen néven szerepelsz a kiadványokon és streamingszolgáltatókon. Megnézzük, szerepelsz-e valamelyik kifizetetlen vagy azonosítatlan listán.";
+
+export const AUDIT_FORM_PLACEHOLDER = "Előadóneved a kiadványokon";
+
+export const AUDIT_FORM_HINT =
+  "Ugyanaz a név, amit a daloknál látni szoktál — szóló, zenekar vagy feat-esődj is jó. Nem kell pontosan egyeznie a jogi névvel.";
+
+export const AUDIT_LOADING_MESSAGE =
+  "Kifizetetlen és azonosítatlan listákat nézem…";
+
+export const AUDIT_FILTER_PROBLEMS = "Kifizetetlen listán szerepel";
+
+export const AUDIT_FILTER_ALL = "Minden névegyezés";
+
+export const AUDIT_FILTER_HINT =
+  "A második fül olyan dalokat is mutat, ahol csak a név hasonlít — nem biztos, hogy a tiéd.";
+
 export const AUDIT_SOURCE_HELP: { label: string; text: string }[] = [
   {
     label: "ARTISJUS (Magyarország)",
-    text: "Magyar jogkezelő: lejátszották, de nem tudták kinek utalni (azonosítatlan mű).",
+    text: "Magyar szerzői jog: lejátszották, de nem tudták kinek utalni (azonosítatlan mű).",
   },
   {
     label: "MLC · unmatched (USA)",
-    text: "Amerikai mechanikai jogdíj-központ: a streaming bevétel megvan, de a felvétel nincs műhöz kötve.",
+    text: "Amerikai streaming-jogdíj: a bevétel megvan, de a felvétel nincs műhöz kötve.",
   },
   {
     label: "MLC · unclaimed (USA)",
-    text: "Ugyanaz a szervezet (The MLC): a mű szerepel, de a mechanikai részesedés nincs claimelve (black box).",
+    text: "Ugyanaz a szervezet (The MLC): a mű szerepel, de a mechanikai részesedés nincs claimelve.",
   },
   {
     label: "AKM (Ausztria)",
-    text: "Osztrák szerzői jogkezelő — azonosítatlan művek listája (Anfrageliste).",
+    text: "Osztrák szerzői jog — azonosítatlan művek listája.",
   },
   {
     label: "AUME (Ausztria)",
-    text: "Austro-Mechana — mechanikai jog, nem claimelt művek.",
+    text: "Osztrák mechanikai jog — nem claimelt művek.",
   },
   {
     label: "SENA (Hollandia)",
-    text: "Holland szomszédjogi kezelő — külföldi, nem claimelt felvételek.",
+    text: "Holland szomszédjog — külföldi, nem claimelt felvételek.",
   },
   {
     label: "EJI (Magyarország)",
-    text: "Magyar szomszédjogi kezelő — jogosultkutatás: hiányzó adat miatt nem tudták kifizetni a jogdíjat.",
+    text: "Magyar szomszédjog — hiányzó adat miatt nem tudták kifizetni a jogdíjat.",
   },
 ];
 
@@ -49,25 +69,25 @@ export function buildAuditSourceChips(input: {
   const chips: AuditSourceChip[] = [];
 
   if (input.artisjusCount > 0) {
-    chips.push({ id: "artisjus", label: "ARTISJUS", count: input.artisjusCount });
+    chips.push({ id: "artisjus", label: "Magyarország · ARTISJUS", count: input.artisjusCount });
   }
   if (input.mlcUnmatchedCount > 0) {
     chips.push({
       id: "mlc-unmatched",
-      label: "MLC · unmatched",
+      label: "USA · streaming (unmatched)",
       count: input.mlcUnmatchedCount,
     });
   }
   if (input.mlcUnclaimedCount > 0) {
     chips.push({
       id: "mlc-unclaimed",
-      label: "MLC · unclaimed",
+      label: "USA · mechanikai (unclaimed)",
       count: input.mlcUnclaimedCount,
     });
   }
 
   if ((input.ejiCount ?? 0) > 0) {
-    chips.push({ id: "eji", label: "EJI", count: input.ejiCount ?? 0 });
+    chips.push({ id: "eji", label: "Magyarország · EJI", count: input.ejiCount ?? 0 });
   }
 
   const cmoOrder: CmoSourceId[] = ["at-akm", "at-aume", "nl-sena"];
@@ -76,7 +96,7 @@ export function buildAuditSourceChips(input: {
     if (count > 0) {
       chips.push({
         id,
-        label: CMO_SOURCE_LABELS[id].replace(" (AT)", "").replace(" (NL)", ""),
+        label: CMO_SOURCE_LABELS[id],
         count,
       });
     }
@@ -87,8 +107,7 @@ export function buildAuditSourceChips(input: {
 
 /** Plain-language intro for the results header glossary. */
 export const AUDIT_SOURCES_INTRO =
-  "Minden chip egy jogdíjat kezelő szervezet (CMO / collecting society). Az ARTISJUS a magyar szerzői, az EJI a magyar szomszédjogi kezelő; az MLC az amerikai mechanikai központ; az AKM, AUME és SENA külföldi listáink.";
+  "Minden jelölés egy jogdíjat kezelő szervezet listáját jelenti. A szám azt mutatja, hány találat jött onnan — nem feltétlenül ennyi külön dal.";
 
-/** Homepage / search helper copy — no fake „európai CMO” bucket. */
-export const AUDIT_SEARCH_BLURB =
-  "Az ARTISJUS, EJI, MLC (USA), AKM, AUME és SENA listáiban / jogosultkutatásában keresünk.";
+/** @deprecated use AUDIT_FORM_HINT */
+export const AUDIT_SEARCH_BLURB = AUDIT_FORM_HINT;
