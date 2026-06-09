@@ -23,32 +23,32 @@ export async function fetchLocalArtistSources(
   const skipUnmatched = options?.skipMlcUnmatched ?? false;
   const skipUnclaimed = options?.skipMlcUnclaimed ?? false;
 
-  const [mlcUnmatched, mlcUnclaimed] = await Promise.all([
+  const [mlcUnmatched, mlcUnclaimed, artisjusMatches, cmoMatches] = await Promise.all([
     skipUnmatched
       ? Promise.resolve(null)
       : scanMlcArtist(artistName, { forceRefresh }),
     skipUnclaimed
       ? Promise.resolve(null)
       : scanMlcUnclaimedArtist(artistName, { forceRefresh }),
+    artisjusIndexAvailable()
+      ? Promise.resolve().then(() => {
+          try {
+            return searchArtisjusByArtist(artistName, 150);
+          } catch {
+            return [];
+          }
+        })
+      : Promise.resolve([]),
+    cmoIndexAvailable()
+      ? Promise.resolve().then(() => {
+          try {
+            return searchCmoByArtist(artistName, { limit: 120 });
+          } catch {
+            return [];
+          }
+        })
+      : Promise.resolve([]),
   ]);
-
-  let artisjusMatches: ReturnType<typeof searchArtisjusByArtist> = [];
-  if (artisjusIndexAvailable()) {
-    try {
-      artisjusMatches = searchArtisjusByArtist(artistName, 150);
-    } catch {
-      // index optional
-    }
-  }
-
-  let cmoMatches: ReturnType<typeof searchCmoByArtist> = [];
-  if (cmoIndexAvailable()) {
-    try {
-      cmoMatches = searchCmoByArtist(artistName, { limit: 120 });
-    } catch {
-      // index optional
-    }
-  }
 
   return {
     artistName,

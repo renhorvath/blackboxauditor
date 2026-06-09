@@ -187,15 +187,22 @@ function parseUnclaimedExportCsv(filePath: string): MlcUnclaimedHit[] {
   return [...byIsrc.values()];
 }
 
+function isCatalogLockError(stderr: string): boolean {
+  return (
+    stderr.includes("Conflicting lock") ||
+    stderr.includes("Could not set lock on file")
+  );
+}
+
 function runPythonJsonScript<T>(
   scriptRel: string,
   artistName: string,
   extraArgs: string[],
-): Promise<T | null> {
-  if (!mlcPythonAvailable()) return Promise.resolve(null);
+): Promise<{ result: T | null; stderr: string }> {
+  if (!mlcPythonAvailable()) return Promise.resolve({ result: null, stderr: "" });
 
   const script = path.join(process.cwd(), scriptRel);
-  if (!fs.existsSync(script)) return Promise.resolve(null);
+  if (!fs.existsSync(script)) return Promise.resolve({ result: null, stderr: "" });
 
   const python = process.env.MLC_PYTHON?.trim() || "python3";
   const outDir = scansBaseDir();
@@ -225,7 +232,7 @@ function runPythonJsonScript<T>(
 
     const finish = (result: T | null) => {
       if (timer) clearTimeout(timer);
-      resolve(result);
+      resolve({ result, stderr });
     };
 
     timer = setTimeout(() => {
@@ -256,15 +263,28 @@ function runPythonJsonScript<T>(
 async function scanViaDuckdb<T extends { hits: unknown[]; scanSource?: string }>(
   kind: MlcScanKind,
   artistName: string,
-): Promise<(T & { fromCache: false; scanSource: "duckdb" }) | null> {
+): Promise<{
+  hit: (T & { fromCache: false; scanSource: "duckdb" }) | null;
+  catalogLocked: boolean;
+}> {
   const db = catalogDbPath();
-  const parsed = await runPythonJsonScript<T>(
+  const { result, stderr } = await runPythonJsonScript<T>(
     "scripts/etl/export_artist_mlc_json.py",
     artistName,
     ["--kind", kind, "--db", db],
   );
-  if (!parsed) return null;
-  return { ...parsed, fromCache: false, scanSource: "duckdb" };
+  if (!result) {
+    const catalogLocked = isCatalogLockError(stderr);
+    if (catalogLocked) {
+      console.warn("[mlc-artist-scan] catalog.duckdb locked — skipping MLC (index build?)");
+    }
+    return { hit: null, catalogLocked };
+  }
+  return { hit: { ...result, fromCache: false, scanSource: "duckdb" }, catalogLocked: false };
+}
+
+function tsvFallbackDisabled(): boolean {
+  return process.env.MLC_SKIP_TSV_FALLBACK?.trim().toLowerCase() === "true";
 }
 
 export function catalogAvailable(): boolean {
@@ -313,17 +333,17 @@ export async function scanMlcArtist(
   }
 
   if (duckdbEnabled()) {
-    const fromDb = await scanViaDuckdb<Omit<MlcArtistScanResult, "fromCache" | "scanSource">>(
-      "unmatched",
-      artistName,
-    );
-    if (fromDb) return fromDb;
+    const { hit, catalogLocked } = await scanViaDuckdb<
+      Omit<MlcArtistScanResult, "fromCache" | "scanSource">
+    >("unmatched", artistName);
+    if (hit) return hit;
+    if (catalogLocked || tsvFallbackDisabled()) return null;
   }
 
   const tsv = process.env.MLC_UNMATCHED_TSV?.trim();
   if (!mlcPythonAvailable() || !tsv) return null;
   const extraArgs = ["--tsv", tsv];
-  const parsed = await runPythonJsonScript<
+  const { result: parsed } = await runPythonJsonScript<
     Omit<MlcArtistScanResult, "fromCache" | "scanSource">
   >("scripts/mlc/export_artist_mlc_json.py", artistName, extraArgs);
   if (!parsed) return null;
@@ -340,19 +360,20 @@ export async function scanMlcUnclaimedArtist(
   }
 
   if (duckdbEnabled()) {
-    const fromDb = await scanViaDuckdb<Omit<MlcUnclaimedScanResult, "fromCache" | "scanSource">>(
-      "unclaimed",
-      artistName,
-    );
-    if (fromDb) return fromDb;
+    const { hit, catalogLocked } = await scanViaDuckdb<
+      Omit<MlcUnclaimedScanResult, "fromCache" | "scanSource">
+    >("unclaimed", artistName);
+    if (hit) return hit;
+    if (catalogLocked || tsvFallbackDisabled()) return null;
   }
 
   const tsv = process.env.MLC_UNCLAIMED_TSV?.trim();
   if (!mlcPythonAvailable() || !tsv) return null;
   const extraArgs = ["--tsv", tsv];
-  const parsed = await runPythonJsonScript<
+  const { result: parsed, stderr } = await runPythonJsonScript<
     Omit<MlcUnclaimedScanResult, "fromCache" | "scanSource">
   >("scripts/mlc/export_artist_unclaimed_json.py", artistName, extraArgs);
+  if (!parsed && isCatalogLockError(stderr)) return null;
   if (!parsed) return null;
   return { ...parsed, fromCache: false, scanSource: "live" };
 }
