@@ -82,7 +82,12 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && url === "/v1/artist/sources") {
       if (!authOk(req)) return unauthorized(res);
 
-      let body: { artistName?: string; forceRefresh?: boolean };
+      let body: {
+        artistName?: string;
+        forceRefresh?: boolean;
+        skipMlcUnmatched?: boolean;
+        skipMlcUnclaimed?: boolean;
+      };
       try {
         body = JSON.parse(await readBody(req)) as typeof body;
       } catch {
@@ -96,6 +101,8 @@ const server = http.createServer(async (req, res) => {
 
       const payload = await fetchLocalArtistSources(artistName, {
         forceRefresh: body.forceRefresh === true,
+        skipMlcUnmatched: body.skipMlcUnmatched === true,
+        skipMlcUnclaimed: body.skipMlcUnclaimed === true,
       });
       return json(res, 200, payload);
     }

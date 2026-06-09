@@ -186,6 +186,10 @@ export interface ArtistAuditMeta {
   dataBackend?: "local" | "query-api" | "unavailable";
   mlcScanSource: "cache" | "duckdb" | "live" | "remote" | "none";
   mlcUnclaimedScanSource: "cache" | "duckdb" | "live" | "remote" | "none";
+  /** MLC unmatched omitted (ARTIST_AUDIT_SKIP_MLC / _UNMATCHED on Vercel). */
+  mlcUnmatchedSkipped?: boolean;
+  /** MLC unclaimed omitted (ARTIST_AUDIT_SKIP_MLC_ALL on Vercel). */
+  mlcUnclaimedSkipped?: boolean;
   albumsScanned?: number;
   cappedByAlbums?: boolean;
   cappedByTracks?: boolean;

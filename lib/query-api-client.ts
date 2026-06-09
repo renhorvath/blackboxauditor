@@ -1,5 +1,7 @@
 import type { ArtistAuditSourcesPayload, QueryApiHealthResponse } from "@/lib/query-api-types";
 import {
+  artistAuditSkipMlcUnclaimed,
+  artistAuditSkipMlcUnmatched,
   queryApiBaseUrl,
   queryApiKey,
   queryApiTimeoutMs,
@@ -40,6 +42,8 @@ export async function fetchArtistSourcesFromQueryApi(
     body: JSON.stringify({
       artistName,
       forceRefresh: options?.forceRefresh ?? false,
+      skipMlcUnmatched: artistAuditSkipMlcUnmatched(),
+      skipMlcUnclaimed: artistAuditSkipMlcUnclaimed(),
     }),
     signal: AbortSignal.timeout(queryApiTimeoutMs()),
     cache: "no-store",

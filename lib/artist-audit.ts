@@ -18,7 +18,7 @@ import {
 import { searchEjiByArtist } from "@/lib/cmo-web/eji-search";
 import { buildRowsFromMlcHits, mergeMlcUnclaimedHits } from "@/lib/mlc-enrich";
 import type { MlcArtistScanResult, MlcUnclaimedScanResult } from "@/lib/mlc-artist-scan";
-import { shouldUseQueryApi, queryApiBaseUrl } from "@/lib/query-api-config";
+import { artistAuditSkipMlcUnclaimed, artistAuditSkipMlcUnmatched, shouldUseQueryApi, queryApiBaseUrl } from "@/lib/query-api-config";
 import { isServerlessRuntime } from "@/lib/runtime-env";
 import {
   fetchArtistSourcesFromQueryApi,
@@ -161,6 +161,8 @@ export async function runArtistAudit(input: {
       dataBackend,
       mlcScanSource: mlcScan?.scanSource ?? "none",
       mlcUnclaimedScanSource: mlcUnclaimedScan?.scanSource ?? "none",
+      mlcUnmatchedSkipped: artistAuditSkipMlcUnmatched(),
+      mlcUnclaimedSkipped: artistAuditSkipMlcUnclaimed(),
     },
   };
 }

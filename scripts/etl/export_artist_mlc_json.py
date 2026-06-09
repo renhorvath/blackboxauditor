@@ -17,7 +17,7 @@ MLC_DIR = ETL_DIR.parent / "mlc"
 sys.path.insert(0, str(MLC_DIR))
 
 from catalog_paths import catalog_db_path, load_dotenv_local  # noqa: E402
-from scan_tsv_by_artist import artist_matches, build_terms, slugify  # noqa: E402
+from scan_tsv_by_artist import artist_matches, build_terms, normalize, slugify  # noqa: E402
 
 load_dotenv_local()
 
@@ -34,6 +34,162 @@ def sql_like_pattern(term: str) -> str:
     return f"%{term.strip()}%"
 
 
+def search_tokens(artist_name: str) -> list[str]:
+    tokens: list[str] = []
+    for term in build_terms(artist_name, artist_name):
+        norm = normalize(term)
+        if not norm:
+            continue
+        for word in norm.split():
+            if len(word) >= 2 and word not in tokens:
+                tokens.append(word)
+    return tokens
+
+
+def token_table_is_minimal(con: duckdb.DuckDBPyConnection, token_table: str) -> bool:
+    rows = con.execute(
+        """
+        SELECT lower(column_name)
+        FROM information_schema.columns
+        WHERE table_name = ?
+        """,
+        [token_table],
+    ).fetchall()
+    cols = {r[0] for r in rows}
+    return cols <= {"token", "isrc"}
+
+
+def fetch_unmatched_via_tokens(
+    con: duckdb.DuckDBPyConnection,
+    artist_name: str,
+    *,
+    limit: int,
+    match_mode: str = "collab",
+) -> list[dict]:
+    if not table_exists(con, "mlc_unmatched_artist_tokens"):
+        return []
+
+    terms = build_terms(artist_name, artist_name)
+    tokens = search_tokens(artist_name)
+    if not tokens:
+        return []
+
+    placeholders = ", ".join("?" for _ in tokens)
+    if token_table_is_minimal(con, "mlc_unmatched_artist_tokens"):
+        rows = con.execute(
+            f"""
+            SELECT m.ISRC, m.ResourceTitle, m.DisplayArtistName,
+                   m.OriginalDataProviderName, m.ResourceType
+            FROM mlc_unmatched_artist_tokens t
+            INNER JOIN mlc_unmatched m ON upper(trim(m.ISRC)) = t.isrc
+            WHERE t.token IN ({placeholders})
+            """,
+            tokens,
+        ).fetchall()
+    else:
+        rows = con.execute(
+            f"""
+            SELECT ISRC, ResourceTitle, DisplayArtistName, OriginalDataProviderName, ResourceType
+            FROM mlc_unmatched_artist_tokens
+            WHERE token IN ({placeholders})
+            """,
+            tokens,
+        ).fetchall()
+
+    seen: set[str] = set()
+    hits: list[dict] = []
+    for isrc, title, artist, provider, resource_type in rows:
+        if not artist_matches(str(artist or ""), terms, match_mode):
+            continue
+        key = (isrc or "").strip().upper()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        hits.append(
+            {
+                "isrc": key,
+                "title": (title or "").strip(),
+                "artist": (artist or "").strip(),
+                "provider": (provider or "").strip(),
+                "resourceType": (resource_type or "").strip() or None,
+            }
+        )
+        if len(hits) >= limit:
+            break
+    return hits
+
+
+def fetch_unclaimed_via_tokens(
+    con: duckdb.DuckDBPyConnection,
+    artist_name: str,
+    *,
+    limit: int,
+    match_mode: str = "collab",
+) -> list[dict]:
+    if not table_exists(con, "mlc_unclaimed_artist_tokens"):
+        return []
+
+    terms = build_terms(artist_name, artist_name)
+    tokens = search_tokens(artist_name)
+    if not tokens:
+        return []
+
+    placeholders = ", ".join("?" for _ in tokens)
+    if token_table_is_minimal(con, "mlc_unclaimed_artist_tokens"):
+        rows = con.execute(
+            f"""
+            SELECT m.ISRC, m.ResourceTitle, m.DisplayArtistName,
+                   m.UnclaimedRightSharePercentage, m.MusicalWorkRecordId, m.DspResourceId
+            FROM mlc_unclaimed_artist_tokens t
+            INNER JOIN mlc_unclaimed m ON upper(trim(m.ISRC)) = t.isrc
+            WHERE t.token IN ({placeholders})
+            """,
+            tokens,
+        ).fetchall()
+    else:
+        rows = con.execute(
+            f"""
+            SELECT ISRC, ResourceTitle, DisplayArtistName,
+                   UnclaimedRightSharePercentage, MusicalWorkRecordId, DspResourceId
+            FROM mlc_unclaimed_artist_tokens
+            WHERE token IN ({placeholders})
+            """,
+            tokens,
+        ).fetchall()
+
+    by_isrc: dict[str, dict] = {}
+    for isrc, title, artist, pct, work_id, dsp_id in rows:
+        if not artist_matches(str(artist or ""), terms, match_mode):
+            continue
+        key = (isrc or "").strip().upper()
+        if not key:
+            continue
+
+        pct_val = float(pct) if pct is not None and str(pct).strip() != "" else None
+        hit = {
+            "isrc": key,
+            "title": (title or "").strip(),
+            "artist": (artist or "").strip(),
+            "workRecordId": (work_id or "").strip(),
+            "unclaimedPct": pct_val,
+            "dspResourceId": (dsp_id or "").strip(),
+        }
+
+        existing = by_isrc.get(key)
+        if existing is None:
+            by_isrc[key] = hit
+            continue
+        if pct_val is not None:
+            prev = existing.get("unclaimedPct")
+            if prev is None or pct_val > prev:
+                existing["unclaimedPct"] = pct_val
+
+        if len(by_isrc) >= limit:
+            break
+
+    return list(by_isrc.values())[:limit]
+
+
 def fetch_unmatched(
     con: duckdb.DuckDBPyConnection,
     artist_name: str,
@@ -43,6 +199,12 @@ def fetch_unmatched(
 ) -> list[dict]:
     if not table_exists(con, "mlc_unmatched"):
         return []
+
+    via_tokens = fetch_unmatched_via_tokens(
+        con, artist_name, limit=limit, match_mode=match_mode
+    )
+    if via_tokens or table_exists(con, "mlc_unmatched_artist_tokens"):
+        return via_tokens
 
     terms = build_terms(artist_name, artist_name)
     if not terms:
@@ -92,6 +254,12 @@ def fetch_unclaimed(
 ) -> list[dict]:
     if not table_exists(con, "mlc_unclaimed"):
         return []
+
+    via_tokens = fetch_unclaimed_via_tokens(
+        con, artist_name, limit=limit, match_mode=match_mode
+    )
+    if via_tokens or table_exists(con, "mlc_unclaimed_artist_tokens"):
+        return via_tokens
 
     terms = build_terms(artist_name, artist_name)
     if not terms:

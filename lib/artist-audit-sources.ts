@@ -13,13 +13,23 @@ import type { ArtistAuditSourcesPayload } from "@/lib/query-api-types";
  */
 export async function fetchLocalArtistSources(
   artistName: string,
-  options?: { forceRefresh?: boolean },
+  options?: {
+    forceRefresh?: boolean;
+    skipMlcUnmatched?: boolean;
+    skipMlcUnclaimed?: boolean;
+  },
 ): Promise<ArtistAuditSourcesPayload> {
   const forceRefresh = options?.forceRefresh ?? false;
+  const skipUnmatched = options?.skipMlcUnmatched ?? false;
+  const skipUnclaimed = options?.skipMlcUnclaimed ?? false;
 
   const [mlcUnmatched, mlcUnclaimed] = await Promise.all([
-    scanMlcArtist(artistName, { forceRefresh }),
-    scanMlcUnclaimedArtist(artistName, { forceRefresh }),
+    skipUnmatched
+      ? Promise.resolve(null)
+      : scanMlcArtist(artistName, { forceRefresh }),
+    skipUnclaimed
+      ? Promise.resolve(null)
+      : scanMlcUnclaimedArtist(artistName, { forceRefresh }),
   ]);
 
   let artisjusMatches: ReturnType<typeof searchArtisjusByArtist> = [];

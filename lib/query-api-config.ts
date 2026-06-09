@@ -26,3 +26,17 @@ export function queryApiTimeoutMs(): number {
   const n = Number(process.env.QUERY_API_TIMEOUT_MS ?? 120_000);
   return Number.isFinite(n) && n > 0 ? n : 120_000;
 }
+
+function envFlag(name: string): boolean {
+  return process.env[name]?.trim().toLowerCase() === "true";
+}
+
+/** Vercel: skip slow MLC unmatched (~845M rows). Unclaimed still runs. */
+export function artistAuditSkipMlcUnmatched(): boolean {
+  return envFlag("ARTIST_AUDIT_SKIP_MLC_UNMATCHED") || envFlag("ARTIST_AUDIT_SKIP_MLC");
+}
+
+/** Vercel: skip MLC unclaimed too (normally unnecessary — ~68M rows, fast). */
+export function artistAuditSkipMlcUnclaimed(): boolean {
+  return envFlag("ARTIST_AUDIT_SKIP_MLC_ALL");
+}
