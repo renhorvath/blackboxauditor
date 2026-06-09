@@ -90,13 +90,18 @@ export function buildAuditSourceChips(input: {
     chips.push({ id: "eji", label: "Magyarország · EJI", count: input.ejiCount ?? 0 });
   }
 
+  const cmoChipLabels: Record<CmoSourceId, string> = {
+    "at-akm": "Ausztria · AKM",
+    "at-aume": "Ausztria · AUME",
+    "nl-sena": "Hollandia · SENA",
+  };
   const cmoOrder: CmoSourceId[] = ["at-akm", "at-aume", "nl-sena"];
   for (const id of cmoOrder) {
     const count = input.cmoCounts?.[id] ?? 0;
     if (count > 0) {
       chips.push({
         id,
-        label: CMO_SOURCE_LABELS[id],
+        label: cmoChipLabels[id],
         count,
       });
     }
