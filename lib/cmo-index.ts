@@ -17,6 +17,7 @@ const STOP = new Set([
 ]);
 
 let cached: CmoIndexFile | null = null;
+let cachedMtimeMs: number | null = null;
 let loadError: string | null = null;
 
 function indexPath(): string {
@@ -43,13 +44,15 @@ export function getCmoIndexLoadError(): string | null {
 }
 
 function getCmoIndex(): CmoIndexFile {
-  if (cached) return cached;
   const file = indexPath();
   if (!fs.existsSync(file)) {
     loadError = `CMO index missing: ${file}. Run: npm run cmo:build-index`;
     throw new Error(loadError);
   }
+  const mtimeMs = fs.statSync(file).mtimeMs;
+  if (cached && cachedMtimeMs === mtimeMs) return cached;
   cached = JSON.parse(fs.readFileSync(file, "utf-8")) as CmoIndexFile;
+  cachedMtimeMs = mtimeMs;
   loadError = null;
   return cached;
 }

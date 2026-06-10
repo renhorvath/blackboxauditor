@@ -6,6 +6,7 @@ import { rowHasPayoutProblem, sortArtistAuditRows } from "@/lib/artist-audit-dis
 import {
   ALL_NAME_VARIANTS,
   ALL_SOURCE_FILTER_IDS,
+  computeAuditCountsFromRows,
   rowMatchesNameVariant,
   rowMatchesSourceFilters,
   type AuditSourceFilterId,
@@ -56,14 +57,19 @@ export function ArtistAuditResults({
 
   const sorted = useMemo(() => (rows ? sortArtistAuditRows(rows) : []), [rows]);
 
+  const variantRows = useMemo(
+    () => sorted.filter((row) => rowMatchesNameVariant(row, selectedVariant)),
+    [sorted, selectedVariant],
+  );
+
+  const displayMeta = useMemo(() => {
+    if (!meta) return null;
+    return { ...meta, ...computeAuditCountsFromRows(variantRows) };
+  }, [meta, variantRows]);
+
   const filtered = useMemo(
-    () =>
-      sorted.filter(
-        (row) =>
-          rowMatchesNameVariant(row, selectedVariant) &&
-          rowMatchesSourceFilters(row, enabledSources),
-      ),
-    [sorted, selectedVariant, enabledSources],
+    () => variantRows.filter((row) => rowMatchesSourceFilters(row, enabledSources)),
+    [variantRows, enabledSources],
   );
 
   const visible = useMemo(
@@ -104,7 +110,7 @@ export function ArtistAuditResults({
     <section className="space-y-4">
       <ArtistAuditSummaryHeader
         artistName={artistName}
-        meta={meta}
+        meta={displayMeta ?? meta}
         problemCount={problemCount}
         totalCount={filtered.length}
         onClearArtist={onClearArtist}
@@ -112,7 +118,8 @@ export function ArtistAuditResults({
 
       <ArtistAuditFilters
         query={artistName}
-        rows={sorted}
+        allRows={sorted}
+        countRows={variantRows}
         selectedVariant={selectedVariant}
         onVariantChange={setSelectedVariant}
         enabledSources={enabledSources}
