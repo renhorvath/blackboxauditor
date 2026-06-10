@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Download EAÜ unidentified works CSV when the Estonian site is reachable.
 
-The research cites portal.eau.ee/unidentified — that hostname is NXDOMAIN (2026-06).
-The public UI is on www.eau.ee; CSV export is via the interactive database (no stable direct URL).
+EAÜ public site: https://eau.org (not eau.ee — the .ee host does not respond).
+The research typo portal.eau.ee likely meant portal.eau.org (subdomain often unreachable off-EE networks).
 
 Manual fallback:
-  1. Open https://www.eau.ee/et/muusikaautorite-andmekogu/tuvastamata-teosed
-  2. Use the CSV export button in the UI
+  1. Open https://eau.org and navigate to the unidentified-works database (CSV export in UI)
+  2. Or try https://portal.eau.org/unidentified if it resolves from your network
   3. Save as raw/cmo/ee-eau/unidentified.csv
   4. npm run cmo:build-index
 """
@@ -26,8 +26,9 @@ OUT_FILE = OUT_DIR / "unidentified.csv"
 
 # Pages and guessed export endpoints (best-effort; site may change).
 CANDIDATE_URLS: tuple[str, ...] = (
-    "https://www.eau.ee/et/muusikaautorite-andmekogu/tuvastamata-teosed",
-    "https://www.eau.ee/en/music-authors-database/unidentified-works",
+    "https://eau.org/et/muusikaautorite-andmekogu/tuvastamata-teosed",
+    "https://eau.org/en/music-authors-database/unidentified-works",
+    "https://portal.eau.org/unidentified",
 )
 
 
@@ -46,7 +47,7 @@ def find_csv_links(html: str) -> list[str]:
         low = match.lower()
         if ".csv" in low or "export" in low or "download" in low:
             if match.startswith("/"):
-                links.append(f"https://www.eau.ee{match}")
+                links.append(f"https://eau.org{match}")
             elif match.startswith("http"):
                 links.append(match)
     return links

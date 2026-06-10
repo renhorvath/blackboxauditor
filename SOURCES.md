@@ -16,7 +16,7 @@ Local raw files live under `raw/` — never committed to git. See `DATA_SETUP.md
 | `raw/cmo/ro-credidam/*.xlsx` | **CREDIDAM** | RO | Neighbouring — radio/TV | XLSX | varies | ✅ Indexed |
 | `raw/cmo/hr-hds-zamp/*.xlsx` | **HDS-ZAMP** | HR | Musical works (3 files) | XLSX | varies | ✅ Indexed — **manuális letöltés** (`zamp.hr/press/download/pregled` → HTTP 403 botnak) |
 | `raw/cmo/ro-ucmr-ada/*.csv` | **UCMR-ADA** | RO | Musical works (PDF→CSV) | CSV | monthly | ✅ Optional — `parse_ucmr_pdf.py` |
-| `raw/cmo/ee-eau/*.csv` | **EAÜ** | EE | Musical works | CSV | varies | ⚠️ Indexed — **manuális CSV** (`www.eau.ee/.../tuvastamata-teosed` export; `portal.eau.ee` NXDOMAIN); `npm run cmo:fetch-eau` |
+| `raw/cmo/ee-eau/*.csv` | **EAÜ** | EE | Musical works | CSV | varies | ⚠️ Indexed — **manuális CSV** from [eau.org](https://eau.org) (not `.ee`); `npm run cmo:fetch-eau` |
 | `raw/cmo/ee-eel/*.xlsx` | **EEL** | EE | Neighbouring | XLSX | varies | ✅ Indexed |
 | `raw/cmo/cz-intergram/*.xlsx` | **INTERGRAM** | CZ | Neighbouring | XLSX | varies | ✅ Indexed |
 | `raw/cmo/fi-gramex/*.xlsx` | **Gramex** | FI | Neighbouring | XLSX | ~51k | ✅ Indexed — [unidentified plays](https://www.gramex.fi/en/unidentified-plays-phonograms/); `npm run cmo:fetch -- --source fi-gramex` |
