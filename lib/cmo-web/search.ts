@@ -35,7 +35,9 @@ async function searchOne(
   }
 
   const result = await SEARCHERS[source](q);
-  await writeCmoWebCache(result);
+  if (!result.error && result.hits.length > 0) {
+    await writeCmoWebCache(result);
+  }
   return result;
 }
 

@@ -2,10 +2,13 @@ import { CMO_WEB_SOURCE_IDS, type CmoWebSourceId } from "@/lib/cmo-web/web-types
 
 const DEFAULT_PHASE3: CmoWebSourceId[] = ["zaiks", "sacem", "spedidam", "sami", "koda"];
 
-/** Comma-separated list in CMO_WEB_ENABLED; empty = phase-3 sources on. */
+/** Comma-separated list in CMO_WEB_ENABLED; empty = phase-3 on (or spedidam+sami only without Firecrawl). */
 export function enabledCmoWebSources(): CmoWebSourceId[] {
   const raw = process.env.CMO_WEB_ENABLED?.trim();
-  if (!raw) return [...DEFAULT_PHASE3];
+  if (!raw) {
+    const hasFirecrawl = Boolean(process.env.FIRECRAWL_API_KEY?.trim());
+    return hasFirecrawl ? [...DEFAULT_PHASE3] : (["spedidam", "sami"] as CmoWebSourceId[]);
+  }
   if (raw === "false" || raw === "0" || raw === "off") return [];
   const wanted = new Set(
     raw
