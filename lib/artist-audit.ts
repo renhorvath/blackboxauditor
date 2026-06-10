@@ -36,6 +36,7 @@ import { artistAuditSkipMlcUnclaimed, artistAuditSkipMlcUnmatched, shouldUseQuer
 import { isServerlessRuntime } from "@/lib/runtime-env";
 import {
   fetchArtistSourcesFromQueryApi,
+  fetchCmoWebFromQueryApi,
   QueryApiError,
 } from "@/lib/query-api-client";
 import type { ArtistAuditSourcesPayload } from "@/lib/query-api-types";
@@ -115,7 +116,10 @@ export async function runArtistAudit(input: {
       };
     }),
     searchEjiByArtist(input.artistName, { forceRefresh }).catch(() => null),
-    searchCmoWebByArtist(input.artistName, { forceRefresh }).catch(() => []),
+    (shouldUseQueryApi()
+      ? fetchCmoWebFromQueryApi(input.artistName, { forceRefresh })
+      : searchCmoWebByArtist(input.artistName, { forceRefresh })
+    ).catch(() => []),
   ]);
 
   const payload = loaded.payload;

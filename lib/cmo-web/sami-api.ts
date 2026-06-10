@@ -16,8 +16,15 @@ interface SamiApiEnvelope {
   Content: SamiIncompleteRecording[];
 }
 
+let cachedSamiList: { fetchedAt: number; rows: SamiIncompleteRecording[] } | null = null;
+const SAMI_LIST_TTL_MS = 24 * 60 * 60 * 1000;
+
 /** Public SAMI incomplete-recordings list (no auth). Response is JSON string inside JSON. */
 export async function fetchSamiIncompleteRecordings(): Promise<SamiIncompleteRecording[]> {
+  if (cachedSamiList && Date.now() - cachedSamiList.fetchedAt < SAMI_LIST_TTL_MS) {
+    return cachedSamiList.rows;
+  }
+
   const res = await fetch(SAMI_API_URL, {
     headers: {
       "User-Agent": "BlackboxAuditor/1.0 (+research; CMO Art.13 lookup)",
@@ -36,5 +43,6 @@ export async function fetchSamiIncompleteRecordings(): Promise<SamiIncompleteRec
   if (!Array.isArray(payload.Content)) {
     throw new Error("SAMI API returned unexpected payload");
   }
+  cachedSamiList = { fetchedAt: Date.now(), rows: payload.Content };
   return payload.Content;
 }
