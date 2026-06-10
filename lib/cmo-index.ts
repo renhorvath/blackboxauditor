@@ -33,6 +33,10 @@ export function cmoIndexAvailable(): boolean {
   }
 }
 
+export function cmoIndexFileExists(): boolean {
+  return fs.existsSync(indexPath());
+}
+
 export function getCmoIndexLoadError(): string | null {
   return loadError;
 }

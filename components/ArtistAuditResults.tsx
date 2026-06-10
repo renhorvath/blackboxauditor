@@ -1,8 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, ChevronDown, Loader2 } from "lucide-react";
 import { rowHasPayoutProblem, sortArtistAuditRows } from "@/lib/artist-audit-display";
+import {
+  ALL_NAME_VARIANTS,
+  ALL_SOURCE_FILTER_IDS,
+  rowMatchesNameVariant,
+  rowMatchesSourceFilters,
+  type AuditSourceFilterId,
+} from "@/lib/artist-audit-filters";
 import {
   AUDIT_FILTER_ALL,
   AUDIT_FILTER_HINT,
@@ -11,6 +18,7 @@ import {
 } from "@/lib/audit-source-labels";
 import type { ArtistAuditMeta } from "@/lib/types";
 import type { AuditRow, AuditSummary } from "@/lib/types";
+import { ArtistAuditFilters } from "@/components/ArtistAuditFilters";
 import { ArtistAuditRowCard } from "@/components/ArtistAuditRowCard";
 import { ArtistAuditSummaryHeader } from "@/components/ArtistAuditSummaryHeader";
 
@@ -36,15 +44,47 @@ export function ArtistAuditResults({
   onClearArtist: () => void;
 }) {
   const [onlyProblems, setOnlyProblems] = useState(true);
+  const [selectedVariant, setSelectedVariant] = useState(ALL_NAME_VARIANTS);
+  const [enabledSources, setEnabledSources] = useState<Set<AuditSourceFilterId>>(
+    () => new Set(ALL_SOURCE_FILTER_IDS),
+  );
+
+  useEffect(() => {
+    setSelectedVariant(ALL_NAME_VARIANTS);
+    setEnabledSources(new Set(ALL_SOURCE_FILTER_IDS));
+  }, [artistName]);
 
   const sorted = useMemo(() => (rows ? sortArtistAuditRows(rows) : []), [rows]);
 
-  const visible = useMemo(
-    () => (onlyProblems ? sorted.filter(rowHasPayoutProblem) : sorted),
-    [sorted, onlyProblems],
+  const filtered = useMemo(
+    () =>
+      sorted.filter(
+        (row) =>
+          rowMatchesNameVariant(row, selectedVariant) &&
+          rowMatchesSourceFilters(row, enabledSources),
+      ),
+    [sorted, selectedVariant, enabledSources],
   );
 
-  const problemCount = useMemo(() => sorted.filter(rowHasPayoutProblem).length, [sorted]);
+  const visible = useMemo(
+    () => (onlyProblems ? filtered.filter(rowHasPayoutProblem) : filtered),
+    [filtered, onlyProblems],
+  );
+
+  const problemCount = useMemo(() => filtered.filter(rowHasPayoutProblem).length, [filtered]);
+
+  function toggleSource(id: AuditSourceFilterId) {
+    setEnabledSources((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function selectOnlySource(id: AuditSourceFilterId) {
+    setEnabledSources(new Set([id]));
+  }
 
   if (loading) {
     return (
@@ -66,8 +106,18 @@ export function ArtistAuditResults({
         artistName={artistName}
         meta={meta}
         problemCount={problemCount}
-        totalCount={sorted.length}
+        totalCount={filtered.length}
         onClearArtist={onClearArtist}
+      />
+
+      <ArtistAuditFilters
+        query={artistName}
+        rows={sorted}
+        selectedVariant={selectedVariant}
+        onVariantChange={setSelectedVariant}
+        enabledSources={enabledSources}
+        onToggleSource={toggleSource}
+        onSelectOnlySource={selectOnlySource}
       />
 
       <div className="space-y-2">
@@ -92,7 +142,7 @@ export function ArtistAuditResults({
                 : "bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
             }`}
           >
-            {AUDIT_FILTER_ALL} ({sorted.length})
+            {AUDIT_FILTER_ALL} ({filtered.length})
           </button>
         </div>
         <p className="text-xs text-[var(--text-muted)]">{AUDIT_FILTER_HINT}</p>
@@ -106,13 +156,13 @@ export function ArtistAuditResults({
               ? "Ezeken a dalokon nem találtunk kifizetetlen listás bejegyzést."
               : "Nincs megjeleníthető találat."}
           </p>
-          {onlyProblems && sorted.length > 0 ? (
+          {onlyProblems && filtered.length > 0 ? (
             <button
               type="button"
               onClick={() => setOnlyProblems(false)}
               className="mt-2 text-sm font-semibold text-[var(--accent-primary)] underline-offset-2 hover:underline"
             >
-              Mind a {sorted.length} találat megtekintése
+              Mind a {filtered.length} találat megtekintése
             </button>
           ) : null}
         </div>
@@ -163,10 +213,10 @@ export function ArtistAuditResults({
         <button
           type="button"
           onClick={onOpenReport}
-          disabled={sorted.length === 0}
+          disabled={filtered.length === 0}
           className="shrink-0 rounded-[12px] bg-[var(--accent-primary)] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-105 disabled:opacity-40"
         >
-          Részletes jelentés ({sorted.length})
+          Részletes jelentés ({filtered.length})
         </button>
       </div>
     </section>

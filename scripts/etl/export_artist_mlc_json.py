@@ -21,6 +21,30 @@ from scan_tsv_by_artist import artist_matches, build_terms, normalize, slugify  
 
 load_dotenv_local()
 
+PROGRESS_DIR = ETL_DIR.parent.parent / "derived" / "mlc-hu"
+
+
+def token_index_ready(con: duckdb.DuckDBPyConnection, token_table: str) -> bool:
+    """True only when build finished and indexed — ignore partial tables."""
+    if not table_exists(con, token_table):
+        return False
+    prog_path = PROGRESS_DIR / f"etl_{token_table}_progress.json"
+    if prog_path.is_file():
+        try:
+            data = json.loads(prog_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            return False
+        return data.get("indexed") is True
+    # Legacy: built before progress files (e.g. unclaimed index)
+    row = con.execute(
+        """
+        SELECT count(*) FROM duckdb_indexes()
+        WHERE lower(table_name) = lower(?)
+        """,
+        [token_table],
+    ).fetchone()
+    return bool(row and row[0] > 0)
+
 
 def table_exists(con: duckdb.DuckDBPyConnection, name: str) -> bool:
     row = con.execute(
@@ -59,6 +83,32 @@ def token_table_is_minimal(con: duckdb.DuckDBPyConnection, token_table: str) -> 
     return cols <= {"token", "isrc"}
 
 
+def fetch_rows_via_token_isrcs(
+    con: duckdb.DuckDBPyConnection,
+    *,
+    token_table: str,
+    source_table: str,
+    tokens: list[str],
+    select_cols: str,
+) -> list[tuple]:
+    """Token lookup → distinct ISRCs → source row fetch (avoids full-table join)."""
+    placeholders = ", ".join("?" for _ in tokens)
+    isrc_rows = con.execute(
+        f"SELECT DISTINCT isrc FROM {token_table} WHERE token IN ({placeholders})",
+        tokens,
+    ).fetchall()
+    isrcs = [r[0] for r in isrc_rows if r[0]]
+    if not isrcs:
+        return []
+
+    isrc_ph = ", ".join("?" for _ in isrcs)
+    # catalog ISRC values are already upper(trim) — avoid upper(trim) here (68M-row scan).
+    return con.execute(
+        f"SELECT {select_cols} FROM {source_table} WHERE ISRC IN ({isrc_ph})",
+        isrcs,
+    ).fetchall()
+
+
 def fetch_unmatched_via_tokens(
     con: duckdb.DuckDBPyConnection,
     artist_name: str,
@@ -76,16 +126,13 @@ def fetch_unmatched_via_tokens(
 
     placeholders = ", ".join("?" for _ in tokens)
     if token_table_is_minimal(con, "mlc_unmatched_artist_tokens"):
-        rows = con.execute(
-            f"""
-            SELECT m.ISRC, m.ResourceTitle, m.DisplayArtistName,
-                   m.OriginalDataProviderName, m.ResourceType
-            FROM mlc_unmatched_artist_tokens t
-            INNER JOIN mlc_unmatched m ON upper(trim(m.ISRC)) = t.isrc
-            WHERE t.token IN ({placeholders})
-            """,
-            tokens,
-        ).fetchall()
+        rows = fetch_rows_via_token_isrcs(
+            con,
+            token_table="mlc_unmatched_artist_tokens",
+            source_table="mlc_unmatched",
+            tokens=tokens,
+            select_cols="ISRC, ResourceTitle, DisplayArtistName, OriginalDataProviderName, ResourceType",
+        )
     else:
         rows = con.execute(
             f"""
@@ -136,16 +183,13 @@ def fetch_unclaimed_via_tokens(
 
     placeholders = ", ".join("?" for _ in tokens)
     if token_table_is_minimal(con, "mlc_unclaimed_artist_tokens"):
-        rows = con.execute(
-            f"""
-            SELECT m.ISRC, m.ResourceTitle, m.DisplayArtistName,
-                   m.UnclaimedRightSharePercentage, m.MusicalWorkRecordId, m.DspResourceId
-            FROM mlc_unclaimed_artist_tokens t
-            INNER JOIN mlc_unclaimed m ON upper(trim(m.ISRC)) = t.isrc
-            WHERE t.token IN ({placeholders})
-            """,
-            tokens,
-        ).fetchall()
+        rows = fetch_rows_via_token_isrcs(
+            con,
+            token_table="mlc_unclaimed_artist_tokens",
+            source_table="mlc_unclaimed",
+            tokens=tokens,
+            select_cols="ISRC, ResourceTitle, DisplayArtistName, UnclaimedRightSharePercentage, MusicalWorkRecordId, DspResourceId",
+        )
     else:
         rows = con.execute(
             f"""
@@ -203,8 +247,10 @@ def fetch_unmatched(
     via_tokens = fetch_unmatched_via_tokens(
         con, artist_name, limit=limit, match_mode=match_mode
     )
-    if via_tokens or table_exists(con, "mlc_unmatched_artist_tokens"):
+    if via_tokens:
         return via_tokens
+    if token_index_ready(con, "mlc_unmatched_artist_tokens"):
+        return []
 
     terms = build_terms(artist_name, artist_name)
     if not terms:
@@ -258,8 +304,10 @@ def fetch_unclaimed(
     via_tokens = fetch_unclaimed_via_tokens(
         con, artist_name, limit=limit, match_mode=match_mode
     )
-    if via_tokens or table_exists(con, "mlc_unclaimed_artist_tokens"):
+    if via_tokens:
         return via_tokens
+    if token_index_ready(con, "mlc_unclaimed_artist_tokens"):
+        return []
 
     terms = build_terms(artist_name, artist_name)
     if not terms:

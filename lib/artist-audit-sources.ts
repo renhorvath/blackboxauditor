@@ -7,6 +7,22 @@ import {
 } from "@/lib/mlc-artist-scan";
 import type { ArtistAuditSourcesPayload } from "@/lib/query-api-types";
 
+/** Stay under Vercel QUERY_API_TIMEOUT_MS (120s) when MLC ILIKE is slow. */
+const MLC_SCAN_RACE_MS = Number(process.env.MLC_SCAN_RACE_MS ?? 85_000);
+
+function raceMlcScan<T>(promise: Promise<T | null>): Promise<T | null> {
+  if (!Number.isFinite(MLC_SCAN_RACE_MS) || MLC_SCAN_RACE_MS <= 0) return promise;
+  return Promise.race([
+    promise,
+    new Promise<null>((resolve) => {
+      setTimeout(() => {
+        console.warn("[artist-sources] MLC scan race timeout — returning partial results");
+        resolve(null);
+      }, MLC_SCAN_RACE_MS);
+    }),
+  ]);
+}
+
 /**
  * Load MLC + ARTISJUS + CMO from local files (data machine).
  * EJI stays on the caller — web scrape runs wherever the UI API lives.
@@ -26,10 +42,10 @@ export async function fetchLocalArtistSources(
   const [mlcUnmatched, mlcUnclaimed, artisjusMatches, cmoMatches] = await Promise.all([
     skipUnmatched
       ? Promise.resolve(null)
-      : scanMlcArtist(artistName, { forceRefresh }),
+      : raceMlcScan(scanMlcArtist(artistName, { forceRefresh })),
     skipUnclaimed
       ? Promise.resolve(null)
-      : scanMlcUnclaimedArtist(artistName, { forceRefresh }),
+      : raceMlcScan(scanMlcUnclaimedArtist(artistName, { forceRefresh })),
     artisjusIndexAvailable()
       ? Promise.resolve().then(() => {
           try {

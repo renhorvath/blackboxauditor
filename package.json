@@ -16,9 +16,15 @@
     "cmo:build-index": ".venv/bin/python3 scripts/cmo/build_indexes.py",
     "eji:search": "npx tsx scripts/cmo/search_eji.mts",
     "query-api:start": "npx tsx scripts/query-api/server.mts",
+    "server:install": "bash scripts/server/install-macos-services.sh",
+    "server:uninstall": "bash scripts/server/uninstall-macos-services.sh",
+    "server:status": "bash scripts/server/status.sh",
+    "server:tunnel-url": "bash scripts/server/tunnel-url.sh",
     "etl:parquet": ".venv/bin/python3 scripts/etl/tsv_to_parquet.py",
     "etl:catalog": ".venv/bin/python3 scripts/etl/build_catalog.py",
     "etl:artist-tokens": ".venv/bin/python3 scripts/etl/build_mlc_artist_tokens.py",
+    "etl:artist-tokens:unmatched": "bash scripts/etl/run_unmatched_token_build.sh",
+    "etl:artist-tokens:unmatched:resume": "bash scripts/etl/resume_unmatched_token_build.sh",
     "etl:query": ".venv/bin/python3 scripts/etl/query.py",
     "etl:export-artist": ".venv/bin/python3 scripts/etl/export_artist_mlc_json.py"
   },
@@ -40,6 +46,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
+    "tsx": "^4.22.4",
     "typescript": "^5"
   }
 }

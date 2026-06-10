@@ -8,8 +8,8 @@
  */
 import http from "node:http";
 import { fetchLocalArtistSources } from "../../lib/artist-audit-sources";
-import { artisjusIndexAvailable } from "../../lib/artisjus-index";
-import { cmoIndexAvailable } from "../../lib/cmo-index";
+import { artisjusIndexFileExists } from "../../lib/artisjus-index";
+import { cmoIndexFileExists } from "../../lib/cmo-index";
 import { loadDotenvLocal } from "../../lib/load-dotenv-local";
 import { catalogAvailable } from "../../lib/mlc-artist-scan";
 import type { QueryApiHealthResponse } from "../../lib/query-api-types";
@@ -64,8 +64,8 @@ function healthPayload(): QueryApiHealthResponse {
     version: 1,
     capabilities: {
       catalog: catalogAvailable(),
-      artisjusIndex: artisjusIndexAvailable(),
-      cmoIndex: cmoIndexAvailable(),
+      artisjusIndex: artisjusIndexFileExists(),
+      cmoIndex: cmoIndexFileExists(),
     },
   };
 }
@@ -122,4 +122,9 @@ server.listen(PORT, HOST, () => {
   if (!API_KEY) {
     console.warn("  WARNING: QUERY_API_KEY not set — API is open on this interface");
   }
+});
+
+server.on("error", (err: NodeJS.ErrnoException) => {
+  console.error("[query-api] listen failed:", err.message);
+  process.exit(err.code === "EADDRINUSE" ? 2 : 1);
 });

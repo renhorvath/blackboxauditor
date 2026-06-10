@@ -40,6 +40,10 @@ export function artisjusIndexAvailable(): boolean {
   }
 }
 
+export function artisjusIndexFileExists(): boolean {
+  return fs.existsSync(indexPath());
+}
+
 export function getArtisjusIndexLoadError(): string | null {
   return loadError;
 }

@@ -8,7 +8,7 @@ function wordTokens(value: string): string[] {
   return norm(value).split(" ").filter((t) => t.length >= 2);
 }
 
-function splitSegments(artist: string): string[] {
+export function splitArtistNameSegments(artist: string): string[] {
   return artist
     .split(/[,/&]| FEAT\.? | FEAT | VS\.? | X /i)
     .map((part) => norm(part))
@@ -26,7 +26,7 @@ export function artistNameMatchStrength(
   if (!q || !artist?.trim()) return "none";
 
   const full = norm(artist);
-  const segments = splitSegments(artist);
+  const segments = splitArtistNameSegments(artist);
 
   for (const seg of segments) {
     if (seg === q) return "exact";

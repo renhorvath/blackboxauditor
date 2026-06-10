@@ -1,0 +1,16 @@
+# Named Cloudflare tunnel — copy to ~/.cloudflared/config.yml after setup.
+#
+# One-time setup:
+#   cloudflared tunnel login
+#   cloudflared tunnel create blackbox-query
+#   cloudflared tunnel route dns blackbox-query query.yourdomain.com
+#
+# Replace TUNNEL_ID and credentials path below.
+
+tunnel: TUNNEL_ID
+credentials-file: /Users/ren/.cloudflared/TUNNEL_ID.json
+
+ingress:
+  - hostname: query.yourdomain.com
+    service: http://127.0.0.1:8787
+  - service: http_status:404
