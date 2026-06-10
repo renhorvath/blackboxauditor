@@ -1,6 +1,6 @@
-import { fetchText } from "@/lib/cmo-web/http";
-import { extractTableRows } from "@/lib/cmo-web/parse-html";
 import { ejiArtistMatchesQuery } from "@/lib/cmo-web/eji-search";
+import { fetchCmoWebHtml } from "@/lib/cmo-web/http";
+import { fetchSacemUnidentifiedWorks } from "@/lib/cmo-web/sacem-api";
 import type { CmoWebHit, CmoWebSearchResult } from "@/lib/cmo-web/web-types";
 
 const SEARCH_URL = "https://repertoire.sacem.fr/en/unidentified-works/search";
@@ -12,23 +12,36 @@ export async function searchSacem(query: string): Promise<CmoWebSearchResult> {
   }
 
   try {
-    const url = `${SEARCH_URL}?q=${encodeURIComponent(q)}`;
-    const html = await fetchText(url);
-    const rows = extractTableRows(html);
-    const hits: CmoWebHit[] = [];
+    let rows: Awaited<ReturnType<typeof fetchSacemUnidentifiedWorks>> = [];
+    try {
+      rows = await fetchSacemUnidentifiedWorks(q);
+    } catch {
+      const html = await fetchCmoWebHtml(`${SEARCH_URL}?q=${encodeURIComponent(q)}`, { waitForMs: 8000 });
+      if (/repertoire unavailable|currently unavailable|indisponible/i.test(html)) {
+        return {
+          source: "sacem",
+          query: q,
+          hits: [],
+          fetchedAt: new Date().toISOString(),
+          fromCache: false,
+          error: "SACEM repertoire temporarily unavailable (maintenance)",
+        };
+      }
+    }
 
-    for (const cells of rows.slice(1)) {
-      const title = cells[0] ?? "";
-      const identification = cells.slice(1).join(" · ") || title;
+    const hits: CmoWebHit[] = [];
+    for (const row of rows) {
+      const title = row.workTitle ?? row.title ?? "";
+      const identification = row.parties ?? row.interestedParties ?? title;
       if (!title) continue;
       const blob = `${title} ${identification}`;
       if (!ejiArtistMatchesQuery(blob, q)) continue;
       hits.push({
         source: "sacem",
-        id: `sacem:${title}`.slice(0, 120),
+        id: `sacem:${row.workCode ?? title}`.slice(0, 120),
         title,
         identification,
-        claimUrl: "https://repertoire.sacem.fr/en/unidentified-works/search",
+        claimUrl: SEARCH_URL,
       });
       if (hits.length >= 80) break;
     }

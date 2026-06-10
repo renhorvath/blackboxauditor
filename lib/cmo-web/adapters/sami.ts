@@ -1,9 +1,8 @@
-import { fetchText } from "@/lib/cmo-web/http";
-import { extractTableRows } from "@/lib/cmo-web/parse-html";
 import { ejiArtistMatchesQuery } from "@/lib/cmo-web/eji-search";
+import { fetchSamiIncompleteRecordings } from "@/lib/cmo-web/sami-api";
 import type { CmoWebHit, CmoWebSearchResult } from "@/lib/cmo-web/web-types";
 
-const SEARCH_URL = "https://www.sami.se/saknade-listan";
+const CLAIM_URL = "https://minasidor.sami.se/incompleteRecordings";
 
 export async function searchSami(query: string): Promise<CmoWebSearchResult> {
   const q = query.trim();
@@ -12,22 +11,20 @@ export async function searchSami(query: string): Promise<CmoWebSearchResult> {
   }
 
   try {
-    const url = `${SEARCH_URL}?search=${encodeURIComponent(q)}`;
-    const html = await fetchText(url);
-    const rows = extractTableRows(html);
+    const rows = await fetchSamiIncompleteRecordings();
     const hits: CmoWebHit[] = [];
 
-    for (const cells of rows.slice(1)) {
-      const title = cells[0] ?? cells[1] ?? "";
-      const identification = cells[1] ?? cells[2] ?? "";
-      if (!title && !identification) continue;
-      if (!ejiArtistMatchesQuery(identification, q) && !ejiArtistMatchesQuery(title, q)) continue;
+    for (const row of rows) {
+      const blob = `${row.name} ${row.mainArtist} ${row.label}`;
+      if (!ejiArtistMatchesQuery(blob, q)) continue;
       hits.push({
         source: "sami",
-        id: `sami:${title}:${identification}`.slice(0, 120),
-        title: title || "(névtelen)",
-        identification,
-        claimUrl: SEARCH_URL,
+        id: `sami:${row.id}`,
+        title: row.name || "(névtelen)",
+        identification: [row.mainArtist, row.label, row.isrc, row.year > 0 ? String(row.year) : ""]
+          .filter(Boolean)
+          .join(" · "),
+        claimUrl: CLAIM_URL,
       });
       if (hits.length >= 80) break;
     }

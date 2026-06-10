@@ -17,6 +17,7 @@
     "cmo:bootstrap": ".venv/bin/python3 scripts/cmo/build_indexes.py --bootstrap",
     "cmo:fetch": ".venv/bin/python3 scripts/cmo/fetch_sources.py",
     "cmo:fetch-eau": ".venv/bin/python3 scripts/cmo/fetch_eau.py",
+    "cmo:test-web": "npx tsx scripts/cmo/test_web_adapter.mts",
     "eji:search": "npx tsx scripts/cmo/search_eji.mts",
     "query-api:start": "npx tsx scripts/query-api/server.mts",
     "server:install": "bash scripts/server/install-macos-services.sh",

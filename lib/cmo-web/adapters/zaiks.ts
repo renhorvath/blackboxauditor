@@ -1,9 +1,9 @@
-import { fetchText } from "@/lib/cmo-web/http";
-import { extractTableRows } from "@/lib/cmo-web/parse-html";
 import { ejiArtistMatchesQuery } from "@/lib/cmo-web/eji-search";
+import { scrapeViaFirecrawl } from "@/lib/cmo-web/firecrawl-scrape";
+import { parseZaiksMarkdownNames } from "@/lib/cmo-web/parse-zaiks";
 import type { CmoWebHit, CmoWebSearchResult } from "@/lib/cmo-web/web-types";
 
-const SEARCH_URL = "https://online.zaiks.org.pl/lista-poszukiwanych";
+const PAGE_URL = "https://online.zaiks.org.pl/lista-poszukiwanych";
 
 export async function searchZaiks(query: string): Promise<CmoWebSearchResult> {
   const q = query.trim();
@@ -12,21 +12,39 @@ export async function searchZaiks(query: string): Promise<CmoWebSearchResult> {
   }
 
   try {
-    const url = `${SEARCH_URL}?search=${encodeURIComponent(q)}`;
-    const html = await fetchText(url);
-    const rows = extractTableRows(html);
+    const { markdown } = await scrapeViaFirecrawl(PAGE_URL, {
+      waitForMs: 10000,
+      formats: ["markdown"],
+      actions: [
+        { type: "wait", milliseconds: 5000 },
+        {
+          type: "executeJavascript",
+          script: `(() => {
+            const accept = Array.from(document.querySelectorAll('button')).find((b) => /akceptuj/i.test(b.textContent || ''));
+            accept?.click();
+            const input = document.querySelector('vaadin-text-field input, input[type="text"]');
+            const search = Array.from(document.querySelectorAll('button')).find((b) => /szukaj/i.test(b.textContent || ''));
+            if (!input || !search) return;
+            input.focus();
+            input.value = ${JSON.stringify(q)};
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            search.click();
+          })()`,
+        },
+        { type: "wait", milliseconds: 10000 },
+      ],
+    });
+
+    const names = parseZaiksMarkdownNames(markdown ?? "");
     const hits: CmoWebHit[] = [];
 
-    for (const cells of rows.slice(1)) {
-      const title = cells[0] ?? cells[1] ?? "";
-      const identification = cells[1] ?? cells[2] ?? cells[0] ?? "";
-      if (!title && !identification) continue;
-      if (!ejiArtistMatchesQuery(identification, q) && !ejiArtistMatchesQuery(title, q)) continue;
+    for (const name of names) {
+      if (!ejiArtistMatchesQuery(name, q)) continue;
       hits.push({
         source: "zaiks",
-        id: `zaiks:${title}:${identification}`.slice(0, 120),
-        title: title || "(névtelen)",
-        identification,
+        id: `zaiks:${name}`.slice(0, 120),
+        title: name,
+        identification: name,
         claimUrl: "mailto:szukamy@zaiks.org.pl",
       });
       if (hits.length >= 80) break;
