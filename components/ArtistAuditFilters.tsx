@@ -55,7 +55,7 @@ export function ArtistAuditFilters({
             className="input-bbox w-full py-2 text-sm"
           >
             <option value={ALL_NAME_VARIANTS}>
-              Összes névváltozat ({rows.length} sor)
+              Összes névváltozat ({allRows.length} sor)
             </option>
             {variants.map((v: NameVariantOption) => (
               <option key={v.key} value={v.key}>
