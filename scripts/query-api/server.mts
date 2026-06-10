@@ -10,8 +10,10 @@ import http from "node:http";
 import { fetchLocalArtistSources } from "../../lib/artist-audit-sources";
 import { artisjusIndexFileExists } from "../../lib/artisjus-index";
 import { cmoIndexFileExists } from "../../lib/cmo-index";
+import { searchEjiByArtist } from "../../lib/cmo-web/eji-search";
 import { searchCmoWebByArtist } from "../../lib/cmo-web/search";
 import { loadDotenvLocal } from "../../lib/load-dotenv-local";
+import { withTimeout } from "../../lib/with-timeout";
 import { catalogAvailable } from "../../lib/mlc-artist-scan";
 import type { QueryApiHealthResponse } from "../../lib/query-api-types";
 
@@ -86,6 +88,7 @@ const server = http.createServer(async (req, res) => {
       let body: {
         artistName?: string;
         forceRefresh?: boolean;
+        bundle?: boolean;
         skipMlcUnmatched?: boolean;
         skipMlcUnclaimed?: boolean;
       };
@@ -100,11 +103,33 @@ const server = http.createServer(async (req, res) => {
         return json(res, 400, { error: "artistName must be at least 2 characters" });
       }
 
-      const payload = await fetchLocalArtistSources(artistName, {
-        forceRefresh: body.forceRefresh === true,
+      const forceRefresh = body.forceRefresh === true;
+      const sourceOpts = {
+        forceRefresh,
         skipMlcUnmatched: body.skipMlcUnmatched === true,
         skipMlcUnclaimed: body.skipMlcUnclaimed === true,
-      });
+      };
+
+      if (body.bundle === true) {
+        const [payload, eji, cmoWebResults] = await Promise.all([
+          fetchLocalArtistSources(artistName, sourceOpts),
+          withTimeout(
+            searchEjiByArtist(artistName, { forceRefresh }).catch(() => null),
+            28_000,
+            null,
+            "EJI search",
+          ),
+          withTimeout(
+            searchCmoWebByArtist(artistName, { forceRefresh }).catch(() => []),
+            22_000,
+            [],
+            "CMO web search",
+          ),
+        ]);
+        return json(res, 200, { ...payload, eji, cmoWebResults });
+      }
+
+      const payload = await fetchLocalArtistSources(artistName, sourceOpts);
       return json(res, 200, payload);
     }
 

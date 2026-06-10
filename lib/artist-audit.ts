@@ -34,11 +34,7 @@ import {
 } from "@/lib/mlc-artist-scan";
 import { artistAuditSkipMlcUnclaimed, artistAuditSkipMlcUnmatched, shouldUseQueryApi, queryApiBaseUrl } from "@/lib/query-api-config";
 import { isServerlessRuntime } from "@/lib/runtime-env";
-import {
-  fetchArtistSourcesFromQueryApi,
-  fetchCmoWebFromQueryApi,
-  QueryApiError,
-} from "@/lib/query-api-client";
+import { fetchArtistSourcesFromQueryApi, QueryApiError } from "@/lib/query-api-client";
 import type { ArtistAuditSourcesPayload } from "@/lib/query-api-types";
 import type { AuditRow, AuditSummary, ArtistAuditMeta, ArtistAuditScope } from "@/lib/types";
 
@@ -100,30 +96,34 @@ export async function runArtistAudit(input: {
 }): Promise<ArtistAuditResult> {
   const forceRefresh = input.scope === "full";
 
-  const [loaded, ejiResult, cmoWebResults] = await Promise.all([
-    loadArtistSources(input.artistName, forceRefresh).catch((err) => {
-      if (shouldUseQueryApi()) throw err;
-      return {
-        payload: {
-          artistName: input.artistName,
-          mlcUnmatched: null,
-          mlcUnclaimed: null,
-          artisjusMatches: [],
-          cmoMatches: [],
-          capabilities: { catalog: false, artisjusIndex: false, cmoIndex: false },
-        },
-        viaQueryApi: false,
-      };
-    }),
-    searchEjiByArtist(input.artistName, { forceRefresh }).catch(() => null),
-    (shouldUseQueryApi()
-      ? fetchCmoWebFromQueryApi(input.artistName, { forceRefresh })
-      : searchCmoWebByArtist(input.artistName, { forceRefresh })
-    ).catch(() => []),
-  ]);
+  let payload: ArtistAuditSourcesPayload;
+  let viaQueryApi: boolean;
+  let ejiResult: Awaited<ReturnType<typeof searchEjiByArtist>> | null;
+  let cmoWebResults: Awaited<ReturnType<typeof searchCmoWebByArtist>>;
 
-  const payload = loaded.payload;
-  const viaQueryApi = loaded.viaQueryApi;
+  if (shouldUseQueryApi()) {
+    // Single query-API round-trip (sources + EJI + CMO web) — stays under Vercel 60s limit.
+    const bundle = await fetchArtistSourcesFromQueryApi(input.artistName, {
+      forceRefresh,
+      bundle: true,
+    });
+    payload = bundle;
+    viaQueryApi = true;
+    ejiResult = bundle.eji ?? null;
+    cmoWebResults = bundle.cmoWebResults ?? [];
+  } else {
+    const [loaded, eji, cmoWeb] = await Promise.all([
+      loadArtistSources(input.artistName, forceRefresh).catch((err) => {
+        throw err;
+      }),
+      searchEjiByArtist(input.artistName, { forceRefresh }).catch(() => null),
+      searchCmoWebByArtist(input.artistName, { forceRefresh }).catch(() => []),
+    ]);
+    payload = loaded.payload;
+    viaQueryApi = loaded.viaQueryApi;
+    ejiResult = eji;
+    cmoWebResults = cmoWeb;
+  }
 
   const dataBackend = viaQueryApi
     ? "query-api"

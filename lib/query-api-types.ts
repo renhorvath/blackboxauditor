@@ -1,5 +1,7 @@
 import type { ArtisjusArtistMatch } from "@/lib/artisjus-types";
 import type { CmoArtistMatch } from "@/lib/cmo-types";
+import type { EjiSearchResult } from "@/lib/cmo-web/eji-types";
+import type { CmoWebSearchResult } from "@/lib/cmo-web/web-types";
 import type { MlcArtistScanResult, MlcUnclaimedScanResult } from "@/lib/mlc-artist-scan";
 
 /** Payload exchanged between query API (data machine) and Vercel proxy. */
@@ -15,6 +17,9 @@ export interface ArtistAuditSourcesPayload {
     artisjusIndex: boolean;
     cmoIndex: boolean;
   };
+  /** Present when POST /v1/artist/sources is called with bundle=true (Vercel single round-trip). */
+  eji?: EjiSearchResult | null;
+  cmoWebResults?: CmoWebSearchResult[];
 }
 
 export interface QueryApiHealthResponse {

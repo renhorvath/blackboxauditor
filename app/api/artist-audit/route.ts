@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { runArtistAudit } from "@/lib/artist-audit";
 import type { ArtistAuditScope } from "@/lib/types";
 
-/** EJI web scrape can take 30–40s on cold cache. */
+/** Vercel Hobby max; bundled query-API call targets ~50s. */
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {

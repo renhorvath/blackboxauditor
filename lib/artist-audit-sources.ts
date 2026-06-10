@@ -7,8 +7,10 @@ import {
 } from "@/lib/mlc-artist-scan";
 import type { ArtistAuditSourcesPayload } from "@/lib/query-api-types";
 
-/** Stay under Vercel QUERY_API_TIMEOUT_MS (120s) when MLC ILIKE is slow. */
-const MLC_SCAN_RACE_MS = Number(process.env.MLC_SCAN_RACE_MS ?? 85_000);
+/** MLC ILIKE cap — keep query API bundle under Vercel 60s limit. */
+const MLC_SCAN_RACE_MS = Number(
+  process.env.QUERY_API_MLC_RACE_MS ?? process.env.MLC_SCAN_RACE_MS ?? 42_000,
+);
 
 function raceMlcScan<T>(promise: Promise<T | null>): Promise<T | null> {
   if (!Number.isFinite(MLC_SCAN_RACE_MS) || MLC_SCAN_RACE_MS <= 0) return promise;
