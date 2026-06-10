@@ -1,4 +1,5 @@
-import { CMO_CHIP_LABELS, CMO_SOURCE_IDS, type CmoSourceId } from "@/lib/cmo-types";
+import { CMO_CHIP_LABELS, CMO_COVERAGE_SOURCE_IDS, type CmoSourceId } from "@/lib/cmo-types";
+import { CMO_WEB_COVERAGE_SOURCES } from "@/lib/cmo-web/config";
 import { CMO_WEB_LABELS, type CmoWebSourceId } from "@/lib/cmo-web/web-types";
 
 /** One chip per jogkezelő / collecting society — same logic for ARTISJUS, MLC, AKM, … */
@@ -92,7 +93,7 @@ export function buildAuditSourceChips(input: {
     chips.push({ id: "eji", label: "Magyarország · EJI", count: input.ejiCount ?? 0 });
   }
 
-  for (const id of CMO_SOURCE_IDS) {
+  for (const id of CMO_COVERAGE_SOURCE_IDS) {
     const count = input.cmoCounts?.[id] ?? 0;
     if (count > 0) {
       chips.push({
@@ -103,11 +104,10 @@ export function buildAuditSourceChips(input: {
     }
   }
 
-  if (input.cmoWebCounts) {
-    for (const [id, count] of Object.entries(input.cmoWebCounts) as [CmoWebSourceId, number][]) {
-      if (count > 0) {
-        chips.push({ id: `cmo-web-${id}`, label: CMO_WEB_LABELS[id], count });
-      }
+  for (const id of CMO_WEB_COVERAGE_SOURCES) {
+    const count = input.cmoWebCounts?.[id] ?? 0;
+    if (count > 0) {
+      chips.push({ id: `cmo-web-${id}`, label: CMO_WEB_LABELS[id], count });
     }
   }
 
@@ -136,6 +136,7 @@ export function buildAuditSourceCoverage(meta: {
   mlcUnmatchedCount: number;
   mlcUnclaimedCount: number;
   cmoCounts?: Partial<Record<CmoSourceId, number>>;
+  cmoWebCounts?: Partial<Record<CmoWebSourceId, number>>;
   ejiCount?: number;
   mlcUnmatchedSkipped?: boolean;
   mlcUnclaimedSkipped?: boolean;
@@ -222,12 +223,24 @@ export function buildAuditSourceCoverage(meta: {
     },
   ];
 
-  for (const id of CMO_SOURCE_IDS) {
+  for (const id of CMO_COVERAGE_SOURCE_IDS) {
     const status = cmoStatus(id);
     const count = meta.cmoCounts?.[id] ?? 0;
     items.push({
       id,
       label: CMO_CHIP_LABELS[id],
+      status,
+      count,
+      detail: detail(status, count),
+    });
+  }
+
+  for (const id of CMO_WEB_COVERAGE_SOURCES) {
+    const count = meta.cmoWebCounts?.[id] ?? 0;
+    const status: AuditSourceCoverageStatus = count > 0 ? "found" : "clear";
+    items.push({
+      id: `cmo-web-${id}`,
+      label: CMO_WEB_LABELS[id],
       status,
       count,
       detail: detail(status, count),

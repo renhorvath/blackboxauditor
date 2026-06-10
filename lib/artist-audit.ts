@@ -36,6 +36,7 @@ import { artistAuditSkipMlcUnclaimed, artistAuditSkipMlcUnmatched, shouldUseQuer
 import { isServerlessRuntime } from "@/lib/runtime-env";
 import {
   fetchArtistSourcesFromQueryApi,
+  fetchCmoWebFromQueryApi,
   QueryApiError,
 } from "@/lib/query-api-client";
 import type { ArtistAuditSourcesPayload } from "@/lib/query-api-types";
@@ -89,6 +90,16 @@ async function loadArtistSources(
   return { payload, viaQueryApi: false };
 }
 
+async function loadCmoWebResults(
+  artistName: string,
+  forceRefresh: boolean,
+): Promise<Awaited<ReturnType<typeof searchCmoWebByArtist>>> {
+  if (shouldUseQueryApi()) {
+    return fetchCmoWebFromQueryApi(artistName, { forceRefresh }).catch(() => []);
+  }
+  return searchCmoWebByArtist(artistName, { forceRefresh }).catch(() => []);
+}
+
 /**
  * Előadó-ellenőrzés: ARTISJUS, EJI, MLC (USA), AKM, AUME, SENA azonosítatlan listák.
  * Vercelen: MLC/ARTISJUS/CMO a QUERY_API_URL backendről (adatgép).
@@ -115,7 +126,7 @@ export async function runArtistAudit(input: {
       };
     }),
     searchEjiByArtist(input.artistName, { forceRefresh }).catch(() => null),
-    searchCmoWebByArtist(input.artistName, { forceRefresh }).catch(() => []),
+    loadCmoWebResults(input.artistName, forceRefresh),
   ]);
 
   const payload = loaded.payload;

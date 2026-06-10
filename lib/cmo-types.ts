@@ -90,3 +90,6 @@ export const CMO_CHIP_LABELS: Record<CmoSourceId, string> = {
 };
 
 export const CMO_ISRC_PREFIX = "cmo:";
+
+/** Indexed CMO sources shown in audit UI (EAÜ omitted — no reliable public source). */
+export const CMO_COVERAGE_SOURCE_IDS = CMO_SOURCE_IDS.filter((id) => id !== "ee-eau");

@@ -1,11 +1,16 @@
 import { CMO_WEB_SOURCE_IDS, type CmoWebSourceId } from "@/lib/cmo-web/web-types";
 
-const DEFAULT_PHASE3: CmoWebSourceId[] = ["zaiks", "sacem", "spedidam", "sami", "koda"];
+/** Reliable without Firecrawl / browser automation. */
+const DEFAULT_ENABLED: CmoWebSourceId[] = ["spedidam", "sami"];
+const FIRECRAWL_PHASE3: CmoWebSourceId[] = ["zaiks", "sacem", "koda"];
 
-/** Comma-separated list in CMO_WEB_ENABLED; empty = phase-3 sources on. */
+/** Comma-separated list in CMO_WEB_ENABLED; empty = SPEDIDAM + SAMI only. */
 export function enabledCmoWebSources(): CmoWebSourceId[] {
   const raw = process.env.CMO_WEB_ENABLED?.trim();
-  if (!raw) return [...DEFAULT_PHASE3];
+  if (!raw) return [...DEFAULT_ENABLED];
+  if (raw === "all" || raw === "phase3") {
+    return [...DEFAULT_ENABLED, ...FIRECRAWL_PHASE3];
+  }
   if (raw === "false" || raw === "0" || raw === "off") return [];
   const wanted = new Set(
     raw
@@ -15,3 +20,6 @@ export function enabledCmoWebSources(): CmoWebSourceId[] {
   );
   return CMO_WEB_SOURCE_IDS.filter((id) => wanted.has(id));
 }
+
+/** Web sources shown in „Hol kerestük” (always listed). */
+export const CMO_WEB_COVERAGE_SOURCES: CmoWebSourceId[] = ["spedidam", "sami"];

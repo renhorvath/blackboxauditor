@@ -4,7 +4,7 @@ import {
   type ArtistNameMatchStrength,
 } from "@/lib/artist-name-match";
 import { normalizeArtisjusText } from "@/lib/artisjus-normalize";
-import { CMO_CHIP_LABELS, CMO_SOURCE_IDS, type CmoSourceId } from "@/lib/cmo-types";
+import { CMO_CHIP_LABELS, CMO_COVERAGE_SOURCE_IDS, type CmoSourceId } from "@/lib/cmo-types";
 import type { CmoWebSourceId } from "@/lib/cmo-web/web-types";
 import type { AuditRow } from "@/lib/types";
 
@@ -20,7 +20,7 @@ export const ALL_SOURCE_FILTER_IDS: AuditSourceFilterId[] = [
   "eji",
   "mlc-unmatched",
   "mlc-unclaimed",
-  ...CMO_SOURCE_IDS,
+  ...CMO_COVERAGE_SOURCE_IDS,
 ];
 
 export const SOURCE_FILTER_LABELS: Record<AuditSourceFilterId, string> = {
@@ -29,7 +29,7 @@ export const SOURCE_FILTER_LABELS: Record<AuditSourceFilterId, string> = {
   "mlc-unmatched": "MLC streaming",
   "mlc-unclaimed": "MLC mechanikai",
   ...Object.fromEntries(
-    CMO_SOURCE_IDS.map((id) => [id, CMO_CHIP_LABELS[id].split(" · ")[1] ?? id]),
+    CMO_COVERAGE_SOURCE_IDS.map((id) => [id, CMO_CHIP_LABELS[id].split(" · ")[1] ?? id]),
   ) as Record<CmoSourceId, string>,
 };
 

@@ -10,6 +10,7 @@ import http from "node:http";
 import { fetchLocalArtistSources } from "../../lib/artist-audit-sources";
 import { artisjusIndexFileExists } from "../../lib/artisjus-index";
 import { cmoIndexFileExists } from "../../lib/cmo-index";
+import { searchCmoWebByArtist } from "../../lib/cmo-web/search";
 import { loadDotenvLocal } from "../../lib/load-dotenv-local";
 import { catalogAvailable } from "../../lib/mlc-artist-scan";
 import type { QueryApiHealthResponse } from "../../lib/query-api-types";
@@ -105,6 +106,27 @@ const server = http.createServer(async (req, res) => {
         skipMlcUnclaimed: body.skipMlcUnclaimed === true,
       });
       return json(res, 200, payload);
+    }
+
+    if (req.method === "POST" && url === "/v1/cmo-web/search") {
+      if (!authOk(req)) return unauthorized(res);
+
+      let body: { artistName?: string; forceRefresh?: boolean };
+      try {
+        body = JSON.parse(await readBody(req)) as typeof body;
+      } catch {
+        return json(res, 400, { error: "Invalid JSON body" });
+      }
+
+      const artistName = body.artistName?.trim() ?? "";
+      if (artistName.length < 2) {
+        return json(res, 400, { error: "artistName must be at least 2 characters" });
+      }
+
+      const results = await searchCmoWebByArtist(artistName, {
+        forceRefresh: body.forceRefresh === true,
+      });
+      return json(res, 200, { artistName, results });
     }
 
     json(res, 404, { error: "Not found" });

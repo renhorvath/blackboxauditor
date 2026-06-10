@@ -23,8 +23,8 @@ export interface CmoWebSearchResult {
 export const CMO_WEB_LABELS: Record<CmoWebSourceId, string> = {
   zaiks: "ZAiKS (PL)",
   sacem: "SACEM ONI (FR)",
-  spedidam: "SPEDIDAM (FR)",
-  sami: "SAMI (SE)",
+  spedidam: "Franciaország · SPEDIDAM",
+  sami: "Svédország · SAMI",
   koda: "KODA (DK)",
   prs: "PRS (UK)",
   sgae: "SGAE (ES)",

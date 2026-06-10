@@ -1,9 +1,10 @@
-import { fetchText } from "@/lib/cmo-web/http";
-import { extractTableRows } from "@/lib/cmo-web/parse-html";
 import { ejiArtistMatchesQuery } from "@/lib/cmo-web/eji-search";
+import { fetchText } from "@/lib/cmo-web/http";
+import { parseSpedidamRecordingResults } from "@/lib/cmo-web/parse-spedidam";
 import type { CmoWebHit, CmoWebSearchResult } from "@/lib/cmo-web/web-types";
 
-const SEARCH_URL = "https://www.spedidam.fr/ilad";
+const SEARCH_URL = "https://ilad.spedidam.fr/RechercheV2/RechercherTitres?Length=9";
+const CLAIM_BASE = "https://ilad.spedidam.fr/RechercheV2/AyantsDroitNonIdentifies";
 
 export async function searchSpedidam(query: string): Promise<CmoWebSearchResult> {
   const q = query.trim();
@@ -12,23 +13,37 @@ export async function searchSpedidam(query: string): Promise<CmoWebSearchResult>
   }
 
   try {
-    const url = `${SEARCH_URL}?q=${encodeURIComponent(q)}`;
-    const html = await fetchText(url);
-    const rows = extractTableRows(html);
-    const hits: CmoWebHit[] = [];
+    const body = new URLSearchParams({
+      titre: "",
+      artisteOuGroupe: q,
+      ISRC: "",
+    });
 
-    for (const cells of rows.slice(1)) {
-      const title = cells[0] ?? "";
-      const identification = cells[1] ?? cells.slice(1).join(" · ");
-      if (!title && !identification) continue;
-      const blob = `${title} ${identification}`;
+    const html = await fetchText(SEARCH_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "X-Requested-With": "XMLHttpRequest",
+      },
+      body: body.toString(),
+    });
+
+    const parsed = parseSpedidamRecordingResults(html);
+    const hits: CmoWebHit[] = [];
+    const seen = new Set<string>();
+
+    for (const row of parsed) {
+      const blob = `${row.title} ${row.performer} ${row.producer}`;
       if (!ejiArtistMatchesQuery(blob, q)) continue;
+      const key = `${row.title}|${row.performer}|${row.isrc}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
       hits.push({
         source: "spedidam",
-        id: `spedidam:${title}:${identification}`.slice(0, 120),
-        title: title || "(névtelen)",
-        identification,
-        claimUrl: SEARCH_URL,
+        id: `spedidam:${row.id}`,
+        title: row.title,
+        identification: [row.performer, row.isrc, row.producer].filter(Boolean).join(" · "),
+        claimUrl: CLAIM_BASE,
       });
       if (hits.length >= 80) break;
     }
