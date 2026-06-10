@@ -216,16 +216,35 @@ async function runArtistAuditCore(
   let viaQueryApi: boolean;
   let ejiResult: Awaited<ReturnType<typeof searchEjiByArtist>> | null;
   let cmoWebResults: Awaited<ReturnType<typeof searchCmoWebByArtist>>;
+  let auditWarning: string | undefined;
 
   if (shouldUseQueryApi()) {
-    const bundle = await fetchArtistSourcesFromQueryApi(artistName, {
-      forceRefresh,
-      bundle: "core",
-    });
-    payload = bundle;
-    viaQueryApi = true;
-    ejiResult = bundle.eji ?? null;
-    cmoWebResults = bundle.cmoWebResults ?? [];
+    try {
+      const bundle = await fetchArtistSourcesFromQueryApi(artistName, {
+        forceRefresh,
+        bundle: "core",
+      });
+      payload = bundle;
+      viaQueryApi = true;
+      ejiResult = bundle.eji ?? null;
+      cmoWebResults = bundle.cmoWebResults ?? [];
+    } catch (err) {
+      if (!(err instanceof QueryApiError)) throw err;
+      console.error("[artist-audit] core phase query API failed:", err.message);
+      auditWarning =
+        "Az adatgép átmenetileg nem elérhető — próbáld újra pár másodperc múlva.";
+      payload = {
+        artistName,
+        mlcUnmatched: null,
+        mlcUnclaimed: null,
+        artisjusMatches: [],
+        cmoMatches: [],
+        capabilities: { catalog: false, artisjusIndex: false, cmoIndex: false },
+      };
+      viaQueryApi = false;
+      ejiResult = null;
+      cmoWebResults = [];
+    }
   } else {
     const [loaded, eji, cmoWeb] = await Promise.all([
       loadArtistSources(artistName, forceRefresh, true),
