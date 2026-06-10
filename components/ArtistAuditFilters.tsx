@@ -14,7 +14,8 @@ import type { AuditRow } from "@/lib/types";
 
 export function ArtistAuditFilters({
   query,
-  rows,
+  allRows,
+  countRows,
   selectedVariant,
   onVariantChange,
   enabledSources,
@@ -22,15 +23,18 @@ export function ArtistAuditFilters({
   onSelectOnlySource,
 }: {
   query: string;
-  rows: AuditRow[];
+  /** All rows — used to list name variants. */
+  allRows: AuditRow[];
+  /** Rows after name-variant filter — used for per-source counts. */
+  countRows: AuditRow[];
   selectedVariant: string;
   onVariantChange: (key: string) => void;
   enabledSources: ReadonlySet<AuditSourceFilterId>;
   onToggleSource: (id: AuditSourceFilterId) => void;
   onSelectOnlySource: (id: AuditSourceFilterId) => void;
 }) {
-  const variants = collectNameVariants(query, rows);
-  const activeSources = ALL_SOURCE_FILTER_IDS.filter((id) => sourceFilterCount(rows, id) > 0);
+  const variants = collectNameVariants(query, allRows);
+  const activeSources = ALL_SOURCE_FILTER_IDS.filter((id) => sourceFilterCount(countRows, id) > 0);
 
   if (variants.length === 0 && activeSources.length === 0) return null;
 
@@ -51,7 +55,7 @@ export function ArtistAuditFilters({
             className="input-bbox w-full py-2 text-sm"
           >
             <option value={ALL_NAME_VARIANTS}>
-              Összes névváltozat ({rows.length} sor)
+              Összes névváltozat ({allRows.length} sor)
             </option>
             {variants.map((v: NameVariantOption) => (
               <option key={v.key} value={v.key}>
@@ -74,7 +78,7 @@ export function ArtistAuditFilters({
           <div className="flex flex-wrap gap-2">
             {activeSources.map((id) => {
               const on = enabledSources.has(id);
-              const count = sourceFilterCount(rows, id);
+              const count = sourceFilterCount(countRows, id);
               return (
                 <button
                   key={id}

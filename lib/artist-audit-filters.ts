@@ -5,6 +5,7 @@ import {
 } from "@/lib/artist-name-match";
 import { normalizeArtisjusText } from "@/lib/artisjus-normalize";
 import { CMO_CHIP_LABELS, CMO_SOURCE_IDS, type CmoSourceId } from "@/lib/cmo-types";
+import type { CmoWebSourceId } from "@/lib/cmo-web/web-types";
 import type { AuditRow } from "@/lib/types";
 
 export type AuditSourceFilterId =
@@ -163,4 +164,43 @@ export function sourceFilterCount(
   id: AuditSourceFilterId,
 ): number {
   return rows.filter((row) => getRowSourceIds(row).includes(id)).length;
+}
+
+/** Per-source hit counts from visible audit rows (updates when name variant filter changes). */
+export function computeAuditCountsFromRows(rows: AuditRow[]): {
+  artisjusCount: number;
+  mlcUnmatchedCount: number;
+  mlcUnclaimedCount: number;
+  ejiCount: number;
+  cmoCounts: Partial<Record<CmoSourceId, number>>;
+  cmoWebCounts: Partial<Record<CmoWebSourceId, number>>;
+} {
+  const cmoCounts: Partial<Record<CmoSourceId, number>> = {};
+  const cmoWebCounts: Partial<Record<CmoWebSourceId, number>> = {};
+  let artisjusCount = 0;
+  let mlcUnmatchedCount = 0;
+  let mlcUnclaimedCount = 0;
+  let ejiCount = 0;
+
+  for (const row of rows) {
+    if (row.artisjusMatched) artisjusCount += 1;
+    if (row.mlcMatchStatus === "unmatched") mlcUnmatchedCount += 1;
+    if (row.mlcUnclaimed) mlcUnclaimedCount += 1;
+    if (row.ejiHits && row.ejiHits.length > 0) ejiCount += 1;
+    for (const hit of row.cmoHits ?? []) {
+      cmoCounts[hit.source] = (cmoCounts[hit.source] ?? 0) + 1;
+    }
+    for (const hit of row.cmoWebHits ?? []) {
+      cmoWebCounts[hit.source] = (cmoWebCounts[hit.source] ?? 0) + 1;
+    }
+  }
+
+  return {
+    artisjusCount,
+    mlcUnmatchedCount,
+    mlcUnclaimedCount,
+    ejiCount,
+    cmoCounts,
+    cmoWebCounts,
+  };
 }

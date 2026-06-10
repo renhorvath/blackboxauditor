@@ -1,0 +1,13 @@
+# Never upload local data machine files to Vercel
+/data/
+/raw/
+/derived/
+/exports/
+*.duckdb
+*.duckdb.wal
+*.tsv
+*.parquet
+**/hu_artist_scans/
+.firecrawl/
+.venv/
+node_modules/.cache/
