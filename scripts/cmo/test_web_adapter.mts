@@ -1,11 +1,11 @@
 #!/usr/bin/env npx tsx
 /** Smoke test one CMO web adapter. Usage: test_web_adapter.mts <zaiks|sacem|...> [query] */
-import { searchKoda } from "../../lib/cmo-web/adapters/koda.ts";
-import { searchSacem } from "../../lib/cmo-web/adapters/sacem.ts";
-import { searchSami } from "../../lib/cmo-web/adapters/sami.ts";
-import { searchSpedidam } from "../../lib/cmo-web/adapters/spedidam.ts";
-import { searchZaiks } from "../../lib/cmo-web/adapters/zaiks.ts";
-import type { CmoWebSourceId } from "../../lib/cmo-web/web-types.ts";
+import { searchKoda } from "@/lib/cmo-web/adapters/koda";
+import { searchSacem } from "@/lib/cmo-web/adapters/sacem";
+import { searchSami } from "@/lib/cmo-web/adapters/sami";
+import { searchSpedidam } from "@/lib/cmo-web/adapters/spedidam";
+import { searchZaiks } from "@/lib/cmo-web/adapters/zaiks";
+import type { CmoWebSourceId } from "@/lib/cmo-web/web-types";
 
 const SEARCHERS = {
   zaiks: searchZaiks,
