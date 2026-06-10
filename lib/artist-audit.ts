@@ -116,7 +116,7 @@ function assembleArtistAudit(
   viaQueryApi: boolean,
   ejiResult: Awaited<ReturnType<typeof searchEjiByArtist>> | null,
   cmoWebResults: Awaited<ReturnType<typeof searchCmoWebByArtist>>,
-  options?: { mlcPending?: boolean },
+  options?: { mlcPending?: boolean; auditWarning?: string },
 ): ArtistAuditResult {
   const dataBackend = viaQueryApi
     ? "query-api"
@@ -201,6 +201,7 @@ function assembleArtistAudit(
       mlcUnmatchedSkipped: mlcPending ? false : artistAuditSkipMlcUnmatched(),
       mlcUnclaimedSkipped: mlcPending ? false : artistAuditSkipMlcUnclaimed(),
       mlcPending,
+      auditWarning: options?.auditWarning,
       sourceCapabilities,
     },
   };
@@ -239,6 +240,7 @@ async function runArtistAuditCore(
 
   return assembleArtistAudit(artistName, scope, payload, viaQueryApi, ejiResult, cmoWebResults, {
     mlcPending: true,
+    auditWarning,
   });
 }
 

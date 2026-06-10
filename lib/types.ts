@@ -209,6 +209,8 @@ export interface ArtistAuditMeta {
   mlcUnclaimedSkipped?: boolean;
   /** MLC phase still loading (two-phase audit on Vercel). */
   mlcPending?: boolean;
+  /** Non-fatal warning (e.g. query API timeout — partial results). */
+  auditWarning?: string;
   /** Which indexes were reachable on the data backend (if any). */
   sourceCapabilities?: {
     catalog: boolean;

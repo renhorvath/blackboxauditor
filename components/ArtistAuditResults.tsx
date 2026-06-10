@@ -110,6 +110,12 @@ export function ArtistAuditResults({
 
   return (
     <section className="space-y-4">
+      {meta.auditWarning ? (
+        <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm text-[var(--text-secondary)]" role="status">
+          {meta.auditWarning}
+        </p>
+      ) : null}
+
       {mlcLoading || meta.mlcPending ? (
         <div
           className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-2.5 text-sm text-[var(--text-secondary)]"

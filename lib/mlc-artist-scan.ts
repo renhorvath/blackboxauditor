@@ -276,7 +276,7 @@ async function scanViaDuckdb<T extends { hits: unknown[]; scanSource?: string }>
   if (!result) {
     const catalogLocked = isCatalogLockError(stderr);
     if (catalogLocked) {
-      console.warn("[mlc-artist-scan] catalog.duckdb locked — skipping MLC (index build?)");
+      console.warn("[mlc-artist-scan] catalog.duckdb locked — falling back to TSV scan");
     }
     return { hit: null, catalogLocked };
   }
@@ -337,7 +337,7 @@ export async function scanMlcArtist(
       Omit<MlcArtistScanResult, "fromCache" | "scanSource">
     >("unmatched", artistName);
     if (hit) return hit;
-    if (catalogLocked || tsvFallbackDisabled()) return null;
+    if (!catalogLocked && tsvFallbackDisabled()) return null;
   }
 
   const tsv = process.env.MLC_UNMATCHED_TSV?.trim();
@@ -364,7 +364,7 @@ export async function scanMlcUnclaimedArtist(
       Omit<MlcUnclaimedScanResult, "fromCache" | "scanSource">
     >("unclaimed", artistName);
     if (hit) return hit;
-    if (catalogLocked || tsvFallbackDisabled()) return null;
+    if (!catalogLocked && tsvFallbackDisabled()) return null;
   }
 
   const tsv = process.env.MLC_UNCLAIMED_TSV?.trim();
