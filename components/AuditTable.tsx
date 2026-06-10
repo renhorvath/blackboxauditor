@@ -45,6 +45,7 @@ const ISSUE_LABELS: Record<AuditIssue["type"], string> = {
   cmo_unmatched: "Európai CMO",
   mlc_unclaimed_share: "MLC unclaimed",
   eji_unidentified: "EJI",
+  cmo_web_unidentified: "CMO web",
 };
 
 type AugmentedRow = AuditRow & { _severity: number };

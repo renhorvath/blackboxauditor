@@ -1,4 +1,5 @@
-import type { CmoSourceId } from "@/lib/cmo-types";
+import { CMO_CHIP_LABELS, CMO_SOURCE_IDS, type CmoSourceId } from "@/lib/cmo-types";
+import { CMO_WEB_LABELS, type CmoWebSourceId } from "@/lib/cmo-web/web-types";
 
 /** One chip per jogkezelő / collecting society — same logic for ARTISJUS, MLC, AKM, … */
 export interface AuditSourceChip {
@@ -64,6 +65,7 @@ export function buildAuditSourceChips(input: {
   mlcUnmatchedCount: number;
   mlcUnclaimedCount: number;
   cmoCounts?: Partial<Record<CmoSourceId, number>>;
+  cmoWebCounts?: Partial<Record<CmoWebSourceId, number>>;
   ejiCount?: number;
 }): AuditSourceChip[] {
   const chips: AuditSourceChip[] = [];
@@ -90,20 +92,22 @@ export function buildAuditSourceChips(input: {
     chips.push({ id: "eji", label: "Magyarország · EJI", count: input.ejiCount ?? 0 });
   }
 
-  const cmoChipLabels: Record<CmoSourceId, string> = {
-    "at-akm": "Ausztria · AKM",
-    "at-aume": "Ausztria · AUME",
-    "nl-sena": "Hollandia · SENA",
-  };
-  const cmoOrder: CmoSourceId[] = ["at-akm", "at-aume", "nl-sena"];
-  for (const id of cmoOrder) {
+  for (const id of CMO_SOURCE_IDS) {
     const count = input.cmoCounts?.[id] ?? 0;
     if (count > 0) {
       chips.push({
         id,
-        label: cmoChipLabels[id],
+        label: CMO_CHIP_LABELS[id],
         count,
       });
+    }
+  }
+
+  if (input.cmoWebCounts) {
+    for (const [id, count] of Object.entries(input.cmoWebCounts) as [CmoWebSourceId, number][]) {
+      if (count > 0) {
+        chips.push({ id: `cmo-web-${id}`, label: CMO_WEB_LABELS[id], count });
+      }
     }
   }
 
@@ -183,12 +187,6 @@ export function buildAuditSourceCoverage(meta: {
     return (meta.ejiCount ?? 0) > 0 ? "found" : "clear";
   }
 
-  const cmoLabels: Record<CmoSourceId, string> = {
-    "at-akm": "Ausztria · AKM",
-    "at-aume": "Ausztria · AUME",
-    "nl-sena": "Hollandia · SENA",
-  };
-
   const items: AuditSourceCoverageItem[] = [
     {
       id: "artisjus",
@@ -224,12 +222,12 @@ export function buildAuditSourceCoverage(meta: {
     },
   ];
 
-  for (const id of ["at-akm", "at-aume", "nl-sena"] as CmoSourceId[]) {
+  for (const id of CMO_SOURCE_IDS) {
     const status = cmoStatus(id);
     const count = meta.cmoCounts?.[id] ?? 0;
     items.push({
       id,
-      label: cmoLabels[id],
+      label: CMO_CHIP_LABELS[id],
       status,
       count,
       detail: detail(status, count),

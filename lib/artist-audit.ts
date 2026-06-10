@@ -18,6 +18,14 @@ import {
   linkEjiHitsToRows,
 } from "@/lib/cmo-web/eji-enrich";
 import { searchEjiByArtist } from "@/lib/cmo-web/eji-search";
+import { searchCmoWebByArtist } from "@/lib/cmo-web/search";
+import {
+  appendCmoWebHits,
+  countCmoWebHits,
+  countCmoWebHitsBySource,
+  flattenCmoWebResults,
+  linkCmoWebHitsToRows,
+} from "@/lib/cmo-web/web-enrich";
 import { buildRowsFromMlcHits, mergeMlcUnclaimedHits } from "@/lib/mlc-enrich";
 import {
   catalogAvailable,
@@ -91,7 +99,7 @@ export async function runArtistAudit(input: {
 }): Promise<ArtistAuditResult> {
   const forceRefresh = input.scope === "full";
 
-  const [loaded, ejiResult] = await Promise.all([
+  const [loaded, ejiResult, cmoWebResults] = await Promise.all([
     loadArtistSources(input.artistName, forceRefresh).catch((err) => {
       if (shouldUseQueryApi()) throw err;
       return {
@@ -107,6 +115,7 @@ export async function runArtistAudit(input: {
       };
     }),
     searchEjiByArtist(input.artistName, { forceRefresh }).catch(() => null),
+    searchCmoWebByArtist(input.artistName, { forceRefresh }).catch(() => []),
   ]);
 
   const payload = loaded.payload;
@@ -149,6 +158,14 @@ export async function runArtistAudit(input: {
     rows = appendEjiHits(rows, ejiHits);
   }
 
+  const cmoWebHits = flattenCmoWebResults(cmoWebResults ?? []);
+  const cmoWebCount = countCmoWebHits(cmoWebHits);
+  const cmoWebFromCache = (cmoWebResults ?? []).length > 0 && (cmoWebResults ?? []).every((r) => r.fromCache);
+  if (cmoWebHits.length > 0) {
+    rows = linkCmoWebHitsToRows(rows, cmoWebHits);
+    rows = appendCmoWebHits(rows, cmoWebHits);
+  }
+
   const sourceCapabilities: ArtistAuditMeta["sourceCapabilities"] =
     dataBackend === "unavailable"
       ? { catalog: false, artisjusIndex: false, cmoIndex: false }
@@ -172,8 +189,10 @@ export async function runArtistAudit(input: {
       mlcUnclaimedCount: mlcUnclaimedScan?.uniqueIsrcCount ?? 0,
       artisjusCount: artisjusMatches.length,
       cmoCounts: countCmoMatchesBySource(cmoMatches),
+      cmoWebCounts: countCmoWebHitsBySource(cmoWebHits),
       ejiCount,
       ejiFromCache,
+      cmoWebFromCache,
       queryApiUsed: viaQueryApi,
       dataBackend,
       mlcScanSource: mlcScan?.scanSource ?? "none",

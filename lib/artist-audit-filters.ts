@@ -4,7 +4,7 @@ import {
   type ArtistNameMatchStrength,
 } from "@/lib/artist-name-match";
 import { normalizeArtisjusText } from "@/lib/artisjus-normalize";
-import type { CmoSourceId } from "@/lib/cmo-types";
+import { CMO_CHIP_LABELS, CMO_SOURCE_IDS, type CmoSourceId } from "@/lib/cmo-types";
 import type { AuditRow } from "@/lib/types";
 
 export type AuditSourceFilterId =
@@ -19,9 +19,7 @@ export const ALL_SOURCE_FILTER_IDS: AuditSourceFilterId[] = [
   "eji",
   "mlc-unmatched",
   "mlc-unclaimed",
-  "at-akm",
-  "at-aume",
-  "nl-sena",
+  ...CMO_SOURCE_IDS,
 ];
 
 export const SOURCE_FILTER_LABELS: Record<AuditSourceFilterId, string> = {
@@ -29,9 +27,9 @@ export const SOURCE_FILTER_LABELS: Record<AuditSourceFilterId, string> = {
   eji: "EJI",
   "mlc-unmatched": "MLC streaming",
   "mlc-unclaimed": "MLC mechanikai",
-  "at-akm": "AKM",
-  "at-aume": "AUME",
-  "nl-sena": "SENA",
+  ...Object.fromEntries(
+    CMO_SOURCE_IDS.map((id) => [id, CMO_CHIP_LABELS[id].split(" · ")[1] ?? id]),
+  ) as Record<CmoSourceId, string>,
 };
 
 const STRENGTH_ORDER: Record<ArtistNameMatchStrength, number> = {

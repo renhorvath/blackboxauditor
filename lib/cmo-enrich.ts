@@ -3,7 +3,7 @@ import { CMO_ISRC_PREFIX, CMO_SOURCE_LABELS } from "@/lib/cmo-types";
 import { normalizeArtisjusText } from "@/lib/artisjus-normalize";
 import type { AuditIssue, AuditRow } from "@/lib/types";
 
-function cmoIssuesFromRecord(record: CmoRecord): AuditIssue[] {
+function cmoIssueMessage(record: CmoRecord): string {
   const label = CMO_SOURCE_LABELS[record.source];
   const roleNote =
     record.senaRole === "producenten"
@@ -11,18 +11,27 @@ function cmoIssuesFromRecord(record: CmoRecord): AuditIssue[] {
       : record.senaRole === "muzikanten"
         ? " (előadói jog)"
         : "";
-
-  const messages: Record<CmoSourceId, string> = {
+  const custom: Partial<Record<CmoSourceId, string>> = {
     "at-akm": `Az osztrák AKM Anfrageliste-jén szerepel azonosítatlan műként (Werknr. ${record.id}).`,
     "at-aume": `Az Austro-Mechana mechanikai jogi listáján szerepel (Werknr. ${record.id}).`,
-    "nl-sena": `A holland SENA „ongeclaimd buitenland” listáján szerepel${roleNote} (Recording ID ${record.id.split(":")[0]}).`,
+    "nl-sena": `A holland SENA „ongeclaimd ${record.senaScope ?? ""}” listáján szerepel${roleNote} (Recording ID ${record.id.split(":")[0]}).`,
   };
 
+  if (custom[record.source]) {
+    return custom[record.source]!;
+  }
+
+  const idHint = record.id.includes(":") ? record.id.split(":")[0] : record.id;
+  return `A ${label} azonosítatlan / nem claimelt listáján szerepel (azonosító ${idHint}).`;
+}
+
+function cmoIssuesFromRecord(record: CmoRecord): AuditIssue[] {
+  const label = CMO_SOURCE_LABELS[record.source];
   return [
     {
       type: "cmo_unmatched",
       severity: "critical",
-      message: messages[record.source],
+      message: cmoIssueMessage(record),
       action: `Ellenőrizd a ${label} regisztrációt / claim lehetőséget; egyeztess a helyi képviselőddel vagy a CMO-val.`,
     },
   ];
@@ -71,8 +80,13 @@ function mergeCmoHit(row: AuditRow, hit: CmoArtistMatch): AuditRow {
       title: hit.record.title,
       score: hit.score,
       senaRole: hit.record.senaRole,
+      senaScope: hit.record.senaScope,
       remark: hit.record.remark,
       identification: hit.record.identification,
+      performer: hit.record.performer,
+      composer: hit.record.composer,
+      label: hit.record.label,
+      isrc: hit.record.isrc,
     },
   ];
 
@@ -127,8 +141,13 @@ export function buildCmoOnlyRow(hit: CmoArtistMatch): AuditRow {
         title: record.title,
         score,
         senaRole: record.senaRole,
+        senaScope: record.senaScope,
         remark: record.remark,
         identification: record.identification,
+        performer: record.performer,
+        composer: record.composer,
+        label: record.label,
+        isrc: record.isrc,
       },
     ],
   };

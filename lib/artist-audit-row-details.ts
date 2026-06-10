@@ -1,4 +1,5 @@
-import { CMO_SOURCE_LABELS } from "@/lib/cmo-types";
+import { CMO_CHIP_LABELS, CMO_SOURCE_LABELS } from "@/lib/cmo-types";
+import { CMO_WEB_LABELS } from "@/lib/cmo-web/web-types";
 import type { AuditRow } from "@/lib/types";
 
 export interface SourceFact {
@@ -127,28 +128,61 @@ export function getSourceDetailsForRow(row: AuditRow): SourceDetailBlock[] {
     const facts: SourceFact[] = [
       { label: "Mű / felvétel címe", value: hit.title },
     ];
-    if (hit.identification) facts.push({ label: "Előadó a listán", value: hit.identification });
+    if (hit.performer) facts.push({ label: "Előadó a listán", value: hit.performer });
+    if (hit.composer) facts.push({ label: "Zeneszerző / szerző", value: hit.composer });
+    if (!hit.performer && !hit.composer && hit.identification) {
+      facts.push({ label: "Azonosítás a listán", value: hit.identification });
+    }
+    if (hit.label) facts.push({ label: "Kiadó / label", value: hit.label });
+    if (hit.isrc) facts.push({ label: "ISRC", value: hit.isrc });
     if (hit.recordId) facts.push({ label: "CMO azonosító", value: hit.recordId });
     if (hit.remark) facts.push({ label: "Megjegyzés", value: hit.remark });
     if (hit.senaRole === "producenten") facts.push({ label: "Jog típusa", value: "Producenti jog" });
     if (hit.senaRole === "muzikanten") facts.push({ label: "Jog típusa", value: "Előadói jog" });
+    if (hit.senaScope === "nederland") facts.push({ label: "SENA lista", value: "Nederland (belföldi)" });
+    if (hit.senaScope === "buitenland") facts.push({ label: "SENA lista", value: "Buitenland (külföldi)" });
 
-    const orgLabel = CMO_SOURCE_LABELS[hit.source].replace(" (AT)", "").replace(" (NL)", "");
-    const region =
-      hit.source === "nl-sena" ? "Hollandia" : hit.source.startsWith("at-") ? "Ausztria" : "Külföld";
+    const chip = CMO_CHIP_LABELS[hit.source];
+    const region = chip.split(" · ")[0] ?? "Külföld";
+    const orgLabel = CMO_SOURCE_LABELS[hit.source].replace(/\s*\([A-Z]{2}\)$/, "");
+
+    let headline = "Azonosítatlan / nem claimelt tétel a CMO listán";
+    if (hit.source === "at-aume") headline = "Mechanikai jog nem claimelt (Ausztria)";
+    else if (hit.source === "at-akm") headline = "Azonosítatlan mű az osztrák listán";
+    else if (hit.source === "nl-sena") {
+      headline =
+        hit.senaScope === "nederland"
+          ? "Holland felvétel nem claimelt (SENA)"
+          : "Külföldi felvétel nem claimelt (SENA)";
+    } else {
+      headline = `Azonosítatlan tétel — ${chip}`;
+    }
 
     blocks.push({
       id: `cmo-${hit.source}-${hit.recordId}`,
       region,
       sourceLabel: orgLabel,
-      headline:
-        hit.source === "at-aume"
-          ? "Mechanikai jog nem claimelt (Ausztria)"
-          : hit.source === "nl-sena"
-            ? "Külföldi felvétel nem claimelt (Hollandia)"
-            : "Azonosítatlan mű az osztrák listán",
+      headline,
       facts,
       action: `Ellenőrizd a ${CMO_SOURCE_LABELS[hit.source]} regisztrációt és claim lehetőséget.`,
+    });
+  }
+
+  for (const hit of row.cmoWebHits ?? []) {
+    const facts: SourceFact[] = [
+      { label: "Mű / felvétel címe", value: hit.title },
+      { label: "Előadó a listán", value: hit.identification },
+    ];
+    if (hit.detail) facts.push({ label: "Részlet", value: hit.detail });
+    blocks.push({
+      id: `cmo-web-${hit.source}-${hit.recordId}`,
+      region: CMO_WEB_LABELS[hit.source].replace(/\s*\([A-Z]{2}\)$/, ""),
+      sourceLabel: CMO_WEB_LABELS[hit.source],
+      headline: `Azonosítatlan tétel — ${CMO_WEB_LABELS[hit.source]}`,
+      facts,
+      action: hit.claimUrl
+        ? `Claim / ellenőrzés: ${hit.claimUrl}`
+        : `Ellenőrizd a ${CMO_WEB_LABELS[hit.source]} regisztrációt.`,
     });
   }
 

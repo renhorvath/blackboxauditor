@@ -1,4 +1,5 @@
 import type { CmoSourceId } from "@/lib/cmo-types";
+import type { CmoWebSourceId } from "@/lib/cmo-web/web-types";
 
 export type IssueType =
   | "no_iswc"
@@ -15,7 +16,8 @@ export type IssueType =
   | "artisjus_partial_rights"
   | "cmo_unmatched"
   | "mlc_unclaimed_share"
-  | "eji_unidentified";
+  | "eji_unidentified"
+  | "cmo_web_unidentified";
 
 export type IssueSeverity = "critical" | "warning" | "info";
 
@@ -51,8 +53,13 @@ export interface AuditRow {
     title: string;
     score: number;
     senaRole?: "producenten" | "muzikanten";
+    senaScope?: "nederland" | "buitenland";
     remark?: string | null;
     identification?: string | null;
+    performer?: string | null;
+    composer?: string | null;
+    label?: string | null;
+    isrc?: string | null;
   }[];
   ejiHits?: {
     kind: "track" | "artist";
@@ -65,6 +72,14 @@ export interface AuditRow {
     tipus?: string;
     name?: string;
     distributionPeriod?: string;
+  }[];
+  cmoWebHits?: {
+    source: CmoWebSourceId;
+    recordId: string;
+    title: string;
+    identification: string;
+    detail?: string | null;
+    claimUrl?: string | null;
   }[];
   mlcUnclaimed?: boolean;
   mlcUnclaimedPct?: number | null;
@@ -179,8 +194,10 @@ export interface ArtistAuditMeta {
   mlcUnclaimedCount: number;
   artisjusCount: number;
   cmoCounts?: Partial<Record<CmoSourceId, number>>;
+  cmoWebCounts?: Partial<Record<CmoWebSourceId, number>>;
   ejiCount?: number;
   ejiFromCache?: boolean;
+  cmoWebFromCache?: boolean;
   queryApiUsed?: boolean;
   /** Where MLC/ARTISJUS/CMO data came from (EJI always from current host). */
   dataBackend?: "local" | "query-api" | "unavailable";

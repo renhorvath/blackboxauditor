@@ -9,7 +9,29 @@ Local raw files live under `raw/` — never committed to git. See `DATA_SETUP.md
 | `raw/cmo/hu-artisjus/artisjus_azonositatlan_muvek_2025.csv` | **ARTISJUS** | HU | Musical works (authors/publishers) | CSV | 785k lines / 188k works | ✅ Indexed (`npm run artisjus:build-index`) |
 | `raw/cmo/at-akm/Anfrageliste-AKM-allgemein.xlsx` | **AKM** | AT | Musical works (Anfrageliste) | XLSX | 25k | ✅ Indexed (`npm run cmo:build-index`) |
 | `raw/cmo/at-aume/Anfrageliste-aume-allgemein.xlsx` | **Austro-Mechana** | AT | Mechanical rights | XLSX | 7k | ✅ Indexed |
-| `raw/cmo/nl-sena/ongeclaimd-buitenland.xlsx` | **SENA** | NL | Neighbouring rights (Producenten + Muzikanten) | XLSX | 150k × 2 sheets | ✅ Indexed |
+| `raw/cmo/nl-sena/ongeclaimd-nederland.xlsx` | **SENA** | NL | Neighbouring — domestic unclaimed | XLSX | ~43k + ~47k | ✅ Indexed |
+| `raw/cmo/nl-sena/ongeclaimd-buitenland.xlsx` | **SENA** | NL | Neighbouring — foreign unclaimed | XLSX | ~150k × 2 sheets | ✅ Indexed |
+| `raw/cmo/se-stim/*.xlsx` | **STIM** | SE | Musical works (quarterly) | XLSX | ~188k | ✅ Indexed — `npm run cmo:fetch -- --source se-stim` |
+| `raw/cmo/sk-soza/*.xlsx` | **SOZA** | SK | Musical works (annual) | XLSX | varies | ✅ Indexed |
+| `raw/cmo/ro-credidam/*.xlsx` | **CREDIDAM** | RO | Neighbouring — radio/TV | XLSX | varies | ✅ Indexed |
+| `raw/cmo/hr-hds-zamp/*.xlsx` | **HDS-ZAMP** | HR | Musical works (3 files) | XLSX | varies | ✅ Indexed — **manuális letöltés** (`zamp.hr/press/download/pregled` → HTTP 403 botnak) |
+| `raw/cmo/ro-ucmr-ada/*.csv` | **UCMR-ADA** | RO | Musical works (PDF→CSV) | CSV | monthly | ✅ Optional — `parse_ucmr_pdf.py` |
+| `raw/cmo/ee-eau/*.csv` | **EAÜ** | EE | Musical works | CSV | varies | ⚠️ Indexed — **manuális CSV** (`www.eau.ee/.../tuvastamata-teosed` export; `portal.eau.ee` NXDOMAIN); `npm run cmo:fetch-eau` |
+| `raw/cmo/ee-eel/*.xlsx` | **EEL** | EE | Neighbouring | XLSX | varies | ✅ Indexed |
+| `raw/cmo/cz-intergram/*.xlsx` | **INTERGRAM** | CZ | Neighbouring | XLSX | varies | ✅ Indexed |
+| `raw/cmo/fi-gramex/*.xlsx` | **Gramex** | FI | Neighbouring | XLSX | ~51k | ✅ Indexed — [unidentified plays](https://www.gramex.fi/en/unidentified-plays-phonograms/); `npm run cmo:fetch -- --source fi-gramex` |
+
+### Web adapters (phase 3)
+
+| Source | Country | Env | Cache |
+|--------|---------|-----|-------|
+| ZAiKS | PL | `CMO_WEB_ENABLED` | `derived/cmo-web-cache/zaiks/` |
+| SACEM ONI | FR | same | `.../sacem/` |
+| SPEDIDAM ILAD | FR | same | `.../spedidam/` |
+| SAMI | SE | same | `.../sami/` |
+| KODA | DK | same | `.../koda/` |
+
+Phase 4 stubs (PRS, SGAE, BUMA): `scripts/cmo/pending/README.md`
 
 ### Column schemas
 
@@ -17,7 +39,7 @@ Local raw files live under `raw/` — never committed to git. See `DATA_SETUP.md
 
 **AKM / AUME:** `Werknummer, Werktitel, Identifikation, Vermerk` (bilingual header cells)
 
-**SENA:** `Recording ID, Main artist, Title, Version, ISRC` — sheets `Producenten`, `Muzikanten`
+**SENA:** `Recording ID, Main artist, Title, Version, ISRC` — sheets `Producenten`, `Muzikanten` (both nederland + buitenland files)
 
 > **Note:** AKM and AUME are *author/mechanical* societies, not performer rights (LSG handles performers in Austria). SENA is *neighbouring rights*, not BUMA/STEMRA (Dutch authors).
 
@@ -57,5 +79,9 @@ Index build:
 
 ```bash
 npm run artisjus:build-index
+npm run cmo:bootstrap    # placeholder XLSX/CSV when raw/ missing (dev)
+npm run cmo:fetch        # STIM, SOZA, Gramex, HDS-ZAMP, EEL, INTERGRAM
+npm run cmo:fetch-eau    # EAÜ CSV (often needs manual export)
 npm run cmo:build-index
+python3 scripts/cmo/parse_ucmr_pdf.py path/to/ucmr.pdf   # RO UCMR-ADA
 ```

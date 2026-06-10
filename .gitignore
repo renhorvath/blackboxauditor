@@ -20,6 +20,9 @@
 # production
 /build
 
+# firecrawl CLI cache (web research)
+.firecrawl/
+
 # misc
 .DS_Store
 *.pem

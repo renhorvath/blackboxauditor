@@ -1,187 +1,90 @@
 #!/usr/bin/env python3
-"""Build searchable JSON indexes from AKM, AUME, and SENA xlsx sources."""
+"""Build searchable JSON indexes from European CMO bulk sources."""
 
 from __future__ import annotations
 
 import json
-import re
-import unicodedata
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-import openpyxl
+CMO_DIR = Path(__file__).resolve().parent
+if str(CMO_DIR) not in sys.path:
+    sys.path.insert(0, str(CMO_DIR))
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+from loaders import load_akm_aume, load_dir_csv, load_dir_xlsx, load_sena  # noqa: E402
+from source_specs import BULK_SPECS, resolve_files  # noqa: E402
+
+PROJECT_ROOT = CMO_DIR.parents[1]
 OUT_PATH = PROJECT_ROOT / "data" / "cmo-index.json"
+RAW = PROJECT_ROOT / "raw" / "cmo"
 
-STOP = {
-    "the", "and", "feat", "ft", "featuring", "a", "an", "az", "egy", "es", "is",
-    "of", "in", "on", "de", "la", "le", "les", "el", "y", "vs", "mix", "remix",
+LOADERS: dict[str, tuple] = {
+    "at-akm": ("AKM", "AT", "musical_work", lambda: load_akm_aume(
+        RAW / "at-akm" / "Anfrageliste-AKM-allgemein.xlsx", "at-akm", "AKM", "musical_work"
+    )),
+    "at-aume": ("Austro-Mechana", "AT", "mechanical", lambda: load_akm_aume(
+        RAW / "at-aume" / "Anfrageliste-aume-allgemein.xlsx", "at-aume", "Austro-Mechana", "mechanical"
+    )),
+    "nl-sena": ("SENA", "NL", "neighbouring", lambda: load_sena(RAW / "nl-sena")),
+    "se-stim": ("STIM", "SE", "musical_work", lambda: load_dir_xlsx(
+        RAW / "se-stim", source="se-stim", org="STIM", country="SE", rights_type="musical_work"
+    )),
+    "sk-soza": ("SOZA", "SK", "musical_work", lambda: load_dir_xlsx(
+        RAW / "sk-soza", source="sk-soza", org="SOZA", country="SK", rights_type="musical_work"
+    )),
+    "ro-credidam": ("CREDIDAM", "RO", "neighbouring", lambda: load_dir_xlsx(
+        RAW / "ro-credidam", source="ro-credidam", org="CREDIDAM", country="RO", rights_type="neighbouring"
+    )),
+    "hr-hds-zamp": ("HDS-ZAMP", "HR", "musical_work", lambda: load_dir_xlsx(
+        RAW / "hr-hds-zamp", source="hr-hds-zamp", org="HDS-ZAMP", country="HR", rights_type="musical_work"
+    )),
+    "ro-ucmr-ada": ("UCMR-ADA", "RO", "musical_work", lambda: load_dir_csv(
+        RAW / "ro-ucmr-ada", source="ro-ucmr-ada", org="UCMR-ADA", country="RO", rights_type="musical_work"
+    )),
+    "ee-eau": ("EAÜ", "EE", "musical_work", lambda: load_dir_csv(
+        RAW / "ee-eau", source="ee-eau", org="EAÜ", country="EE", rights_type="musical_work"
+    )),
+    "ee-eel": ("EEL", "EE", "neighbouring", lambda: load_dir_xlsx(
+        RAW / "ee-eel", source="ee-eel", org="EEL", country="EE", rights_type="neighbouring"
+    )),
+    "cz-intergram": ("INTERGRAM", "CZ", "neighbouring", lambda: load_dir_xlsx(
+        RAW / "cz-intergram", source="cz-intergram", org="INTERGRAM", country="CZ", rights_type="neighbouring"
+    )),
+    "fi-gramex": ("Gramex", "FI", "neighbouring", lambda: load_dir_xlsx(
+        RAW / "fi-gramex", source="fi-gramex", org="Gramex", country="FI", rights_type="neighbouring"
+    )),
 }
 
 
-def normalize_text(value: str | None) -> str:
-    if not value:
-        return ""
-    text = unicodedata.normalize("NFD", str(value))
-    text = "".join(c for c in text if unicodedata.category(c) != "Mn")
-    text = text.lower()
-    text = re.sub(r"[^\w\s]", " ", text, flags=re.UNICODE)
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
-
-
-def tokens_from(value: str | None, min_len: int = 2) -> list[str]:
-    return [t for t in normalize_text(value).split() if len(t) >= min_len and t not in STOP]
-
-
-def header_label(cell_value) -> str:
-    if cell_value is None:
-        return ""
-    return str(cell_value).split("\n")[0].strip().lower()
-
-
-def load_akm_aume(path: Path, source: str, org: str, rights_type: str) -> dict:
-    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
-    ws = wb.active
-    rows_iter = ws.iter_rows(values_only=True)
-    header_row = next(rows_iter, None)
-    if not header_row:
-        wb.close()
-        raise SystemExit(f"Empty sheet: {path}")
-
-    col_map: dict[str, int] = {}
-    for i, cell in enumerate(header_row):
-        label = header_label(cell)
-        if "werknummer" in label or label == "work number":
-            col_map["werknummer"] = i
-        elif "werktitel" in label or label == "work title":
-            col_map["werktitel"] = i
-        elif "identifikation" in label or label == "identification":
-            col_map["identifikation"] = i
-        elif "vermerk" in label or label == "remark":
-            col_map["vermerk"] = i
-
-    records = []
-    seen: set[str] = set()
-    for row in rows_iter:
-        if not row:
-            continue
-        werk = row[col_map["werknummer"]] if "werknummer" in col_map else None
-        if werk is None:
-            continue
-        rec_id = str(werk).strip()
-        if not rec_id or rec_id in seen:
-            continue
-        seen.add(rec_id)
-        title = str(row[col_map["werktitel"]] if "werktitel" in col_map else "").strip()
-        ident = str(row[col_map["identifikation"]] if "identifikation" in col_map else "").strip()
-        remark_raw = row[col_map["vermerk"]] if "vermerk" in col_map else None
-        remark = str(remark_raw).strip() if remark_raw not in (None, "") else None
-        records.append(
-            {
-                "id": rec_id,
-                "source": source,
-                "title": title or "(névtelen)",
-                "identification": ident,
-                "remark": remark,
-            }
-        )
-    wb.close()
-
-    token_index = build_token_index(records)
-    return {
-        "organization": org,
-        "country": "AT",
-        "rightsType": rights_type,
-        "recordCount": len(records),
-        "records": records,
-        "tokenIndex": token_index,
-    }
-
-
-def load_sena(path: Path) -> dict:
-    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
-    records = []
-    seen: set[str] = set()
-
-    for sheet_name in wb.sheetnames:
-        role = "producenten" if sheet_name.lower().startswith("prod") else "muzikanten"
-        ws = wb[sheet_name]
-        rows_iter = ws.iter_rows(values_only=True)
-        next(rows_iter, None)  # skip header
-        for row in rows_iter:
-            if not row or len(row) < 3:
-                continue
-            rec_id = str(row[0]).strip() if row[0] is not None else ""
-            if not rec_id:
-                continue
-            dedupe_key = f"{rec_id}:{role}"
-            if dedupe_key in seen:
-                continue
-            seen.add(dedupe_key)
-            artist = str(row[1]).strip() if row[1] is not None else ""
-            title = str(row[2]).strip() if row[2] is not None else ""
-            version = str(row[3]).strip() if len(row) > 3 and row[3] not in (None, "") else None
-            isrc_raw = row[4] if len(row) > 4 else None
-            isrc = str(isrc_raw).strip().upper() if isrc_raw not in (None, "") else None
-            full_title = title
-            if version:
-                full_title = f"{title} ({version})"
-            records.append(
-                {
-                    "id": dedupe_key,
-                    "source": "nl-sena",
-                    "title": full_title or "(névtelen)",
-                    "identification": artist,
-                    "remark": None,
-                    "senaRole": role,
-                    "isrc": isrc,
-                }
-            )
-    wb.close()
-
-    token_index = build_token_index(records)
-    return {
-        "organization": "SENA",
-        "country": "NL",
-        "rightsType": "neighbouring",
-        "recordCount": len(records),
-        "records": records,
-        "tokenIndex": token_index,
-    }
-
-
-def build_token_index(records: list[dict]) -> dict[str, list[int]]:
-    token_index: dict[str, list[int]] = {}
-    for idx, rec in enumerate(records):
-        blob = f"{rec['title']} {rec['identification']}"
-        seen_tokens = set(tokens_from(blob, 2))
-        for tok in seen_tokens:
-            token_index.setdefault(tok, []).append(idx)
-    return token_index
-
-
 def main() -> None:
-    raw = PROJECT_ROOT / "raw" / "cmo"
-    sources = {
-        "at-akm": load_akm_aume(
-            raw / "at-akm" / "Anfrageliste-AKM-allgemein.xlsx",
-            "at-akm",
-            "AKM",
-            "musical_work",
-        ),
-        "at-aume": load_akm_aume(
-            raw / "at-aume" / "Anfrageliste-aume-allgemein.xlsx",
-            "at-aume",
-            "Austro-Mechana",
-            "mechanical",
-        ),
-        "nl-sena": load_sena(raw / "nl-sena" / "ongeclaimd-buitenland.xlsx"),
-    }
+    if "--bootstrap" in sys.argv:
+        from bootstrap_fixtures import bootstrap
+
+        bootstrap()
+
+    sources: dict = {}
+    skipped: list[str] = []
+
+    for spec in BULK_SPECS:
+        files = resolve_files(RAW, spec)
+        if not files and spec.id not in ("at-akm", "at-aume", "nl-sena"):
+            if spec.optional:
+                skipped.append(f"{spec.id} (optional, no files)")
+            else:
+                skipped.append(f"{spec.id} (no files in {spec.dir_name}/)")
+            continue
+        try:
+            loader = LOADERS[spec.id][3]
+            sources[spec.id] = loader()
+        except FileNotFoundError:
+            skipped.append(f"{spec.id} (directory missing)")
+        except Exception as err:
+            print(f"WARNING: failed to load {spec.id}: {err}", file=sys.stderr)
+            skipped.append(f"{spec.id} (error)")
 
     payload = {
-        "version": 1,
+        "version": 2,
         "builtAt": datetime.now(timezone.utc).isoformat(),
         "sources": sources,
     }
@@ -192,6 +95,8 @@ def main() -> None:
     print(f"Wrote {OUT_PATH} ({total:,} records across {len(sources)} sources)")
     for sid, meta in sources.items():
         print(f"  {sid}: {meta['recordCount']:,} ({meta['organization']})")
+    if skipped:
+        print("Skipped:", ", ".join(skipped))
 
 
 if __name__ == "__main__":

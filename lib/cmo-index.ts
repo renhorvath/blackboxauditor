@@ -7,6 +7,7 @@ import type {
   CmoRecord,
   CmoSourceId,
 } from "@/lib/cmo-types";
+import { CMO_SOURCE_IDS } from "@/lib/cmo-types";
 
 export type { CmoArtistMatch, CmoRecord, CmoSourceId } from "@/lib/cmo-types";
 
@@ -94,7 +95,12 @@ function candidateIndices(
 }
 
 function scoreRecord(record: CmoRecord, artistTokens: string[]): number {
-  const blob = new Set(cmoTokens(`${record.identification} ${record.title}`, 1));
+  const blob = new Set(
+    cmoTokens(
+      `${record.identification} ${record.title} ${record.performer ?? ""} ${record.composer ?? ""}`,
+      1,
+    ),
+  );
   if (artistTokens.length === 0) return 0;
   const hits = artistTokens.filter((t) => blob.has(t)).length;
   return hits / artistTokens.length;
@@ -152,9 +158,9 @@ export function searchCmoByIsrc(isrc: string | null | undefined): CmoArtistMatch
   const index = getCmoIndex();
   const out: CmoArtistMatch[] = [];
 
-  for (const sourceId of Object.keys(index.sources) as CmoSourceId[]) {
+  for (const sourceId of CMO_SOURCE_IDS) {
     const src = index.sources[sourceId];
-    if (sourceId !== "nl-sena") continue;
+    if (!src) continue;
     for (const record of src.records) {
       if (record.isrc?.toUpperCase() === norm) {
         out.push({ record, score: 1 });

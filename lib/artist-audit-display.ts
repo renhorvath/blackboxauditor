@@ -1,6 +1,6 @@
 import type { AuditRow } from "@/lib/types";
-import { CMO_SOURCE_LABELS } from "@/lib/cmo-types";
-import type { CmoSourceId } from "@/lib/cmo-types";
+import { CMO_CHIP_LABELS, CMO_SOURCE_LABELS } from "@/lib/cmo-types";
+import { CMO_WEB_LABELS } from "@/lib/cmo-web/web-types";
 import { isUncertainNameMatch } from "@/lib/artist-name-match";
 
 export function rowHasPayoutProblem(row: AuditRow): boolean {
@@ -8,11 +8,13 @@ export function rowHasPayoutProblem(row: AuditRow): boolean {
   if (row.mlcMatchStatus === "unmatched") return true;
   if (row.mlcUnclaimed) return true;
   if (row.cmoHits && row.cmoHits.length > 0) return true;
+  if (row.cmoWebHits && row.cmoWebHits.length > 0) return true;
   if (row.ejiHits && row.ejiHits.length > 0) return true;
   return row.issues.some(
     (i) =>
       i.type === "artisjus_unmatched" ||
       i.type === "cmo_unmatched" ||
+      i.type === "cmo_web_unidentified" ||
       i.type === "mlc_unclaimed_share" ||
       i.type === "no_mlc_match" ||
       i.type === "artisjus_foreign_only" ||
@@ -23,12 +25,6 @@ export function rowHasPayoutProblem(row: AuditRow): boolean {
 export function rowIsVisibleByDefault(query: string, row: AuditRow): boolean {
   return !isUncertainNameMatch(query, row.artist);
 }
-
-const CMO_SUMMARY: Record<CmoSourceId, string> = {
-  "at-akm": "Ausztria (AKM): azonosítatlan mű",
-  "at-aume": "Ausztria (AUME): mechanikai jog nem claimelt",
-  "nl-sena": "Hollandia (SENA): külföldi felvétel nem claimelt",
-};
 
 export function rowPayoutSummary(row: AuditRow): string {
   const parts: string[] = [];
@@ -46,7 +42,10 @@ export function rowPayoutSummary(row: AuditRow): string {
     parts.push(`USA: mechanikai share claim nélkül (MLC unclaimed${pct})`);
   }
   for (const hit of row.cmoHits ?? []) {
-    parts.push(CMO_SUMMARY[hit.source] ?? CMO_SOURCE_LABELS[hit.source]);
+    parts.push(CMO_CHIP_LABELS[hit.source] ?? CMO_SOURCE_LABELS[hit.source]);
+  }
+  for (const hit of row.cmoWebHits ?? []) {
+    parts.push(CMO_WEB_LABELS[hit.source]);
   }
   if (parts.length === 0 && row.issues.some((i) => i.severity === "critical")) {
     parts.push("Adathiány vagy hibás regisztráció");

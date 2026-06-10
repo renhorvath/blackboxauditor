@@ -34,6 +34,7 @@ export function ArtistAuditSummaryHeader({
     mlcUnmatchedCount: meta.mlcUnmatchedCount,
     mlcUnclaimedCount: meta.mlcUnclaimedCount,
     cmoCounts: meta.cmoCounts,
+    cmoWebCounts: meta.cmoWebCounts,
     ejiCount: meta.ejiCount,
   });
 
