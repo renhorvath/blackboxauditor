@@ -7,7 +7,7 @@
  *   curl -s http://127.0.0.1:8787/health | jq
  */
 import http from "node:http";
-import { fetchLocalArtistSources } from "../../lib/artist-audit-sources";
+import { fetchLocalArtistMlcOnly, fetchLocalArtistSources } from "../../lib/artist-audit-sources";
 import { artisjusIndexFileExists } from "../../lib/artisjus-index";
 import { cmoIndexFileExists } from "../../lib/cmo-index";
 import { searchEjiByArtist } from "../../lib/cmo-web/eji-search";
@@ -88,7 +88,7 @@ const server = http.createServer(async (req, res) => {
       let body: {
         artistName?: string;
         forceRefresh?: boolean;
-        bundle?: boolean;
+        bundle?: boolean | "core" | "full";
         skipMlcUnmatched?: boolean;
         skipMlcUnclaimed?: boolean;
       };
@@ -104,13 +104,15 @@ const server = http.createServer(async (req, res) => {
       }
 
       const forceRefresh = body.forceRefresh === true;
+      const coreBundle = body.bundle === "core";
+      const fullBundle = body.bundle === true || body.bundle === "full";
       const sourceOpts = {
         forceRefresh,
-        skipMlcUnmatched: body.skipMlcUnmatched === true,
-        skipMlcUnclaimed: body.skipMlcUnclaimed === true,
+        skipMlcUnmatched: coreBundle || body.skipMlcUnmatched === true,
+        skipMlcUnclaimed: coreBundle || body.skipMlcUnclaimed === true,
       };
 
-      if (body.bundle === true) {
+      if (coreBundle || fullBundle) {
         const [payload, eji, cmoWebResults] = await Promise.all([
           fetchLocalArtistSources(artistName, sourceOpts),
           withTimeout(
@@ -130,6 +132,27 @@ const server = http.createServer(async (req, res) => {
       }
 
       const payload = await fetchLocalArtistSources(artistName, sourceOpts);
+      return json(res, 200, payload);
+    }
+
+    if (req.method === "POST" && url === "/v1/artist/mlc") {
+      if (!authOk(req)) return unauthorized(res);
+
+      let body: { artistName?: string; forceRefresh?: boolean };
+      try {
+        body = JSON.parse(await readBody(req)) as typeof body;
+      } catch {
+        return json(res, 400, { error: "Invalid JSON body" });
+      }
+
+      const artistName = body.artistName?.trim() ?? "";
+      if (artistName.length < 2) {
+        return json(res, 400, { error: "artistName must be at least 2 characters" });
+      }
+
+      const payload = await fetchLocalArtistMlcOnly(artistName, {
+        forceRefresh: body.forceRefresh === true,
+      });
       return json(res, 200, payload);
     }
 

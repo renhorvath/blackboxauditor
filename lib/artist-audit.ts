@@ -1,5 +1,5 @@
 import { buildAuditSummary } from "@/lib/audit-engine";
-import { fetchLocalArtistSources } from "@/lib/artist-audit-sources";
+import { fetchLocalArtistMlcOnly, fetchLocalArtistSources } from "@/lib/artist-audit-sources";
 import { artisjusIndexAvailable } from "@/lib/artisjus-index";
 import {
   appendArtisjusArtistWorks,
@@ -21,7 +21,6 @@ import { searchEjiByArtist } from "@/lib/cmo-web/eji-search";
 import { searchCmoWebByArtist } from "@/lib/cmo-web/search";
 import {
   appendCmoWebHits,
-  countCmoWebHits,
   countCmoWebHitsBySource,
   flattenCmoWebResults,
   linkCmoWebHitsToRows,
@@ -32,16 +31,33 @@ import {
   type MlcArtistScanResult,
   type MlcUnclaimedScanResult,
 } from "@/lib/mlc-artist-scan";
-import { artistAuditSkipMlcUnclaimed, artistAuditSkipMlcUnmatched, shouldUseQueryApi, queryApiBaseUrl } from "@/lib/query-api-config";
+import {
+  artistAuditSkipMlcUnclaimed,
+  artistAuditSkipMlcUnmatched,
+  queryApiBaseUrl,
+  shouldUseQueryApi,
+} from "@/lib/query-api-config";
+import {
+  fetchArtistMlcFromQueryApi,
+  fetchArtistSourcesFromQueryApi,
+  QueryApiError,
+} from "@/lib/query-api-client";
+import type { ArtistAuditSourcesPayload, ArtistMlcPayload } from "@/lib/query-api-types";
 import { isServerlessRuntime } from "@/lib/runtime-env";
-import { fetchArtistSourcesFromQueryApi, QueryApiError } from "@/lib/query-api-client";
-import type { ArtistAuditSourcesPayload } from "@/lib/query-api-types";
 import type { AuditRow, AuditSummary, ArtistAuditMeta, ArtistAuditScope } from "@/lib/types";
+
+export type ArtistAuditPhase = "core" | "mlc" | "full";
 
 export interface ArtistAuditResult {
   rows: AuditRow[];
   summary: AuditSummary;
   meta: ArtistAuditMeta;
+}
+
+export interface ArtistAuditMlcResult {
+  phase: "mlc";
+  mlcUnmatched: MlcArtistScanResult | null;
+  mlcUnclaimed: MlcUnclaimedScanResult | null;
 }
 
 function asRemoteScan<T extends { scanSource: string }>(
@@ -54,8 +70,8 @@ function asRemoteScan<T extends { scanSource: string }>(
 async function loadArtistSources(
   artistName: string,
   forceRefresh: boolean,
+  skipMlc: boolean,
 ): Promise<{ payload: ArtistAuditSourcesPayload; viaQueryApi: boolean }> {
-  // Vercel without QUERY_API_URL — skip local files/python; EJI runs separately.
   if (isServerlessRuntime() && !queryApiBaseUrl()) {
     return {
       payload: {
@@ -72,7 +88,10 @@ async function loadArtistSources(
 
   if (shouldUseQueryApi()) {
     try {
-      const payload = await fetchArtistSourcesFromQueryApi(artistName, { forceRefresh });
+      const payload = await fetchArtistSourcesFromQueryApi(artistName, {
+        forceRefresh,
+        skipMlc,
+      });
       return { payload, viaQueryApi: true };
     } catch (err) {
       if (err instanceof QueryApiError) {
@@ -82,49 +101,23 @@ async function loadArtistSources(
     }
   }
 
-  const payload = await fetchLocalArtistSources(artistName, { forceRefresh });
+  const payload = await fetchLocalArtistSources(artistName, {
+    forceRefresh,
+    skipMlcUnmatched: skipMlc,
+    skipMlcUnclaimed: skipMlc,
+  });
   return { payload, viaQueryApi: false };
 }
 
-/**
- * Előadó-ellenőrzés: ARTISJUS, EJI, MLC (USA), AKM, AUME, SENA azonosítatlan listák.
- * Vercelen: MLC/ARTISJUS/CMO a QUERY_API_URL backendről (adatgép).
- */
-export async function runArtistAudit(input: {
-  artistName: string;
-  scope: ArtistAuditScope;
-}): Promise<ArtistAuditResult> {
-  const forceRefresh = input.scope === "full";
-
-  let payload: ArtistAuditSourcesPayload;
-  let viaQueryApi: boolean;
-  let ejiResult: Awaited<ReturnType<typeof searchEjiByArtist>> | null;
-  let cmoWebResults: Awaited<ReturnType<typeof searchCmoWebByArtist>>;
-
-  if (shouldUseQueryApi()) {
-    // Single query-API round-trip (sources + EJI + CMO web) — stays under Vercel 60s limit.
-    const bundle = await fetchArtistSourcesFromQueryApi(input.artistName, {
-      forceRefresh,
-      bundle: true,
-    });
-    payload = bundle;
-    viaQueryApi = true;
-    ejiResult = bundle.eji ?? null;
-    cmoWebResults = bundle.cmoWebResults ?? [];
-  } else {
-    const [loaded, eji, cmoWeb] = await Promise.all([
-      loadArtistSources(input.artistName, forceRefresh).catch((err) => {
-        throw err;
-      }),
-      searchEjiByArtist(input.artistName, { forceRefresh }).catch(() => null),
-      searchCmoWebByArtist(input.artistName, { forceRefresh }).catch(() => []),
-    ]);
-    payload = loaded.payload;
-    viaQueryApi = loaded.viaQueryApi;
-    ejiResult = eji;
-    cmoWebResults = cmoWeb;
-  }
-
+function assembleArtistAudit(
+  artistName: string,
+  scope: ArtistAuditScope,
+  payload: ArtistAuditSourcesPayload,
+  viaQueryApi: boolean,
+  ejiResult: Awaited<ReturnType<typeof searchEjiByArtist>> | null,
+  cmoWebResults: Awaited<ReturnType<typeof searchCmoWebByArtist>>,
+  options?: { mlcPending?: boolean },
+): ArtistAuditResult {
   const dataBackend = viaQueryApi
     ? "query-api"
     : isServerlessRuntime() && !queryApiBaseUrl()
@@ -163,8 +156,8 @@ export async function runArtistAudit(input: {
   }
 
   const cmoWebHits = flattenCmoWebResults(cmoWebResults ?? []);
-  const cmoWebCount = countCmoWebHits(cmoWebHits);
-  const cmoWebFromCache = (cmoWebResults ?? []).length > 0 && (cmoWebResults ?? []).every((r) => r.fromCache);
+  const cmoWebFromCache =
+    (cmoWebResults ?? []).length > 0 && (cmoWebResults ?? []).every((r) => r.fromCache);
   if (cmoWebHits.length > 0) {
     rows = linkCmoWebHitsToRows(rows, cmoWebHits);
     rows = appendCmoWebHits(rows, cmoWebHits);
@@ -181,16 +174,20 @@ export async function runArtistAudit(input: {
             cmoIndex: cmoIndexAvailable(),
           };
 
+  const mlcPending = options?.mlcPending === true;
+
   return {
     rows,
     summary: buildAuditSummary(rows),
     meta: {
-      artistName: input.artistName,
-      scope: input.scope,
+      artistName,
+      scope,
       spotifyTrackCount: 0,
-      isrcCount: (mlcScan?.uniqueIsrcCount ?? 0) + (mlcUnclaimedScan?.uniqueIsrcCount ?? 0),
-      mlcUnmatchedCount: mlcScan?.uniqueIsrcCount ?? 0,
-      mlcUnclaimedCount: mlcUnclaimedScan?.uniqueIsrcCount ?? 0,
+      isrcCount: mlcPending
+        ? 0
+        : (mlcScan?.uniqueIsrcCount ?? 0) + (mlcUnclaimedScan?.uniqueIsrcCount ?? 0),
+      mlcUnmatchedCount: mlcPending ? 0 : (mlcScan?.uniqueIsrcCount ?? 0),
+      mlcUnclaimedCount: mlcPending ? 0 : (mlcUnclaimedScan?.uniqueIsrcCount ?? 0),
       artisjusCount: artisjusMatches.length,
       cmoCounts: countCmoMatchesBySource(cmoMatches),
       cmoWebCounts: countCmoWebHitsBySource(cmoWebHits),
@@ -199,11 +196,126 @@ export async function runArtistAudit(input: {
       cmoWebFromCache,
       queryApiUsed: viaQueryApi,
       dataBackend,
-      mlcScanSource: mlcScan?.scanSource ?? "none",
-      mlcUnclaimedScanSource: mlcUnclaimedScan?.scanSource ?? "none",
-      mlcUnmatchedSkipped: artistAuditSkipMlcUnmatched(),
-      mlcUnclaimedSkipped: artistAuditSkipMlcUnclaimed(),
+      mlcScanSource: mlcPending ? "none" : (mlcScan?.scanSource ?? "none"),
+      mlcUnclaimedScanSource: mlcPending ? "none" : (mlcUnclaimedScan?.scanSource ?? "none"),
+      mlcUnmatchedSkipped: mlcPending ? false : artistAuditSkipMlcUnmatched(),
+      mlcUnclaimedSkipped: mlcPending ? false : artistAuditSkipMlcUnclaimed(),
+      mlcPending,
       sourceCapabilities,
     },
   };
+}
+
+async function runArtistAuditCore(
+  artistName: string,
+  scope: ArtistAuditScope,
+  forceRefresh: boolean,
+): Promise<ArtistAuditResult> {
+  let payload: ArtistAuditSourcesPayload;
+  let viaQueryApi: boolean;
+  let ejiResult: Awaited<ReturnType<typeof searchEjiByArtist>> | null;
+  let cmoWebResults: Awaited<ReturnType<typeof searchCmoWebByArtist>>;
+
+  if (shouldUseQueryApi()) {
+    const bundle = await fetchArtistSourcesFromQueryApi(artistName, {
+      forceRefresh,
+      bundle: "core",
+    });
+    payload = bundle;
+    viaQueryApi = true;
+    ejiResult = bundle.eji ?? null;
+    cmoWebResults = bundle.cmoWebResults ?? [];
+  } else {
+    const [loaded, eji, cmoWeb] = await Promise.all([
+      loadArtistSources(artistName, forceRefresh, true),
+      searchEjiByArtist(artistName, { forceRefresh }).catch(() => null),
+      searchCmoWebByArtist(artistName, { forceRefresh }).catch(() => []),
+    ]);
+    payload = loaded.payload;
+    viaQueryApi = loaded.viaQueryApi;
+    ejiResult = eji;
+    cmoWebResults = cmoWeb;
+  }
+
+  return assembleArtistAudit(artistName, scope, payload, viaQueryApi, ejiResult, cmoWebResults, {
+    mlcPending: true,
+  });
+}
+
+async function runArtistAuditMlc(
+  artistName: string,
+  forceRefresh: boolean,
+): Promise<ArtistAuditMlcResult> {
+  let mlcPayload: ArtistMlcPayload;
+
+  if (shouldUseQueryApi()) {
+    mlcPayload = await fetchArtistMlcFromQueryApi(artistName, { forceRefresh });
+  } else {
+    mlcPayload = await fetchLocalArtistMlcOnly(artistName, { forceRefresh });
+  }
+
+  return {
+    phase: "mlc",
+    mlcUnmatched: shouldUseQueryApi()
+      ? asRemoteScan(mlcPayload.mlcUnmatched)
+      : mlcPayload.mlcUnmatched,
+    mlcUnclaimed: shouldUseQueryApi()
+      ? asRemoteScan(mlcPayload.mlcUnclaimed)
+      : mlcPayload.mlcUnclaimed,
+  };
+}
+
+async function runArtistAuditFull(
+  artistName: string,
+  scope: ArtistAuditScope,
+  forceRefresh: boolean,
+): Promise<ArtistAuditResult> {
+  let payload: ArtistAuditSourcesPayload;
+  let viaQueryApi: boolean;
+  let ejiResult: Awaited<ReturnType<typeof searchEjiByArtist>> | null;
+  let cmoWebResults: Awaited<ReturnType<typeof searchCmoWebByArtist>>;
+
+  if (shouldUseQueryApi()) {
+    const bundle = await fetchArtistSourcesFromQueryApi(artistName, {
+      forceRefresh,
+      bundle: "full",
+    });
+    payload = bundle;
+    viaQueryApi = true;
+    ejiResult = bundle.eji ?? null;
+    cmoWebResults = bundle.cmoWebResults ?? [];
+  } else {
+    const [loaded, eji, cmoWeb] = await Promise.all([
+      loadArtistSources(artistName, forceRefresh, false),
+      searchEjiByArtist(artistName, { forceRefresh }).catch(() => null),
+      searchCmoWebByArtist(artistName, { forceRefresh }).catch(() => []),
+    ]);
+    payload = loaded.payload;
+    viaQueryApi = loaded.viaQueryApi;
+    ejiResult = eji;
+    cmoWebResults = cmoWeb;
+  }
+
+  return assembleArtistAudit(artistName, scope, payload, viaQueryApi, ejiResult, cmoWebResults);
+}
+
+/**
+ * Előadó-ellenőrzés: ARTISJUS, EJI, MLC (USA), AKM, AUME, SENA azonosítatlan listák.
+ * Vercelen: kétfázisú (core → mlc) a 60s limit miatt; MLC külön kérésben marad bekapcsolva.
+ */
+export async function runArtistAudit(input: {
+  artistName: string;
+  scope: ArtistAuditScope;
+  phase?: ArtistAuditPhase;
+}): Promise<ArtistAuditResult | ArtistAuditMlcResult> {
+  const forceRefresh = input.scope === "full";
+  const phase = input.phase ?? "full";
+
+  if (phase === "core") {
+    return runArtistAuditCore(input.artistName, input.scope, forceRefresh);
+  }
+  if (phase === "mlc") {
+    return runArtistAuditMlc(input.artistName, forceRefresh);
+  }
+  return runArtistAuditFull(input.artistName, input.scope, forceRefresh);
 }

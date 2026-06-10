@@ -7,20 +7,24 @@ import {
 } from "@/lib/mlc-artist-scan";
 import type { ArtistAuditSourcesPayload } from "@/lib/query-api-types";
 
-/** MLC ILIKE cap — keep query API bundle under Vercel 60s limit. */
-const MLC_SCAN_RACE_MS = Number(
-  process.env.QUERY_API_MLC_RACE_MS ?? process.env.MLC_SCAN_RACE_MS ?? 42_000,
-);
+function mlcRaceMs(kind: "bundle" | "only"): number {
+  if (kind === "only") {
+    const n = Number(process.env.QUERY_API_MLC_ONLY_RACE_MS ?? 54_000);
+    return Number.isFinite(n) && n > 0 ? n : 54_000;
+  }
+  const n = Number(process.env.QUERY_API_MLC_RACE_MS ?? 40_000);
+  return Number.isFinite(n) && n > 0 ? n : 40_000;
+}
 
-function raceMlcScan<T>(promise: Promise<T | null>): Promise<T | null> {
-  if (!Number.isFinite(MLC_SCAN_RACE_MS) || MLC_SCAN_RACE_MS <= 0) return promise;
+function raceMlcScan<T>(promise: Promise<T | null>, raceMs: number): Promise<T | null> {
+  if (!Number.isFinite(raceMs) || raceMs <= 0) return promise;
   return Promise.race([
     promise,
     new Promise<null>((resolve) => {
       setTimeout(() => {
         console.warn("[artist-sources] MLC scan race timeout — returning partial results");
         resolve(null);
-      }, MLC_SCAN_RACE_MS);
+      }, raceMs);
     }),
   ]);
 }
@@ -41,13 +45,14 @@ export async function fetchLocalArtistSources(
   const skipUnmatched = options?.skipMlcUnmatched ?? false;
   const skipUnclaimed = options?.skipMlcUnclaimed ?? false;
 
+  const mlcRace = mlcRaceMs("bundle");
   const [mlcUnmatched, mlcUnclaimed, artisjusMatches, cmoMatches] = await Promise.all([
     skipUnmatched
       ? Promise.resolve(null)
-      : raceMlcScan(scanMlcArtist(artistName, { forceRefresh })),
+      : raceMlcScan(scanMlcArtist(artistName, { forceRefresh }), mlcRace),
     skipUnclaimed
       ? Promise.resolve(null)
-      : raceMlcScan(scanMlcUnclaimedArtist(artistName, { forceRefresh })),
+      : raceMlcScan(scanMlcUnclaimedArtist(artistName, { forceRefresh }), mlcRace),
     artisjusIndexAvailable()
       ? Promise.resolve().then(() => {
           try {
@@ -80,4 +85,27 @@ export async function fetchLocalArtistSources(
       cmoIndex: cmoIndexAvailable(),
     },
   };
+}
+
+/** MLC-only scan — used in phase-2 request (dedicated 60s Vercel budget). */
+export async function fetchLocalArtistMlcOnly(
+  artistName: string,
+  options?: { forceRefresh?: boolean },
+): Promise<Pick<ArtistAuditSourcesPayload, "artistName" | "mlcUnmatched" | "mlcUnclaimed">> {
+  const forceRefresh = options?.forceRefresh ?? false;
+  const mlcRace = mlcRaceMs("only");
+  const skipUnmatched = process.env.ARTIST_AUDIT_SKIP_MLC_UNMATCHED?.trim().toLowerCase() === "true"
+    || process.env.ARTIST_AUDIT_SKIP_MLC?.trim().toLowerCase() === "true";
+  const skipUnclaimed = process.env.ARTIST_AUDIT_SKIP_MLC_ALL?.trim().toLowerCase() === "true";
+
+  const [mlcUnmatched, mlcUnclaimed] = await Promise.all([
+    skipUnmatched
+      ? Promise.resolve(null)
+      : raceMlcScan(scanMlcArtist(artistName, { forceRefresh }), mlcRace),
+    skipUnclaimed
+      ? Promise.resolve(null)
+      : raceMlcScan(scanMlcUnclaimedArtist(artistName, { forceRefresh }), mlcRace),
+  ]);
+
+  return { artistName, mlcUnmatched, mlcUnclaimed };
 }

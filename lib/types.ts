@@ -207,6 +207,8 @@ export interface ArtistAuditMeta {
   mlcUnmatchedSkipped?: boolean;
   /** MLC unclaimed omitted (ARTIST_AUDIT_SKIP_MLC_ALL on Vercel). */
   mlcUnclaimedSkipped?: boolean;
+  /** MLC phase still loading (two-phase audit on Vercel). */
+  mlcPending?: boolean;
   /** Which indexes were reachable on the data backend (if any). */
   sourceCapabilities?: {
     catalog: boolean;

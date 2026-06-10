@@ -1,4 +1,8 @@
-import type { ArtistAuditSourcesPayload, QueryApiHealthResponse } from "@/lib/query-api-types";
+import type {
+  ArtistAuditSourcesPayload,
+  ArtistMlcPayload,
+  QueryApiHealthResponse,
+} from "@/lib/query-api-types";
 import type { CmoWebSearchResult } from "@/lib/cmo-web/web-types";
 import {
   artistAuditSkipMlcUnclaimed,
@@ -30,12 +34,22 @@ export class QueryApiError extends Error {
 
 export async function fetchArtistSourcesFromQueryApi(
   artistName: string,
-  options?: { forceRefresh?: boolean; bundle?: boolean },
+  options?: {
+    forceRefresh?: boolean;
+    /** core = ARTISJUS+CMO+EJI+web (no MLC); full = everything in one call */
+    bundle?: boolean | "core" | "full";
+    skipMlc?: boolean;
+  },
 ): Promise<ArtistAuditSourcesPayload> {
   const base = queryApiBaseUrl();
   if (!base) {
     throw new QueryApiError("QUERY_API_URL is not configured");
   }
+
+  const bundle = options?.bundle;
+  const useCoreBundle = bundle === "core";
+  const useFullBundle = bundle === true || bundle === "full";
+  const phase = useCoreBundle ? "core" : useFullBundle ? "full" : undefined;
 
   const res = await fetch(`${base}/v1/artist/sources`, {
     method: "POST",
@@ -43,11 +57,11 @@ export async function fetchArtistSourcesFromQueryApi(
     body: JSON.stringify({
       artistName,
       forceRefresh: options?.forceRefresh ?? false,
-      bundle: options?.bundle === true,
-      skipMlcUnmatched: artistAuditSkipMlcUnmatched(),
-      skipMlcUnclaimed: artistAuditSkipMlcUnclaimed(),
+      bundle: useCoreBundle ? "core" : useFullBundle ? true : false,
+      skipMlcUnmatched: options?.skipMlc === true || artistAuditSkipMlcUnmatched(),
+      skipMlcUnclaimed: options?.skipMlc === true || artistAuditSkipMlcUnclaimed(),
     }),
-    signal: AbortSignal.timeout(queryApiTimeoutMs()),
+    signal: AbortSignal.timeout(queryApiTimeoutMs(phase)),
     cache: "no-store",
   });
 
@@ -60,6 +74,38 @@ export async function fetchArtistSourcesFromQueryApi(
   }
 
   return (await res.json()) as ArtistAuditSourcesPayload;
+}
+
+/** MLC-only scan — phase 2 of two-phase artist audit. */
+export async function fetchArtistMlcFromQueryApi(
+  artistName: string,
+  options?: { forceRefresh?: boolean },
+): Promise<ArtistMlcPayload> {
+  const base = queryApiBaseUrl();
+  if (!base) {
+    throw new QueryApiError("QUERY_API_URL is not configured");
+  }
+
+  const res = await fetch(`${base}/v1/artist/mlc`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({
+      artistName,
+      forceRefresh: options?.forceRefresh ?? false,
+    }),
+    signal: AbortSignal.timeout(queryApiTimeoutMs("mlc")),
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const detail = (await res.text()).slice(0, 300);
+    throw new QueryApiError(
+      `Query API mlc ${res.status}${detail ? `: ${detail}` : ""}`,
+      res.status,
+    );
+  }
+
+  return (await res.json()) as ArtistMlcPayload;
 }
 
 /** CMO web adapters (SPEDIDAM, SAMI, …) — run on query host when Vercel cannot reach CMO APIs. */

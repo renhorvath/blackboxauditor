@@ -14,6 +14,8 @@ import type {
   UnmatchedAuditResult,
 } from "@/lib/types";
 import { SESSION_STORAGE_KEY } from "@/lib/types";
+import { mergeMlcIntoArtistAudit } from "@/lib/artist-audit-merge";
+import type { ArtistAuditMlcResult } from "@/lib/artist-audit";
 import { validateIsrc } from "@/lib/isrc-validator";
 import { buildAuditRows, buildAuditSummary } from "@/lib/audit-engine";
 import { applyArtisjusEnrichment } from "@/lib/artisjus-enrich";
@@ -36,6 +38,7 @@ export function HomeAuditor() {
   const [auditSummary, setAuditSummary] = useState<AuditSummary | null>(null);
   const [auditMeta, setAuditMeta] = useState<ArtistAuditMeta | null>(null);
   const [catalogBusy, setCatalogBusy] = useState(false);
+  const [mlcLoading, setMlcLoading] = useState(false);
 
   const [singleTrackBusy, setSingleTrackBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +49,7 @@ export function HomeAuditor() {
     setAuditRows(null);
     setAuditSummary(null);
     setAuditMeta(null);
+    setMlcLoading(false);
     setResolveError(null);
     setSpotifyUrl("");
   }
@@ -57,6 +61,7 @@ export function HomeAuditor() {
       setAuditRows(null);
       setAuditSummary(null);
       setAuditMeta(null);
+      setMlcLoading(false);
     } else {
       setCatalogBusy(true);
       setResolveError(null);
@@ -65,32 +70,71 @@ export function HomeAuditor() {
     setResolvedArtistId(artistId);
     setResolvedArtistName(artistName);
 
+    const auditBody = { artistId, artistName, scope };
+
     try {
-      const res = await fetch("/api/artist-audit", {
+      const coreRes = await fetch("/api/artist-audit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ artistId, artistName, scope }),
+        body: JSON.stringify({ ...auditBody, phase: "core" }),
       });
-      const data = (await res.json()) as {
+      const coreData = (await coreRes.json()) as {
         rows?: AuditRow[];
         summary?: AuditSummary;
         meta?: ArtistAuditMeta;
         error?: string;
       };
-      if (!res.ok) {
-        setResolveError(data.error ?? "Az ellenőrzés nem sikerült.");
+      if (!coreRes.ok) {
+        setResolveError(coreData.error ?? "Az ellenőrzés nem sikerült.");
         if (scope === "top15") clearArtist();
         return;
       }
-      setAuditRows(data.rows ?? []);
-      setAuditSummary(data.summary ?? null);
-      setAuditMeta(data.meta ?? null);
+
+      const coreRows = coreData.rows ?? [];
+      const coreSummary = coreData.summary ?? null;
+      const coreMeta = coreData.meta ?? null;
+
+      setAuditRows(coreRows);
+      setAuditSummary(coreSummary);
+      setAuditMeta(coreMeta);
+      setResolveStatus("idle");
+      setCatalogBusy(false);
+
+      setMlcLoading(true);
+      try {
+        const mlcRes = await fetch("/api/artist-audit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...auditBody, phase: "mlc" }),
+        });
+        const mlcData = (await mlcRes.json()) as ArtistAuditMlcResult & { error?: string };
+        if (!mlcRes.ok) {
+          console.warn("[artist-audit] MLC phase failed:", mlcData.error);
+          return;
+        }
+        if (coreSummary && coreMeta) {
+          const merged = mergeMlcIntoArtistAudit(
+            { rows: coreRows, summary: coreSummary, meta: coreMeta },
+            {
+              mlcUnmatched: mlcData.mlcUnmatched,
+              mlcUnclaimed: mlcData.mlcUnclaimed,
+            },
+          );
+          setAuditRows(merged.rows);
+          setAuditSummary(merged.summary);
+          setAuditMeta(merged.meta);
+        }
+      } catch {
+        console.warn("[artist-audit] MLC phase network error");
+      } finally {
+        setMlcLoading(false);
+      }
     } catch {
       setResolveError("Hálózati hiba az ellenőrzés közben.");
       if (scope === "top15") clearArtist();
-    } finally {
       setResolveStatus("idle");
       setCatalogBusy(false);
+      setMlcLoading(false);
     }
   }
 
@@ -307,6 +351,7 @@ export function HomeAuditor() {
           <ArtistAuditResults
             artistName={resolvedArtistName}
             loading={resolveStatus === "loading"}
+            mlcLoading={mlcLoading}
             rows={auditRows}
             summary={auditSummary}
             meta={auditMeta}

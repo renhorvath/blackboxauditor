@@ -26,6 +26,7 @@ import { ArtistAuditSummaryHeader } from "@/components/ArtistAuditSummaryHeader"
 export function ArtistAuditResults({
   artistName,
   loading,
+  mlcLoading = false,
   rows,
   summary,
   meta,
@@ -36,6 +37,7 @@ export function ArtistAuditResults({
 }: {
   artistName: string;
   loading: boolean;
+  mlcLoading?: boolean;
   rows: AuditRow[] | null;
   summary: AuditSummary | null;
   meta: ArtistAuditMeta | null;
@@ -108,6 +110,16 @@ export function ArtistAuditResults({
 
   return (
     <section className="space-y-4">
+      {mlcLoading || meta.mlcPending ? (
+        <div
+          className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-2.5 text-sm text-[var(--text-secondary)]"
+          role="status"
+        >
+          <Loader2 className="size-4 shrink-0 animate-spin text-[var(--accent-primary)]" aria-hidden />
+          MLC (USA) adatok betöltése…
+        </div>
+      ) : null}
+
       <ArtistAuditSummaryHeader
         artistName={artistName}
         meta={displayMeta ?? meta}

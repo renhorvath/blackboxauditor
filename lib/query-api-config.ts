@@ -22,11 +22,14 @@ export function shouldUseQueryApi(): boolean {
   return process.env.QUERY_API_FORCE?.trim().toLowerCase() === "true";
 }
 
-export function queryApiTimeoutMs(): number {
+export function queryApiTimeoutMs(phase?: "core" | "mlc" | "full"): number {
   const configured = Number(process.env.QUERY_API_TIMEOUT_MS ?? 120_000);
   const n = Number.isFinite(configured) && configured > 0 ? configured : 120_000;
-  // Vercel Hobby caps serverless at 60s — leave headroom for JSON parse/render.
-  if (isServerlessRuntime()) return Math.min(n, 52_000);
+  if (isServerlessRuntime()) {
+    if (phase === "mlc") return Math.min(n, 58_000);
+    if (phase === "core") return Math.min(n, 45_000);
+    return Math.min(n, 52_000);
+  }
   return n;
 }
 

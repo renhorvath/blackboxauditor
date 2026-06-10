@@ -22,6 +22,13 @@ export interface ArtistAuditSourcesPayload {
   cmoWebResults?: CmoWebSearchResult[];
 }
 
+/** MLC-only payload from POST /v1/artist/mlc (phase 2). */
+export interface ArtistMlcPayload {
+  artistName: string;
+  mlcUnmatched: MlcArtistScanResult | null;
+  mlcUnclaimed: MlcUnclaimedScanResult | null;
+}
+
 export interface QueryApiHealthResponse {
   ok: boolean;
   version: number;
