@@ -47,7 +47,6 @@ body {
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--bg-primary);
-  padding: 0.625rem 0.875rem;
   font-size: 0.9375rem;
   color: var(--text-primary);
   outline: none;

@@ -52,7 +52,7 @@ export function ArtistAuditFilters({
             id="artist-name-variant"
             value={selectedVariant}
             onChange={(e) => onVariantChange(e.target.value)}
-            className="input-bbox w-full py-2 text-sm"
+            className="input-bbox w-full px-3.5 py-2 text-sm"
           >
             <option value={ALL_NAME_VARIANTS}>
               Összes névváltozat ({allRows.length} sor)

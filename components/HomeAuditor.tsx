@@ -264,7 +264,7 @@ export function HomeAuditor() {
                       value={spotifyUrl}
                       onChange={(e) => setSpotifyUrl(e.target.value)}
                       placeholder="open.spotify.com/artist/…"
-                      className="input-bbox w-full"
+                      className="input-bbox w-full px-3.5 py-2.5"
                       onKeyDown={(e) => {
                         if (e.key === "Enter") void importSpotifyUrl();
                       }}
