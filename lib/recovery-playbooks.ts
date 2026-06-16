@@ -1,16 +1,16 @@
 import type { PlaybookEntry } from "@/lib/recovery-types";
 import { toPlaybookSnapshot } from "@/lib/recovery-types";
 
-import deGvlKonu from "@/data/recovery-playbooks/de.gvl.konu.json";
-import deGvlListenArtist from "@/data/recovery-playbooks/de.gvl.listen_artist.json";
-import deGvlListenProducer from "@/data/recovery-playbooks/de.gvl.listen_producer.json";
-import deGvlSendemeldung from "@/data/recovery-playbooks/de.gvl.sendemeldung.json";
-import huArtisjus from "@/data/recovery-playbooks/hu.artisjus.unidentified_work.json";
-import huEji from "@/data/recovery-playbooks/hu.eji.unidentified.json";
-import nlSenaPerformer from "@/data/recovery-playbooks/nl.sena.performer.json";
-import nlSenaProducent from "@/data/recovery-playbooks/nl.sena.producent.json";
-import usMlcUnclaimed from "@/data/recovery-playbooks/us.mlc.unclaimed_share.json";
-import usMlcUnmatched from "@/data/recovery-playbooks/us.mlc.unmatched_recording.json";
+import deGvlKonu from "@/lib/recovery-playbooks-data/de.gvl.konu.json";
+import deGvlListenArtist from "@/lib/recovery-playbooks-data/de.gvl.listen_artist.json";
+import deGvlListenProducer from "@/lib/recovery-playbooks-data/de.gvl.listen_producer.json";
+import deGvlSendemeldung from "@/lib/recovery-playbooks-data/de.gvl.sendemeldung.json";
+import huArtisjus from "@/lib/recovery-playbooks-data/hu.artisjus.unidentified_work.json";
+import huEji from "@/lib/recovery-playbooks-data/hu.eji.unidentified.json";
+import nlSenaPerformer from "@/lib/recovery-playbooks-data/nl.sena.performer.json";
+import nlSenaProducent from "@/lib/recovery-playbooks-data/nl.sena.producent.json";
+import usMlcUnclaimed from "@/lib/recovery-playbooks-data/us.mlc.unclaimed_share.json";
+import usMlcUnmatched from "@/lib/recovery-playbooks-data/us.mlc.unmatched_recording.json";
 
 const PLAYBOOKS: Record<string, PlaybookEntry> = {
   [deGvlKonu.id]: deGvlKonu as PlaybookEntry,

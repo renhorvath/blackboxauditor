@@ -1,6 +1,6 @@
 # Recovery playbook kutatási sablon
 
-Egy szervezet / találattípus recovery folyamatának dokumentálása. Output: `data/recovery-playbooks/{id}.json`.
+Egy szervezet / találattípus recovery folyamatának dokumentálása. Output: `lib/recovery-playbooks-data/{id}.json`.
 
 ## Meta
 

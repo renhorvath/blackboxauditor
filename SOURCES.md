@@ -76,7 +76,7 @@ Phase 4 stubs (PRS, SGAE, BUMA): `scripts/cmo/pending/README.md`
 
 | Path | Description |
 |------|-------------|
-| `data/recovery-playbooks/*.json` | Org-specific claim process (ARTISJUS, MLC, GVL, SENA, EJI) — loaded by `lib/recovery-playbooks.ts` |
+| `lib/recovery-playbooks-data/*.json` | Org-specific claim process (ARTISJUS, MLC, GVL, SENA, EJI) — loaded by `lib/recovery-playbooks.ts` |
 
 ## Published reports (Neon)
 
