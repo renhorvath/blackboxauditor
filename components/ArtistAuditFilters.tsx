@@ -23,6 +23,7 @@ export function ArtistAuditFilters({
   onSelectOnlySource,
   variantOptions,
   sourceCount,
+  publishedMode = false,
 }: {
   query: string;
   /** All rows — used to list name variants (omit when variantOptions set). */
@@ -38,6 +39,7 @@ export function ArtistAuditFilters({
   variantOptions?: NameVariantOption[];
   /** Published report: per-source count override. */
   sourceCount?: (id: AuditSourceFilterId) => number;
+  publishedMode?: boolean;
 }) {
   const variants = variantOptions ?? collectNameVariants(query, allRows);
   const countFor = sourceCount ?? ((id: AuditSourceFilterId) => sourceFilterCount(countRows, id));
@@ -116,8 +118,9 @@ export function ArtistAuditFilters({
             })}
           </ul>
           <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--text-muted)]">
-            Több névváltozat is kijelölhető. A „hasonló név” gyenge egyezés — alapból ki van kapcsolva.
-            A jelentésbe csak a kijelölt változatokhoz tartozó dalok kerülnek (soronként is kihagyhatók).
+            {publishedMode
+              ? "Több névváltozat is kijelölhető a jelentésben szereplő dalok szűréséhez."
+              : "Több névváltozat is kijelölhető. A „hasonló név” gyenge egyezés — alapból ki van kapcsolva. A jelentésbe csak a kijelölt változatokhoz tartozó dalok kerülnek (soronként is kihagyhatók)."}
           </p>
         </div>
       ) : null}
@@ -130,7 +133,7 @@ export function ArtistAuditFilters({
           <div className="flex flex-wrap gap-2">
             {activeSources.map((id) => {
               const on = enabledSources.has(id);
-              const count = sourceFilterCount(countRows, id);
+              const count = countFor(id);
               return (
                 <button
                   key={id}

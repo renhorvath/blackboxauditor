@@ -124,6 +124,7 @@ export function PublishedReportView({
         onSelectOnlySource={selectOnlySource}
         variantOptions={variantOptions}
         sourceCount={(id) => findingSourceFilterCount(variantFindings, id)}
+        publishedMode
       />
 
       {selectedVariantKeys.size === 0 ? (
