@@ -14,27 +14,35 @@ import type { AuditRow } from "@/lib/types";
 
 export function ArtistAuditFilters({
   query,
-  allRows,
-  countRows,
+  allRows = [],
+  countRows = [],
   selectedVariantKeys,
   onVariantKeysChange,
   enabledSources,
   onToggleSource,
   onSelectOnlySource,
+  variantOptions,
+  sourceCount,
 }: {
   query: string;
-  /** All rows — used to list name variants. */
-  allRows: AuditRow[];
+  /** All rows — used to list name variants (omit when variantOptions set). */
+  allRows?: AuditRow[];
   /** Rows after name-variant filter — used for per-source counts. */
-  countRows: AuditRow[];
+  countRows?: AuditRow[];
   selectedVariantKeys: ReadonlySet<string>;
   onVariantKeysChange: (keys: Set<string>) => void;
   enabledSources: ReadonlySet<AuditSourceFilterId>;
   onToggleSource: (id: AuditSourceFilterId) => void;
   onSelectOnlySource: (id: AuditSourceFilterId) => void;
+  /** Published report: precomputed variants. */
+  variantOptions?: NameVariantOption[];
+  /** Published report: per-source count override. */
+  sourceCount?: (id: AuditSourceFilterId) => number;
 }) {
-  const variants = collectNameVariants(query, allRows);
-  const activeSources = ALL_SOURCE_FILTER_IDS.filter((id) => sourceFilterCount(countRows, id) > 0);
+  const variants = variantOptions ?? collectNameVariants(query, allRows);
+  const countFor = sourceCount ?? ((id: AuditSourceFilterId) => sourceFilterCount(countRows, id));
+  const activeSources = ALL_SOURCE_FILTER_IDS.filter((id) => countFor(id) > 0);
+  const totalRows = allRows.length > 0 ? allRows.length : variants.reduce((s, v) => s + v.count, 0);
 
   if (variants.length === 0 && activeSources.length === 0) return null;
 

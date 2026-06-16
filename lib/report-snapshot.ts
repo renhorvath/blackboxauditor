@@ -1,4 +1,5 @@
 import { rowHasPayoutProblem } from "@/lib/artist-audit-display";
+import { computeAuditCountsFromRows } from "@/lib/artist-audit-filters";
 import { getSourceDetailsForRow, laymanSummaryForRow } from "@/lib/artist-audit-row-details";
 import { playbookIdForBlock, playbookIdsForRow } from "@/lib/recovery-mapper";
 import { getPlaybook, toPlaybookSnapshot } from "@/lib/recovery-playbooks";
@@ -58,15 +59,24 @@ export function buildPublishPayload(input: {
   expiresAt?: string | null;
   supersedesReportId?: string | null;
 }) {
+  const problemsOnly = input.problemsOnly ?? true;
+  const rows = problemsOnly ? input.rows.filter(rowHasPayoutProblem) : input.rows;
+  const counts = computeAuditCountsFromRows(rows);
+  const meta: ArtistAuditMeta = {
+    ...input.meta,
+    ...counts,
+    isrcCount: rows.length,
+  };
+
   return {
     artistDisplayName: input.artistName,
     auditScope: input.scope,
-    meta: input.meta,
+    meta,
     summary: input.summary,
     snapshot: buildReportSnapshot({
       artistName: input.artistName,
       rows: input.rows,
-      problemsOnly: input.problemsOnly,
+      problemsOnly,
     }),
     expiresAt: input.expiresAt ?? null,
     supersedesReportId: input.supersedesReportId ?? null,
