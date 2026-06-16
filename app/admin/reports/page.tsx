@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import type { AdminReportListItem } from "@/lib/report-types";
+import { OPERATOR_SECRET_STORAGE_KEY } from "@/lib/report-types";
 
 export default function AdminReportsPage() {
   const [secret, setSecret] = useState("");
@@ -13,28 +14,35 @@ export default function AdminReportsPage() {
   const [error, setError] = useState<string | null>(null);
   const [baseUrl, setBaseUrl] = useState("");
 
-  useEffect(() => {
-    setBaseUrl(window.location.origin);
-  }, []);
-
-  const load = useCallback(async (authHeader: string) => {
+  const load = useCallback(async (key: string) => {
     setBusy(true);
     setError(null);
     try {
       const res = await fetch("/api/admin/reports", {
-        headers: { Authorization: authHeader },
+        headers: { Authorization: `Bearer ${key}` },
       });
       if (!res.ok) throw new Error("auth");
       const data = (await res.json()) as { reports: AdminReportListItem[] };
       setReports(data.reports);
       setAuthed(true);
+      sessionStorage.setItem(OPERATOR_SECRET_STORAGE_KEY, key);
     } catch {
       setError("Hibás kulcs.");
       setAuthed(false);
+      sessionStorage.removeItem(OPERATOR_SECRET_STORAGE_KEY);
     } finally {
       setBusy(false);
     }
   }, []);
+
+  useEffect(() => {
+    setBaseUrl(window.location.origin);
+    const stored = sessionStorage.getItem(OPERATOR_SECRET_STORAGE_KEY);
+    if (stored) {
+      setSecret(stored);
+      void load(stored);
+    }
+  }, [load]);
 
   async function revoke(id: string) {
     const res = await fetch(`/api/admin/reports?id=${encodeURIComponent(id)}`, {
@@ -61,7 +69,7 @@ export default function AdminReportsPage() {
         <button
           type="button"
           disabled={busy || !secret}
-          onClick={() => void load(`Bearer ${secret}`)}
+          onClick={() => void load(secret)}
           className="rounded-[10px] bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-white"
         >
           Belépés

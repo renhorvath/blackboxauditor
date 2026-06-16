@@ -2,6 +2,9 @@ import type { ArtistAuditMeta, ArtistAuditScope, AuditSummary } from "@/lib/type
 import type { SourceDetailBlock } from "@/lib/artist-audit-row-details";
 import type { PlaybookSnapshot } from "@/lib/recovery-types";
 
+/** sessionStorage key for the operator secret — shared by the homepage console and /admin/reports. */
+export const OPERATOR_SECRET_STORAGE_KEY = "bbox-operator-secret";
+
 export interface PublishedSourceBlock extends SourceDetailBlock {
   playbookId?: string | null;
   playbookSnapshot?: PlaybookSnapshot | null;
