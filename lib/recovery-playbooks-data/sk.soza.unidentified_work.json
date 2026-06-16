@@ -1,0 +1,49 @@
+{
+  "id": "sk.soza.unidentified_work",
+  "organization": "SOZA",
+  "country": "SK",
+  "rightsType": "musical_work",
+  "summary": "A mű a SOZA azonosítatlan / nem egyértelmű művek listáján szerepel — szlovákiai szerzői jogdíj nem osztható ki.",
+  "eligibility": "A mű szerzője vagy publisher SOZA tagsággal vagy nemzetközi reciprocity-n keresztül.",
+  "steps": [
+    {
+      "id": "membership",
+      "order": 1,
+      "title": "SOZA tagság",
+      "description": "Tagság vagy meghatalmazott képviselő szükséges a claimhez."
+    },
+    {
+      "id": "claim",
+      "order": 2,
+      "title": "Claim benyújtása",
+      "description": "SOZA web: „I want to file a claim” — teljesítményekhez kapcsolódó royalty claim Szlovákiában."
+    },
+    {
+      "id": "register",
+      "order": 3,
+      "title": "Mű regisztráció",
+      "description": "Regisztráld a mű metaadatait, hogy kikerüljön az unidentified listáról."
+    }
+  ],
+  "requiredData": [
+    { "field": "Műcím és szerzők", "required": true },
+    { "field": "SOZA / listás azonosító", "required": false }
+  ],
+  "requiredPermissions": ["SOZA tagság"],
+  "channels": [
+    {
+      "type": "portal",
+      "url": "https://www.soza.sk/en/authors-and-publishers/i-want-to-file-a-claim",
+      "label": "SOZA — File a claim"
+    }
+  ],
+  "sources": [
+    {
+      "url": "https://www.soza.sk/en/authors-and-publishers/i-want-to-file-a-claim",
+      "title": "SOZA claim procedure",
+      "checkedAt": "2026-06-16"
+    }
+  ],
+  "version": "2026-06",
+  "confidence": "draft"
+}

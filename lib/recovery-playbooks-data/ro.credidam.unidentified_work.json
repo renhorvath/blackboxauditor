@@ -1,0 +1,42 @@
+{
+  "id": "ro.credidam.unidentified_work",
+  "organization": "CREDIDAM",
+  "country": "RO",
+  "rightsType": "neighbouring",
+  "summary": "A felvétel a CREDIDAM azonosítatlan előadói listáján szerepel — romániai szomszédos jogdíj nem került kiosztásra.",
+  "eligibility": "Előadó vagy jogosult képviselő CREDIDAM tagsággal.",
+  "steps": [
+    {
+      "id": "membership",
+      "order": 1,
+      "title": "CREDIDAM tagság",
+      "description": "Regisztráció előadóként a CREDIDAMnál."
+    },
+    {
+      "id": "register",
+      "order": 2,
+      "title": "Felvétel regisztráció",
+      "description": "Jelentsd be a fonogramot metaadatokkal és share-ekkel."
+    },
+    {
+      "id": "claim",
+      "order": 3,
+      "title": "Azonosítatlan tétel claim",
+      "description": "Lépj kapcsolatba a CREDIDAM ügyfélszolgálatával a listás rekord azonosítójával."
+    }
+  ],
+  "requiredData": [
+    { "field": "Felvétel címe", "required": true },
+    { "field": "Előadói név", "required": true },
+    { "field": "ISRC (ha van)", "required": false }
+  ],
+  "requiredPermissions": ["CREDIDAM tagság"],
+  "channels": [
+    { "type": "portal", "url": "https://www.credidam.ro/", "label": "CREDIDAM" }
+  ],
+  "sources": [
+    { "url": "https://www.credidam.ro/", "title": "CREDIDAM", "checkedAt": "2026-06-16" }
+  ],
+  "version": "2026-06",
+  "confidence": "draft"
+}

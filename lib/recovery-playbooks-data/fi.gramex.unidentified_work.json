@@ -1,0 +1,44 @@
+{
+  "id": "fi.gramex.unidentified_work",
+  "organization": "Gramex",
+  "country": "FI",
+  "rightsType": "neighbouring",
+  "summary": "A felvétel a Gramex „unidentified plays” listáján szerepel — előadói/producenti jogdíj nem került kiosztásra hiányzó adat miatt.",
+  "eligibility": "Az előadó vagy a felvétel producentje Gramex tag.",
+  "steps": [
+    {
+      "id": "membership",
+      "order": 1,
+      "title": "Gramex tagság",
+      "description": "Regisztráld magad előadóként vagy producentként a Gramexnél."
+    },
+    {
+      "id": "phonogram",
+      "order": 2,
+      "title": "Fonogram bejelentése",
+      "description": "Jelentsd be a felvételt ISRC-vel, előadói és producenti share-ekkel a Gramex rendszerében."
+    },
+    {
+      "id": "missing",
+      "order": 3,
+      "title": "Hiányzó előadó pótlása",
+      "description": "Ha a fonogram jelentésből hiányzik egy előadó, a share a következő elosztáskor rendezhető — jelezd a Gramexnek."
+    }
+  ],
+  "requiredData": [
+    { "field": "ISRC", "required": true },
+    { "field": "Felvétel címe", "required": true },
+    { "field": "Előadói / producenti share", "required": true }
+  ],
+  "requiredPermissions": ["Gramex tagság"],
+  "channels": [
+    { "type": "portal", "url": "https://www.gramex.fi/en/", "label": "Gramex" },
+    { "type": "portal", "url": "https://www.gramex.fi/en/faq/", "label": "Gramex FAQ" }
+  ],
+  "pitfalls": ["A fonogram jelentés teljessége kritikus — hiányzó előadó késlelteti a kifizetést"],
+  "sources": [
+    { "url": "https://www.gramex.fi/en/faq/", "title": "Gramex FAQ", "checkedAt": "2026-06-16" }
+  ],
+  "version": "2026-06",
+  "confidence": "draft"
+}

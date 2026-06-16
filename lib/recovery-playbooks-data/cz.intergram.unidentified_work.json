@@ -1,0 +1,50 @@
+{
+  "id": "cz.intergram.unidentified_work",
+  "organization": "INTERGRAM",
+  "country": "CZ",
+  "rightsType": "neighbouring",
+  "summary": "A felvétel az INTERGRAM azonosítatlan / nem claimelt listáján szerepel — cseh szomszédos jogdíj vár jogosultra.",
+  "eligibility": "Előadó vagy fonogram producent INTERGRAM tag.",
+  "steps": [
+    {
+      "id": "membership",
+      "order": 1,
+      "title": "INTERGRAM tagság",
+      "description": "Regisztráció előadóként vagy producentként."
+    },
+    {
+      "id": "isrc",
+      "order": 2,
+      "title": "ISRC és fonogram regisztráció",
+      "description": "Generálj ISRC-t (ha nincs), majd regisztráld a felvételt az INTERGRAM portálon."
+    },
+    {
+      "id": "claim",
+      "order": 3,
+      "title": "Claim / panasz",
+      "description": "Claims & Complaints menüpont az intergram.cz oldalon — hivatkozz a listás rekordra."
+    }
+  ],
+  "requiredData": [
+    { "field": "ISRC", "required": true },
+    { "field": "Felvétel címe és előadó", "required": true },
+    { "field": "Producenti adatok", "required": true }
+  ],
+  "requiredPermissions": ["INTERGRAM tagság"],
+  "channels": [
+    {
+      "type": "portal",
+      "url": "https://www.intergram.cz/en/registration-of-recordings",
+      "label": "INTERGRAM — Registration"
+    }
+  ],
+  "sources": [
+    {
+      "url": "https://www.intergram.cz/en/registration-of-recordings",
+      "title": "INTERGRAM registration",
+      "checkedAt": "2026-06-16"
+    }
+  ],
+  "version": "2026-06",
+  "confidence": "draft"
+}

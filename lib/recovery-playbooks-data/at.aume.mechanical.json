@@ -1,0 +1,47 @@
+{
+  "id": "at.aume.mechanical",
+  "organization": "austro mechana (AUME)",
+  "country": "AT",
+  "rightsType": "mechanical",
+  "summary": "Mechanikai jog (lemez, streaming, letöltés) — a mű az AUME listán nem claimelt vagy az Anfrageliste mechanikai részén szerepel.",
+  "eligibility": "Szerző, szövegíró vagy music publisher AUME/AKM tagsággal.",
+  "steps": [
+    {
+      "id": "portal",
+      "order": 1,
+      "title": "AKM/austro mechana Serviceportal",
+      "description": "Ugyanaz a portál mint az AKM szerzői regisztrációnál — a mechanikai share külön kezelhető."
+    },
+    {
+      "id": "shares",
+      "order": 2,
+      "title": "Mechanikai share megadása",
+      "description": "Szerződés szerinti megosztás (pl. 50/50 szerző–szövegíró, vagy 60/40 publisherrel); arrange/remix esetén előzetes engedély kell."
+    },
+    {
+      "id": "register",
+      "order": 3,
+      "title": "Mű regisztrálása",
+      "description": "Werk melden a portálon; július 15 / január 15 határidők az elosztási körökhez."
+    }
+  ],
+  "requiredData": [
+    { "field": "Műcím és szerzők", "required": true },
+    { "field": "Mechanikai share %", "required": true },
+    { "field": "Publisher szerződés (ha van)", "required": false }
+  ],
+  "requiredPermissions": ["AKM/austro mechana tagság"],
+  "channels": [
+    { "type": "portal", "url": "https://www.akm-aume.at/akm-webapp/", "label": "AKM/austro mechana Serviceportal" }
+  ],
+  "pitfalls": ["Arrangement/remix csak eredeti jogosult engedélyével regisztrálható"],
+  "sources": [
+    {
+      "url": "https://www.akm.at/en/music-creators/register-work/",
+      "title": "AKM — Register work (shared DB with AUME)",
+      "checkedAt": "2026-06-16"
+    }
+  ],
+  "version": "2026-06",
+  "confidence": "draft"
+}

@@ -1,0 +1,42 @@
+{
+  "id": "ee.eau.unidentified_work",
+  "organization": "EAÜ",
+  "country": "EE",
+  "rightsType": "neighbouring",
+  "summary": "A felvétel az EAÜ (Eesti Artistide Ühing) azonosítatlan előadói listáján szerepel — észt szomszédos jogdíj vár jogosultra.",
+  "eligibility": "Előadó EAÜ tag.",
+  "steps": [
+    {
+      "id": "membership",
+      "order": 1,
+      "title": "EAÜ tagság",
+      "description": "Regisztráció előadóként az EAÜ-nél."
+    },
+    {
+      "id": "register",
+      "order": 2,
+      "title": "Fonogram bejelentés",
+      "description": "Jelentsd be a felvételt ISRC-vel és előadói adatokkal."
+    },
+    {
+      "id": "claim",
+      "order": 3,
+      "title": "Azonosítatlan tétel claim",
+      "description": "Kapcsolatfelvétel ügyfélszolgálattal a listás rekord azonosítójával."
+    }
+  ],
+  "requiredData": [
+    { "field": "ISRC", "required": true },
+    { "field": "Felvétel címe", "required": true },
+    { "field": "Előadói név", "required": true }
+  ],
+  "requiredPermissions": ["EAÜ tagság"],
+  "channels": [
+    { "type": "portal", "url": "https://www.eau.ee/", "label": "EAÜ" }
+  ],
+  "sources": [
+    { "url": "https://www.eau.ee/", "title": "EAÜ", "checkedAt": "2026-06-16" }
+  ],
+  "version": "2026-06",
+  "confidence": "draft"
+}

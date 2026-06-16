@@ -1,0 +1,41 @@
+{
+  "id": "ee.eel.unidentified_work",
+  "organization": "EEL",
+  "country": "EE",
+  "rightsType": "musical_work",
+  "summary": "A mű az EEL (Eesti Autorite Ühing) azonosítatlan művek listáján szerepel — észt szerzői jogdíj nem került kiosztásra.",
+  "eligibility": "Szerző vagy publisher EEL tagsággal.",
+  "steps": [
+    {
+      "id": "membership",
+      "order": 1,
+      "title": "EEL tagság",
+      "description": "Regisztráció szerzőként az EEL-nél."
+    },
+    {
+      "id": "register",
+      "order": 2,
+      "title": "Mű regisztráció",
+      "description": "Online vagy ügyfélszolgálaton keresztül: műcím, szerzői share."
+    },
+    {
+      "id": "claim",
+      "order": 3,
+      "title": "Listás tétel claim",
+      "description": "Jelezd az unidentified listán szereplő rekordot a regisztrációval együtt."
+    }
+  ],
+  "requiredData": [
+    { "field": "Műcím", "required": true },
+    { "field": "Szerzői share-ek", "required": true }
+  ],
+  "requiredPermissions": ["EEL tagság"],
+  "channels": [
+    { "type": "portal", "url": "https://www.eel.ee/", "label": "EEL" }
+  ],
+  "sources": [
+    { "url": "https://www.eel.ee/", "title": "EEL", "checkedAt": "2026-06-16" }
+  ],
+  "version": "2026-06",
+  "confidence": "draft"
+}

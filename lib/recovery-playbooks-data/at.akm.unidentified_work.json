@@ -1,0 +1,58 @@
+{
+  "id": "at.akm.unidentified_work",
+  "organization": "AKM",
+  "country": "AT",
+  "rightsType": "musical_work",
+  "summary": "A mű az AKM Anfrageliste (azonosítatlan / kérdéses művek) listáján szerepel — szerzői jogdíj nem osztható ki, amíg a mű nincs regisztrálva a közös AKM/austro mechana adatbázisban.",
+  "eligibility": "A mű szerzője, társszerzője, szövegírója vagy kiadója (publisher), AKM tagsággal vagy meghatalmazással.",
+  "steps": [
+    {
+      "id": "membership",
+      "order": 1,
+      "title": "AKM tagság vagy képviselet",
+      "description": "Legyen érvényes AKM tagságod, vagy jelentkezz be az AKM Serviceportalra (akm-aume.at) kiadói/szerzői hozzáféréssel."
+    },
+    {
+      "id": "register",
+      "order": 2,
+      "title": "Mű regisztrálása",
+      "description": "A Serviceportalon „Werk melden”: műcím, szerzői share-ek, publisher, opcionálisan audio fájl bizonyítékként."
+    },
+    {
+      "id": "deadlines",
+      "order": 3,
+      "title": "Határidők figyelése",
+      "description": "Január 15-ig beérkező regisztráció az júniusi AKM / júliusi AUME elosztásba kerül; július 15-ig beérkező a decemberi elosztásba."
+    },
+    {
+      "id": "followup",
+      "order": 4,
+      "title": "Ellenőrzés",
+      "description": "A regisztráció után a mű kikerülhet az Anfrageliste-ről; eltérő co-szerzői adatok esetén az AKM felveszi a kapcsolatot."
+    }
+  ],
+  "requiredData": [
+    { "field": "Műcím", "required": true },
+    { "field": "Szerzői / szövegírói share-ek", "required": true },
+    { "field": "Publisher (ha van)", "required": false },
+    { "field": "Audio fájl (ajánlott)", "required": false, "whereToGet": "Saját felvétel vagy demó" }
+  ],
+  "requiredPermissions": ["AKM tagság vagy publisher meghatalmazás"],
+  "channels": [
+    { "type": "portal", "url": "https://www.akm-aume.at/akm-webapp/", "label": "AKM Serviceportal" },
+    { "type": "portal", "url": "https://www.akm.at/en/music-creators/register-work/", "label": "Útmutató: Werk anmelden" }
+  ],
+  "pitfalls": [
+    "Regisztráció nélkül nincs royalty elosztás, még ha a mű le is játszódott",
+    "Co-szerzők külön is regisztrálhatnak — ellentmondó adatoknál az AKM egyeztet"
+  ],
+  "sources": [
+    {
+      "url": "https://www.akm.at/en/music-creators/register-work/",
+      "title": "AKM — Register work",
+      "checkedAt": "2026-06-16"
+    }
+  ],
+  "version": "2026-06",
+  "confidence": "draft"
+}

@@ -10,13 +10,19 @@
       "id": "s1",
       "order": 1,
       "title": "SENA regisztráció",
-      "description": "Regisztráld magad előadóként a SENA-nál."
+      "description": "Regisztráld magad előadóként a SENA-nál (Sena app vagy sena.nl)."
     },
     {
       "id": "s2",
       "order": 2,
-      "title": "Claim",
-      "description": "Igényeld a listán szereplő felvételt ISRC / Recording ID alapján."
+      "title": "Unclaimed repertoire claim",
+      "description": "A Sena app „Unclaimed repertoire” menüjében keresd meg a felvételt ISRC vagy Recording ID alapján, majd nyújtsd be a claimet."
+    },
+    {
+      "id": "s3",
+      "order": 3,
+      "title": "Dokumentáció",
+      "description": "Szükség lehet szerződésre vagy bizonyítékra az előadói részvételről — a SENA visszaigazolja a claimet."
     }
   ],
   "requiredData": [
@@ -34,14 +40,23 @@
   "channels": [
     {
       "type": "portal",
+      "url": "https://www.sena.nl/en/artikelen/register-with-sena/sena-app",
+      "label": "Sena app — unclaimed repertoire"
+    },
+    {
+      "type": "portal",
       "url": "https://www.sena.nl",
       "label": "SENA"
     }
   ],
-  "timelines": "",
-  "fees": "",
-  "pitfalls": [],
-  "sources": [],
+  "pitfalls": ["Claim csak SENA tagoknak — regisztráció előbb"],
+  "sources": [
+    {
+      "url": "https://www.sena.nl/en/artikelen/register-with-sena/sena-app",
+      "title": "SENA — Sena app unclaimed repertoire",
+      "checkedAt": "2026-06-16"
+    }
+  ],
   "version": "2026-06",
   "confidence": "draft"
 }

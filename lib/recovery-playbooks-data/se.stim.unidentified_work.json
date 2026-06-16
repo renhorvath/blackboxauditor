@@ -1,0 +1,43 @@
+{
+  "id": "se.stim.unidentified_work",
+  "organization": "STIM",
+  "country": "SE",
+  "rightsType": "musical_work",
+  "summary": "A mű a STIM azonosítatlan / kérdéses művek (unidentified works) listáján szerepel — svéd szerzői jogdíj nem kerül kifizetésre, amíg a mű nincs regisztrálva.",
+  "eligibility": "A mű szerzője vagy publisher STIM tagsággal (vagy más CISAC társaságon keresztül).",
+  "steps": [
+    {
+      "id": "membership",
+      "order": 1,
+      "title": "STIM tagság",
+      "description": "Jelentkezz STIM tagként, ha még nem vagy tag (svéd vagy nemzetközi szerző)."
+    },
+    {
+      "id": "register",
+      "order": 2,
+      "title": "Mű regisztrálása",
+      "description": "Regisztráld a művet a STIM online rendszerében: cím, szerzői share, ISWC ha van."
+    },
+    {
+      "id": "claim",
+      "order": 3,
+      "title": "Azonosítatlan tétel jelzése",
+      "description": "Ha a mű a STIM nyilvános unidentified listáján szerepel, hivatkozz a Werknummer / listás azonosítóra a regisztrációban vagy ügyfélszolgálatnál."
+    }
+  ],
+  "requiredData": [
+    { "field": "Műcím", "required": true },
+    { "field": "Szerzői share-ek", "required": true },
+    { "field": "STIM / listás azonosító", "required": false }
+  ],
+  "requiredPermissions": ["STIM tagság"],
+  "channels": [
+    { "type": "portal", "url": "https://www.stim.se/en", "label": "STIM" },
+    { "type": "email", "address": "info@stim.se", "label": "Ügyfélszolgálat" }
+  ],
+  "sources": [
+    { "url": "https://www.stim.se/en", "title": "STIM", "checkedAt": "2026-06-16" }
+  ],
+  "version": "2026-06",
+  "confidence": "draft"
+}

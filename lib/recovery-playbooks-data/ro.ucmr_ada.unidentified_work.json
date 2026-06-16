@@ -1,0 +1,42 @@
+{
+  "id": "ro.ucmr_ada.unidentified_work",
+  "organization": "UCMR-ADA",
+  "country": "RO",
+  "rightsType": "musical_work",
+  "summary": "A mű az UCMR-ADA azonosítatlan / kérdéses művek listáján szerepel — román szerzői jogdíj nem osztható ki.",
+  "eligibility": "Szerző, szövegíró vagy publisher UCMR-ADA tagsággal.",
+  "steps": [
+    {
+      "id": "membership",
+      "order": 1,
+      "title": "UCMR-ADA tagság",
+      "description": "Tagság vagy nemzetközi reciprocity a claimhez."
+    },
+    {
+      "id": "register",
+      "order": 2,
+      "title": "Mű regisztráció",
+      "description": "Regisztráld a művet cím, szerzői share és ISWC adatokkal."
+    },
+    {
+      "id": "claim",
+      "order": 3,
+      "title": "Azonosítatlan tétel jelzése",
+      "description": "Ügyfélszolgálat: hivatkozz a listás Werknummer / azonosítóra."
+    }
+  ],
+  "requiredData": [
+    { "field": "Műcím", "required": true },
+    { "field": "Szerzői share-ek", "required": true },
+    { "field": "Listás azonosító", "required": false }
+  ],
+  "requiredPermissions": ["UCMR-ADA tagság"],
+  "channels": [
+    { "type": "portal", "url": "https://www.ucmr-ada.ro/", "label": "UCMR-ADA" }
+  ],
+  "sources": [
+    { "url": "https://www.ucmr-ada.ro/", "title": "UCMR-ADA", "checkedAt": "2026-06-16" }
+  ],
+  "version": "2026-06",
+  "confidence": "draft"
+}

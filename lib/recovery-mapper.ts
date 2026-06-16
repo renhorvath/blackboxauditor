@@ -1,6 +1,33 @@
 import type { AuditRow } from "@/lib/types";
 import type { SourceDetailBlock } from "@/lib/artist-audit-row-details";
-import type { CmoSourceId } from "@/lib/cmo-types";
+import { CMO_SOURCE_IDS, type CmoSourceId } from "@/lib/cmo-types";
+
+/** Default playbook per indexed CMO source (excluding GVL/SENA role splits). */
+const CMO_PLAYBOOK_ID: Record<
+  Exclude<CmoSourceId, "de-gvl" | "nl-sena">,
+  string
+> = {
+  "at-akm": "at.akm.unidentified_work",
+  "at-aume": "at.aume.mechanical",
+  "se-stim": "se.stim.unidentified_work",
+  "sk-soza": "sk.soza.unidentified_work",
+  "ro-credidam": "ro.credidam.unidentified_work",
+  "hr-hds-zamp": "hr.hds_zamp.unidentified_work",
+  "ro-ucmr-ada": "ro.ucmr_ada.unidentified_work",
+  "ee-eau": "ee.eau.unidentified_work",
+  "ee-eel": "ee.eel.unidentified_work",
+  "cz-intergram": "cz.intergram.unidentified_work",
+  "fi-gramex": "fi.gramex.unidentified_work",
+};
+
+function parseCmoSourceFromBlockId(blockId: string): CmoSourceId | null {
+  if (!blockId.startsWith("cmo-") || blockId.startsWith("cmo-web-")) return null;
+  const rest = blockId.slice(4);
+  for (const source of CMO_SOURCE_IDS) {
+    if (rest.startsWith(`${source}-`)) return source;
+  }
+  return null;
+}
 
 /** Map audit row + source block to recovery playbook id(s). */
 export function playbookIdsForRow(row: AuditRow): string[] {
@@ -36,9 +63,8 @@ function playbookIdsForCmoHit(
     if (hit.senaRole === "producenten") return ["nl.sena.producent"];
     return ["nl.sena.performer"];
   }
-  if (source === "at-akm") return ["at.akm.unidentified_work"];
-  if (source === "at-aume") return ["at.aume.mechanical"];
-  return [`cmo.generic.${source}`];
+  const id = CMO_PLAYBOOK_ID[source];
+  return id ? [id] : [];
 }
 
 export function playbookIdForBlock(block: SourceDetailBlock, row: AuditRow): string | null {
@@ -58,11 +84,11 @@ export function playbookIdForBlock(block: SourceDetailBlock, row: AuditRow): str
     if (hit?.senaRole === "producenten") return "nl.sena.producent";
     return "nl.sena.performer";
   }
-  if (block.id.startsWith("cmo-at-akm")) return "at.akm.unidentified_work";
-  if (block.id.startsWith("cmo-at-aume")) return "at.aume.mechanical";
-  if (block.id.startsWith("cmo-")) {
-    const source = block.id.split("-")[1] as CmoSourceId | undefined;
-    if (source) return `cmo.generic.${source}`;
+  const hit = row.cmoHits?.find((h) => block.id === `cmo-${h.source}-${h.recordId}`);
+  if (hit) return playbookIdsForCmoHit(hit.source, hit)[0] ?? null;
+  const source = parseCmoSourceFromBlockId(block.id);
+  if (source && source !== "de-gvl" && source !== "nl-sena") {
+    return CMO_PLAYBOOK_ID[source];
   }
   return null;
 }

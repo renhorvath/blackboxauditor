@@ -1,0 +1,42 @@
+{
+  "id": "hr.hds_zamp.unidentified_work",
+  "organization": "HDS ZAMP",
+  "country": "HR",
+  "rightsType": "neighbouring",
+  "summary": "A felvétel a HDS ZAMP azonosítatlan / nem claimelt listáján szerepel — horvát szomszédos jogdíj vár jogosultra.",
+  "eligibility": "Előadó vagy fonogram producent HDS ZAMP tag.",
+  "steps": [
+    {
+      "id": "membership",
+      "order": 1,
+      "title": "HDS ZAMP tagság",
+      "description": "Regisztráció előadóként vagy producentként."
+    },
+    {
+      "id": "register",
+      "order": 2,
+      "title": "Fonogram bejelentés",
+      "description": "Jelentsd be a felvételt ISRC-vel és előadói adatokkal."
+    },
+    {
+      "id": "claim",
+      "order": 3,
+      "title": "Claim benyújtása",
+      "description": "Ügyfélszolgálat vagy online portál — hivatkozz a listás azonosítóra."
+    }
+  ],
+  "requiredData": [
+    { "field": "ISRC", "required": true },
+    { "field": "Felvétel címe", "required": true },
+    { "field": "Előadói share", "required": true }
+  ],
+  "requiredPermissions": ["HDS ZAMP tagság"],
+  "channels": [
+    { "type": "portal", "url": "https://www.hds-zamp.hr/", "label": "HDS ZAMP" }
+  ],
+  "sources": [
+    { "url": "https://www.hds-zamp.hr/", "title": "HDS ZAMP", "checkedAt": "2026-06-16" }
+  ],
+  "version": "2026-06",
+  "confidence": "draft"
+}
