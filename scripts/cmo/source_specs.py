@@ -52,6 +52,15 @@ BULK_SPECS: tuple[CmoBulkSpec, ...] = (
     CmoBulkSpec("ee-eel", "EEL", "EE", "neighbouring", "ee-eel", ("*.xlsx", "*.xls")),
     CmoBulkSpec("cz-intergram", "INTERGRAM", "CZ", "neighbouring", "cz-intergram", ("*.xlsx", "*.xls")),
     CmoBulkSpec("fi-gramex", "Gramex", "FI", "neighbouring", "fi-gramex", ("*.xlsx", "*.xls")),
+    CmoBulkSpec(
+        "de-gvl",
+        "GVL",
+        "DE",
+        "neighbouring",
+        "de-gvl",
+        ("listen/*.xlsx", "produktionen_*/*.xlsx", "sendemeldungen/*.pdf"),
+        optional=True,
+    ),
 )
 
 
@@ -70,3 +79,8 @@ def resolve_files(raw_root: Path, spec: CmoBulkSpec) -> list[Path]:
     for pattern in spec.required_globs:
         found.extend(sorted(base.glob(pattern)))
     return found
+
+
+def gvl_data_present(raw_root: Path) -> bool:
+    base = raw_root / "de-gvl"
+    return base.is_dir() and any(base.glob("listen/*.xlsx"))

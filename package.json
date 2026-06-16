@@ -14,6 +14,7 @@
     "mlc:summary": "python3 scripts/mlc/summarize_isrc_conflicts.py",
     "artisjus:build-index": "node scripts/artisjus/build-index.mjs",
     "cmo:build-index": ".venv/bin/python3 scripts/cmo/build_indexes.py",
+    "cmo:gvl-extract-sendemeldungen": ".venv/bin/python3 scripts/cmo/gvl_extract_sendemeldungen.py",
     "cmo:bootstrap": ".venv/bin/python3 scripts/cmo/build_indexes.py --bootstrap",
     "cmo:fetch": ".venv/bin/python3 scripts/cmo/fetch_sources.py",
     "cmo:fetch-eau": ".venv/bin/python3 scripts/cmo/fetch_eau.py",
@@ -28,6 +29,8 @@
     "etl:artist-tokens": ".venv/bin/python3 scripts/etl/build_mlc_artist_tokens.py",
     "etl:artist-tokens:unmatched": "bash scripts/etl/run_unmatched_token_build.sh",
     "etl:artist-tokens:unmatched:resume": "bash scripts/etl/resume_unmatched_token_build.sh",
+    "etl:isrc-index:unmatched": "bash scripts/etl/run_unmatched_isrc_index.sh",
+    "etl:isrc-index": ".venv/bin/python3 scripts/etl/build_mlc_isrc_index.py",
     "etl:query": ".venv/bin/python3 scripts/etl/query.py",
     "etl:export-artist": ".venv/bin/python3 scripts/etl/export_artist_mlc_json.py"
   },

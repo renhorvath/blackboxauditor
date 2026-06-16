@@ -3,6 +3,24 @@ import { CMO_ISRC_PREFIX, CMO_SOURCE_LABELS } from "@/lib/cmo-types";
 import { normalizeArtisjusText } from "@/lib/artisjus-normalize";
 import type { AuditIssue, AuditRow } from "@/lib/types";
 
+function gvlIssueMessage(record: CmoRecord): string {
+  const list = record.gvlList;
+  if (list === "listen-artists" || list === "listen-producers") {
+    const who = list === "listen-producers" ? "producer" : "előadó";
+    return `A GVL nem azonosítható jogosultak listáján szerepel (${who}: ${record.identification}).`;
+  }
+  if (list === "produktionen") {
+    const medium = record.gvlMedium ?? "KONU";
+    const year = record.gvlYear ? ` ${record.gvlYear}` : "";
+    return `A GVL KONU ${medium}${year} listáján szerepel Mitwirkungsmeldung nélkül (${record.title}).`;
+  }
+  if (list === "sendemeldungen") {
+    const year = record.gvlYear ? ` ${record.gvlYear}` : "";
+    return `A GVL nyitott rádió/TV felhasználás listáján${year} szerepel (Sendemeldung, ${record.gvlMedium ?? "TT/VC"}).`;
+  }
+  return `A GVL azonosítatlan / nyitott listáján szerepel (${record.id}).`;
+}
+
 function cmoIssueMessage(record: CmoRecord): string {
   const label = CMO_SOURCE_LABELS[record.source];
   const roleNote =
@@ -15,6 +33,7 @@ function cmoIssueMessage(record: CmoRecord): string {
     "at-akm": `Az osztrák AKM Anfrageliste-jén szerepel azonosítatlan műként (Werknr. ${record.id}).`,
     "at-aume": `Az Austro-Mechana mechanikai jogi listáján szerepel (Werknr. ${record.id}).`,
     "nl-sena": `A holland SENA „ongeclaimd ${record.senaScope ?? ""}” listáján szerepel${roleNote} (Recording ID ${record.id.split(":")[0]}).`,
+    "de-gvl": gvlIssueMessage(record),
   };
 
   if (custom[record.source]) {
@@ -87,6 +106,10 @@ function mergeCmoHit(row: AuditRow, hit: CmoArtistMatch): AuditRow {
       composer: hit.record.composer,
       label: hit.record.label,
       isrc: hit.record.isrc,
+      gvlList: hit.record.gvlList,
+      gvlYear: hit.record.gvlYear,
+      gvlMedium: hit.record.gvlMedium,
+      gvlRemix: hit.record.gvlRemix,
     },
   ];
 

@@ -20,6 +20,7 @@ Local raw files live under `raw/` — never committed to git. See `DATA_SETUP.md
 | `raw/cmo/ee-eel/*.xlsx` | **EEL** | EE | Neighbouring | XLSX | varies | ✅ Indexed |
 | `raw/cmo/cz-intergram/*.xlsx` | **INTERGRAM** | CZ | Neighbouring | XLSX | varies | ✅ Indexed |
 | `raw/cmo/fi-gramex/*.xlsx` | **Gramex** | FI | Neighbouring | XLSX | ~51k | ✅ Indexed — [unidentified plays](https://www.gramex.fi/en/unidentified-plays-phonograms/); `npm run cmo:fetch -- --source fi-gramex` |
+| `raw/cmo/de-gvl/` | **GVL** | DE | Neighbouring — listen + KONU + Sendemeldungen | XLSX + PDF | ~1.1M | ✅ Indexed — symlink `~/Downloads/gvl` → `raw/cmo/de-gvl`; Verteiljahr ≤2023 |
 
 ### Web adapters (phase 3)
 
@@ -40,6 +41,12 @@ Phase 4 stubs (PRS, SGAE, BUMA): `scripts/cmo/pending/README.md`
 **AKM / AUME:** `Werknummer, Werktitel, Identifikation, Vermerk` (bilingual header cells)
 
 **SENA:** `Recording ID, Main artist, Title, Version, ISRC` — sheets `Producenten`, `Muzikanten` (both nederland + buitenland files)
+
+**GVL listen:** `Name, Vorname, Ort` (artists) or `Name, Ort/City` (producers) — metadata rows 1–6, header row 8
+
+**GVL KONU:** `Produktionsnummer, Produktionstitel, Zusätzliche Titelinformationen (remix), Hauptinterpret, ISRC, Label` — `produktionen_2022|2023/KONU_*.xlsx`
+
+**GVL Sendemeldungen:** PDF → `derived/cmo/de-gvl/sendemeldungen/*.csv` (egyszeri: `npm run cmo:gvl-extract-sendemeldungen`; utána az index build CSV-ből olvas, nem PDF-ből)
 
 > **Note:** AKM and AUME are *author/mechanical* societies, not performer rights (LSG handles performers in Austria). SENA is *neighbouring rights*, not BUMA/STEMRA (Dutch authors).
 
@@ -73,6 +80,7 @@ ARTISJUS_CSV_PATH=./raw/cmo/hu-artisjus/artisjus_azonositatlan_muvek_2025.csv
 MLC_HU_DATA_DIR=./derived/mlc-hu
 ARTISJUS_INDEX_PATH=./data/artisjus-index.json
 CMO_INDEX_PATH=./data/cmo-index.json
+# CMO_GVL_INDEX_PATH=./data/cmo-gvl-index.json
 ```
 
 Index build:

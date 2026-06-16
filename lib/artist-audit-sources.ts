@@ -7,10 +7,16 @@ import {
 } from "@/lib/mlc-artist-scan";
 import type { ArtistAuditSourcesPayload } from "@/lib/query-api-types";
 
-/** Stay under Vercel QUERY_API_TIMEOUT_MS (120s) when MLC ILIKE is slow. */
-const MLC_SCAN_RACE_MS = Number(process.env.MLC_SCAN_RACE_MS ?? 85_000);
+function mlcScanRaceMs(): number {
+  // Local TSV unmatched scan can take 20+ minutes on 113 GB — do not cut off early.
+  if (process.env.MLC_USE_DUCKDB?.trim().toLowerCase() === "false") {
+    return 0;
+  }
+  return Number(process.env.MLC_SCAN_RACE_MS ?? 85_000);
+}
 
 function raceMlcScan<T>(promise: Promise<T | null>): Promise<T | null> {
+  const MLC_SCAN_RACE_MS = mlcScanRaceMs();
   if (!Number.isFinite(MLC_SCAN_RACE_MS) || MLC_SCAN_RACE_MS <= 0) return promise;
   return Promise.race([
     promise,

@@ -69,6 +69,32 @@ function duckdbEnabled(): boolean {
   return fs.existsSync(catalogDbPath());
 }
 
+function mlcTsvAvailable(): boolean {
+  if (isServerlessRuntime()) return false;
+  for (const key of ["MLC_UNMATCHED_TSV", "MLC_UNCLAIMED_TSV"] as const) {
+    const p = process.env[key]?.trim();
+    if (p && fs.existsSync(p)) return true;
+  }
+  return false;
+}
+
+function mlcIsrcShardsReady(): boolean {
+  const progressPath = path.join(
+    process.cwd(),
+    "derived",
+    "mlc-hu",
+    "etl_mlc_unmatched_isrc_progress.json",
+  );
+  try {
+    const data = JSON.parse(fs.readFileSync(progressPath, "utf-8")) as {
+      indexed?: boolean;
+    };
+    return data.indexed === true;
+  } catch {
+    return false;
+  }
+}
+
 function artistScanDir(artistName: string): string {
   return path.join(scansBaseDir(), slugify(artistName));
 }
@@ -134,6 +160,50 @@ function parseUnmatchedExportCsv(filePath: string): MlcArtistHit[] {
     });
   }
   return hits;
+}
+
+function csvEscape(value: string): string {
+  if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
+  return value;
+}
+
+function writeUnmatchedExportCache(artistName: string, hits: MlcArtistHit[]): void {
+  const slug = slugify(artistName);
+  const dir = artistScanDir(artistName);
+  fs.mkdirSync(dir, { recursive: true });
+  const filePath = path.join(dir, `${slug}_mlc_export.csv`);
+  const lines = [
+    "ISRC,ResourceTitle,DisplayArtistName,OriginalDataProviderName,ResourceType",
+    ...hits.map((h) =>
+      [h.isrc, h.title, h.artist, h.provider, h.resourceType ?? ""]
+        .map(csvEscape)
+        .join(","),
+    ),
+  ];
+  fs.writeFileSync(filePath, `${lines.join("\n")}\n`, "utf-8");
+}
+
+function writeUnclaimedExportCache(artistName: string, hits: MlcUnclaimedHit[]): void {
+  const slug = slugify(artistName);
+  const dir = artistScanDir(artistName);
+  fs.mkdirSync(dir, { recursive: true });
+  const filePath = path.join(dir, `${slug}_mlc_unclaimed_export.csv`);
+  const lines = [
+    "ISRC,ResourceTitle,DisplayArtistName,UnclaimedRightSharePercentage,MusicalWorkRecordId,DspResourceId",
+    ...hits.map((h) =>
+      [
+        h.isrc,
+        h.title,
+        h.artist,
+        h.unclaimedPct ?? "",
+        h.workRecordId,
+        h.dspResourceId,
+      ]
+        .map((v) => csvEscape(String(v)))
+        .join(","),
+    ),
+  ];
+  fs.writeFileSync(filePath, `${lines.join("\n")}\n`, "utf-8");
 }
 
 function parseUnclaimedExportCsv(filePath: string): MlcUnclaimedHit[] {
@@ -287,8 +357,12 @@ function tsvFallbackDisabled(): boolean {
   return process.env.MLC_SKIP_TSV_FALLBACK?.trim().toLowerCase() === "true";
 }
 
+/** DuckDB catalog with ISRC shards, or local MLC TSV dumps (fallback). */
 export function catalogAvailable(): boolean {
-  return duckdbEnabled();
+  if (duckdbEnabled()) {
+    return mlcIsrcShardsReady() || fs.existsSync(catalogDbPath());
+  }
+  return mlcTsvAvailable();
 }
 
 export function scanMlcArtistFromCache(artistName: string): MlcArtistScanResult | null {
@@ -336,7 +410,10 @@ export async function scanMlcArtist(
     const { hit, catalogLocked } = await scanViaDuckdb<
       Omit<MlcArtistScanResult, "fromCache" | "scanSource">
     >("unmatched", artistName);
-    if (hit) return hit;
+    if (hit) {
+      writeUnmatchedExportCache(artistName, hit.hits);
+      return hit;
+    }
     if (catalogLocked || tsvFallbackDisabled()) return null;
   }
 
@@ -363,7 +440,10 @@ export async function scanMlcUnclaimedArtist(
     const { hit, catalogLocked } = await scanViaDuckdb<
       Omit<MlcUnclaimedScanResult, "fromCache" | "scanSource">
     >("unclaimed", artistName);
-    if (hit) return hit;
+    if (hit) {
+      writeUnclaimedExportCache(artistName, hit.hits);
+      return hit;
+    }
     if (catalogLocked || tsvFallbackDisabled()) return null;
   }
 

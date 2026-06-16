@@ -11,6 +11,7 @@ export const CMO_SOURCE_IDS = [
   "ee-eel",
   "cz-intergram",
   "fi-gramex",
+  "de-gvl",
 ] as const;
 
 export type CmoSourceId = (typeof CMO_SOURCE_IDS)[number];
@@ -31,6 +32,12 @@ export interface CmoRecord {
   senaScope?: "nederland" | "buitenland";
   isrc?: string | null;
   sheet?: string;
+  /** GVL list family */
+  gvlList?: "listen-artists" | "listen-producers" | "produktionen" | "sendemeldungen";
+  gvlYear?: number;
+  gvlMedium?: string;
+  /** KONU additional title / remix info */
+  gvlRemix?: string | null;
 }
 
 export interface CmoArtistMatch {
@@ -72,6 +79,7 @@ export const CMO_SOURCE_LABELS: Record<CmoSourceId, string> = {
   "ee-eel": "EEL (EE)",
   "cz-intergram": "INTERGRAM (CZ)",
   "fi-gramex": "Gramex (FI)",
+  "de-gvl": "GVL (DE)",
 };
 
 export const CMO_CHIP_LABELS: Record<CmoSourceId, string> = {
@@ -87,6 +95,7 @@ export const CMO_CHIP_LABELS: Record<CmoSourceId, string> = {
   "ee-eel": "Észtország · EEL",
   "cz-intergram": "Csehország · INTERGRAM",
   "fi-gramex": "Finnország · Gramex",
+  "de-gvl": "Németország · GVL",
 };
 
 export const CMO_ISRC_PREFIX = "cmo:";

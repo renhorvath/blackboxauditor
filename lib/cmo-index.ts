@@ -17,12 +17,29 @@ const STOP = new Set([
 ]);
 
 let cached: CmoIndexFile | null = null;
+let gvlMerged = false;
 let loadError: string | null = null;
 
 function indexPath(): string {
   const fromEnv = process.env.CMO_INDEX_PATH?.trim();
   if (fromEnv) return fromEnv;
   return path.join(process.cwd(), "data", "cmo-index.json");
+}
+
+function gvlIndexPath(): string {
+  const fromEnv = process.env.CMO_GVL_INDEX_PATH?.trim();
+  if (fromEnv) return fromEnv;
+  return path.join(process.cwd(), "data", "cmo-gvl-index.json");
+}
+
+function mergeGvlIndex(index: CmoIndexFile): void {
+  if (gvlMerged) return;
+  gvlMerged = true;
+  const gvlFile = gvlIndexPath();
+  if (!fs.existsSync(gvlFile)) return;
+  const gvlIndex = JSON.parse(fs.readFileSync(gvlFile, "utf-8")) as CmoIndexFile;
+  const gvl = gvlIndex.sources["de-gvl"];
+  if (gvl) index.sources["de-gvl"] = gvl;
 }
 
 export function cmoIndexAvailable(): boolean {
@@ -32,6 +49,10 @@ export function cmoIndexAvailable(): boolean {
   } catch {
     return false;
   }
+}
+
+export function cmoGvlIndexAvailable(): boolean {
+  return fs.existsSync(gvlIndexPath());
 }
 
 export function cmoIndexFileExists(): boolean {
@@ -50,6 +71,7 @@ function getCmoIndex(): CmoIndexFile {
     throw new Error(loadError);
   }
   cached = JSON.parse(fs.readFileSync(file, "utf-8")) as CmoIndexFile;
+  mergeGvlIndex(cached);
   loadError = null;
   return cached;
 }
@@ -97,7 +119,7 @@ function candidateIndices(
 function scoreRecord(record: CmoRecord, artistTokens: string[]): number {
   const blob = new Set(
     cmoTokens(
-      `${record.identification} ${record.title} ${record.performer ?? ""} ${record.composer ?? ""}`,
+      `${record.identification} ${record.title} ${record.performer ?? ""} ${record.composer ?? ""} ${record.gvlRemix ?? ""}`,
       1,
     ),
   );

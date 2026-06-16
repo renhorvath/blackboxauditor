@@ -24,24 +24,117 @@ load_dotenv_local()
 PROGRESS_DIR = ETL_DIR.parent.parent / "derived" / "mlc-hu"
 
 
+def list_token_partition_tables(
+    con: duckdb.DuckDBPyConnection, token_table: str
+) -> list[str]:
+    """Indexed shard tables: mlc_unmatched_artist_tokens_p0 … pN."""
+    prefix = f"{token_table}_p"
+    rows = con.execute(
+        """
+        SELECT table_name FROM information_schema.tables
+        WHERE table_name LIKE ? || '%'
+        """,
+        [prefix],
+    ).fetchall()
+    tables = [r[0] for r in rows if r[0].startswith(prefix)]
+
+    def part_num(name: str) -> int:
+        return int(name[len(prefix) :])
+
+    return sorted(tables, key=part_num)
+
+
+def resolve_token_tables(con: duckdb.DuckDBPyConnection, token_table: str) -> list[str]:
+    if table_exists(con, token_table):
+        return [token_table]
+    return list_token_partition_tables(con, token_table)
+
+
+ISRC_SHARD_PREFIX: dict[str, str] = {
+    "mlc_unmatched": "mlc_unmatched_isrc",
+    "mlc_unclaimed": "mlc_unclaimed_isrc",
+}
+
+ISRC_SHARD_BUCKETS: dict[str, int] = {
+    "mlc_unmatched": 85,
+    "mlc_unclaimed": 7,
+}
+
+
+def list_isrc_shard_tables(con: duckdb.DuckDBPyConnection, dest_prefix: str) -> list[str]:
+    """Indexed ISRC lookup shards: mlc_unmatched_isrc_p0 … pN."""
+    prefix = f"{dest_prefix}_p"
+    rows = con.execute(
+        """
+        SELECT table_name FROM information_schema.tables
+        WHERE table_name LIKE ? || '%'
+        """,
+        [prefix],
+    ).fetchall()
+    tables = [r[0] for r in rows if r[0].startswith(prefix)]
+
+    def part_num(name: str) -> int:
+        return int(name[len(prefix) :])
+
+    return sorted(tables, key=part_num)
+
+
+def resolve_source_tables(con: duckdb.DuckDBPyConnection, source_table: str) -> list[str]:
+    shard_prefix = ISRC_SHARD_PREFIX.get(source_table)
+    if shard_prefix:
+        shards = list_isrc_shard_tables(con, shard_prefix)
+        if shards:
+            return shards
+    if table_exists(con, source_table):
+        return [source_table]
+    return []
+
+
+def isrc_shards_ready(con: duckdb.DuckDBPyConnection, source_table: str) -> bool:
+    prog_prefix = ISRC_SHARD_PREFIX.get(source_table)
+    if not prog_prefix:
+        return False
+    prog_path = PROGRESS_DIR / f"etl_{prog_prefix}_progress.json"
+    if prog_path.is_file():
+        try:
+            data = json.loads(prog_path.read_text(encoding="utf-8"))
+            if data.get("indexed") is True:
+                return True
+        except json.JSONDecodeError:
+            pass
+    return len(list_isrc_shard_tables(con, prog_prefix)) > 0
+
+
 def token_index_ready(con: duckdb.DuckDBPyConnection, token_table: str) -> bool:
     """True only when build finished and indexed — ignore partial tables."""
-    if not table_exists(con, token_table):
-        return False
     prog_path = PROGRESS_DIR / f"etl_{token_table}_progress.json"
     if prog_path.is_file():
         try:
             data = json.loads(prog_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             return False
-        return data.get("indexed") is True
-    # Legacy: built before progress files (e.g. unclaimed index)
+        if data.get("indexed") is True:
+            return True
+
+    if table_exists(con, token_table):
+        row = con.execute(
+            """
+            SELECT count(*) FROM duckdb_indexes()
+            WHERE lower(table_name) = lower(?)
+            """,
+            [token_table],
+        ).fetchone()
+        return bool(row and row[0] > 0)
+
+    partitions = list_token_partition_tables(con, token_table)
+    if not partitions:
+        return False
     row = con.execute(
         """
         SELECT count(*) FROM duckdb_indexes()
         WHERE lower(table_name) = lower(?)
         """,
-        [token_table],
+        [partitions[0]],
     ).fetchone()
     return bool(row and row[0] > 0)
 
@@ -83,30 +176,138 @@ def token_table_is_minimal(con: duckdb.DuckDBPyConnection, token_table: str) -> 
     return cols <= {"token", "isrc"}
 
 
+def collect_token_isrcs(
+    con: duckdb.DuckDBPyConnection,
+    token_tables: list[str],
+    tokens: list[str],
+) -> set[str]:
+    """Distinct ISRCs from indexed token shard(s) for an artist query."""
+    if not token_tables or not tokens:
+        return set()
+    placeholders = ", ".join("?" for _ in tokens)
+    parts = [
+        f"""
+        SELECT DISTINCT upper(trim(isrc)) AS isrc
+        FROM {tbl}
+        WHERE token IN ({placeholders}) AND isrc IS NOT NULL AND trim(isrc) != ''
+        """
+        for tbl in token_tables
+    ]
+    sql = " UNION ALL ".join(parts)
+    rows = con.execute(
+        f"SELECT DISTINCT isrc FROM ({sql}) WHERE isrc IS NOT NULL AND isrc != ''",
+        tokens * len(token_tables),
+    ).fetchall()
+    return {r[0] for r in rows if r[0]}
+
+
+def group_isrcs_by_shard_bucket(
+    con: duckdb.DuckDBPyConnection,
+    isrcs: set[str],
+    *,
+    buckets: int,
+) -> dict[int, list[str]]:
+    if not isrcs:
+        return {}
+    isrc_list = sorted(isrcs)
+    rows = con.execute(
+        f"""
+        SELECT isrc, (hash(isrc) % {buckets}) AS bucket
+        FROM (SELECT unnest(?) AS isrc)
+        """,
+        [isrc_list],
+    ).fetchall()
+    grouped: dict[int, list[str]] = {}
+    for isrc, bucket in rows:
+        grouped.setdefault(int(bucket), []).append(isrc)
+    return grouped
+
+
+def fetch_rows_from_isrc_shards(
+    con: duckdb.DuckDBPyConnection,
+    *,
+    isrcs: set[str],
+    source_table: str,
+    columns: tuple[str, ...],
+) -> list[tuple]:
+    """Lookup display rows via hash-bucketed ISRC shards (fast) or base table."""
+    if not isrcs:
+        return []
+
+    shard_prefix = ISRC_SHARD_PREFIX.get(source_table)
+    buckets = ISRC_SHARD_BUCKETS.get(source_table, 1)
+    shard_tables = list_isrc_shard_tables(con, shard_prefix) if shard_prefix else []
+
+    if shard_prefix and len(shard_tables) >= buckets and isrc_shards_ready(con, source_table):
+        grouped = group_isrcs_by_shard_bucket(con, isrcs, buckets=buckets)
+        cols = ", ".join(columns)
+        out: list[tuple] = []
+        for bucket, group in grouped.items():
+            shard = f"{shard_prefix}_p{bucket}"
+            if not table_exists(con, shard):
+                continue
+            placeholders = ", ".join("?" for _ in group)
+            out.extend(
+                con.execute(
+                    f"SELECT {cols} FROM {shard} WHERE ISRC IN ({placeholders})",
+                    group,
+                ).fetchall()
+            )
+        return out
+
+    if table_exists(con, source_table):
+        cols = ", ".join(columns)
+        isrc_list = sorted(isrcs)
+        placeholders = ", ".join("?" for _ in isrc_list)
+        return con.execute(
+            f"SELECT {cols} FROM {source_table} WHERE ISRC IN ({placeholders})",
+            isrc_list,
+        ).fetchall()
+
+    return []
+
+
+def iter_rows_via_token_join(
+    con: duckdb.DuckDBPyConnection,
+    *,
+    token_tables: list[str],
+    source_table: str,
+    tokens: list[str],
+    select_cols: str,
+):
+    """Token index → ISRC set → bucket-routed shard lookup (avoids 32×85 cross join)."""
+    if not token_tables or not tokens:
+        return
+
+    isrcs = collect_token_isrcs(con, token_tables, tokens)
+    if not isrcs:
+        return
+
+    # select_cols like "u.ISRC, u.ResourceTitle, ..." → plain column list
+    columns = tuple(c.strip().removeprefix("u.") for c in select_cols.split(","))
+    for row in fetch_rows_from_isrc_shards(
+        con, isrcs=isrcs, source_table=source_table, columns=columns
+    ):
+        yield row
+
+
 def fetch_rows_via_token_isrcs(
     con: duckdb.DuckDBPyConnection,
     *,
-    token_table: str,
+    token_tables: list[str],
     source_table: str,
     tokens: list[str],
     select_cols: str,
 ) -> list[tuple]:
-    """Token lookup → distinct ISRCs → source row fetch (avoids full-table join)."""
-    placeholders = ", ".join("?" for _ in tokens)
-    isrc_rows = con.execute(
-        f"SELECT DISTINCT isrc FROM {token_table} WHERE token IN ({placeholders})",
-        tokens,
-    ).fetchall()
-    isrcs = [r[0] for r in isrc_rows if r[0]]
-    if not isrcs:
-        return []
-
-    isrc_ph = ", ".join("?" for _ in isrcs)
-    # catalog ISRC values are already upper(trim) — avoid upper(trim) here (68M-row scan).
-    return con.execute(
-        f"SELECT {select_cols} FROM {source_table} WHERE ISRC IN ({isrc_ph})",
-        isrcs,
-    ).fetchall()
+    return list(
+        iter_rows_via_token_join(
+            con,
+            token_tables=token_tables,
+            source_table=source_table,
+            tokens=tokens,
+            select_cols=select_cols,
+        )
+    )
 
 
 def fetch_unmatched_via_tokens(
@@ -116,7 +317,8 @@ def fetch_unmatched_via_tokens(
     limit: int,
     match_mode: str = "collab",
 ) -> list[dict]:
-    if not table_exists(con, "mlc_unmatched_artist_tokens"):
+    token_tables = resolve_token_tables(con, "mlc_unmatched_artist_tokens")
+    if not token_tables:
         return []
 
     terms = build_terms(artist_name, artist_name)
@@ -125,27 +327,29 @@ def fetch_unmatched_via_tokens(
         return []
 
     placeholders = ", ".join("?" for _ in tokens)
-    if token_table_is_minimal(con, "mlc_unmatched_artist_tokens"):
-        rows = fetch_rows_via_token_isrcs(
+    seen: set[str] = set()
+    hits: list[dict] = []
+
+    if token_table_is_minimal(con, token_tables[0]):
+        row_iter = iter_rows_via_token_join(
             con,
-            token_table="mlc_unmatched_artist_tokens",
+            token_tables=token_tables,
             source_table="mlc_unmatched",
             tokens=tokens,
-            select_cols="ISRC, ResourceTitle, DisplayArtistName, OriginalDataProviderName, ResourceType",
+            select_cols="u.ISRC, u.ResourceTitle, u.DisplayArtistName, u.OriginalDataProviderName, u.ResourceType",
         )
     else:
-        rows = con.execute(
+        wide_table = token_tables[0]
+        row_iter = con.execute(
             f"""
             SELECT ISRC, ResourceTitle, DisplayArtistName, OriginalDataProviderName, ResourceType
-            FROM mlc_unmatched_artist_tokens
+            FROM {wide_table}
             WHERE token IN ({placeholders})
             """,
             tokens,
         ).fetchall()
 
-    seen: set[str] = set()
-    hits: list[dict] = []
-    for isrc, title, artist, provider, resource_type in rows:
+    for isrc, title, artist, provider, resource_type in row_iter:
         if not artist_matches(str(artist or ""), terms, match_mode):
             continue
         key = (isrc or "").strip().upper()
@@ -173,7 +377,8 @@ def fetch_unclaimed_via_tokens(
     limit: int,
     match_mode: str = "collab",
 ) -> list[dict]:
-    if not table_exists(con, "mlc_unclaimed_artist_tokens"):
+    token_tables = resolve_token_tables(con, "mlc_unclaimed_artist_tokens")
+    if not token_tables:
         return []
 
     terms = build_terms(artist_name, artist_name)
@@ -182,20 +387,21 @@ def fetch_unclaimed_via_tokens(
         return []
 
     placeholders = ", ".join("?" for _ in tokens)
-    if token_table_is_minimal(con, "mlc_unclaimed_artist_tokens"):
+    if token_table_is_minimal(con, token_tables[0]):
         rows = fetch_rows_via_token_isrcs(
             con,
-            token_table="mlc_unclaimed_artist_tokens",
+            token_tables=token_tables,
             source_table="mlc_unclaimed",
             tokens=tokens,
-            select_cols="ISRC, ResourceTitle, DisplayArtistName, UnclaimedRightSharePercentage, MusicalWorkRecordId, DspResourceId",
+            select_cols="u.ISRC, u.ResourceTitle, u.DisplayArtistName, u.UnclaimedRightSharePercentage, u.MusicalWorkRecordId, u.DspResourceId",
         )
     else:
+        wide_table = token_tables[0]
         rows = con.execute(
             f"""
             SELECT ISRC, ResourceTitle, DisplayArtistName,
                    UnclaimedRightSharePercentage, MusicalWorkRecordId, DspResourceId
-            FROM mlc_unclaimed_artist_tokens
+            FROM {wide_table}
             WHERE token IN ({placeholders})
             """,
             tokens,
@@ -241,7 +447,7 @@ def fetch_unmatched(
     limit: int,
     match_mode: str = "collab",
 ) -> list[dict]:
-    if not table_exists(con, "mlc_unmatched"):
+    if not table_exists(con, "mlc_unmatched") and not isrc_shards_ready(con, "mlc_unmatched"):
         return []
 
     via_tokens = fetch_unmatched_via_tokens(
@@ -301,13 +507,12 @@ def fetch_unclaimed(
     if not table_exists(con, "mlc_unclaimed"):
         return []
 
-    via_tokens = fetch_unclaimed_via_tokens(
-        con, artist_name, limit=limit, match_mode=match_mode
-    )
-    if via_tokens:
-        return via_tokens
-    if token_index_ready(con, "mlc_unclaimed_artist_tokens"):
-        return []
+    if token_index_ready(con, "mlc_unclaimed_artist_tokens") or resolve_token_tables(
+        con, "mlc_unclaimed_artist_tokens"
+    ):
+        return fetch_unclaimed_via_tokens(
+            con, artist_name, limit=limit, match_mode=match_mode
+        )
 
     terms = build_terms(artist_name, artist_name)
     if not terms:

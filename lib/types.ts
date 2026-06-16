@@ -60,6 +60,10 @@ export interface AuditRow {
     composer?: string | null;
     label?: string | null;
     isrc?: string | null;
+    gvlList?: "listen-artists" | "listen-producers" | "produktionen" | "sendemeldungen";
+    gvlYear?: number;
+    gvlMedium?: string;
+    gvlRemix?: string | null;
   }[];
   ejiHits?: {
     kind: "track" | "artist";
