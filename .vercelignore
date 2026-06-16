@@ -1,5 +1,8 @@
 # Never upload local data machine files to Vercel
-/data/
+# Large local indexes — not deployed (recovery playbooks are small and committed)
+/data/*
+!/data/recovery-playbooks/
+!/data/recovery-playbooks/**
 /raw/
 /derived/
 /exports/
