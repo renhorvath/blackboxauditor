@@ -4,10 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, ChevronDown, Loader2 } from "lucide-react";
 import { rowHasPayoutProblem, sortArtistAuditRows } from "@/lib/artist-audit-display";
 import {
-  ALL_NAME_VARIANTS,
   ALL_SOURCE_FILTER_IDS,
+  auditRowKey,
+  collectNameVariants,
   computeAuditCountsFromRows,
-  rowMatchesNameVariant,
+  defaultPublishVariantKeys,
+  rowMatchesNameVariants,
   rowMatchesSourceFilters,
   type AuditSourceFilterId,
 } from "@/lib/artist-audit-filters";
@@ -32,6 +34,10 @@ export function ArtistAuditResults({
   catalogBusy,
   onLoadFullCatalog,
   onOpenReport,
+  onPublish,
+  publishBusy,
+  publishedUrl,
+  readOnly = false,
   onClearArtist,
 }: {
   artistName: string;
@@ -42,24 +48,32 @@ export function ArtistAuditResults({
   catalogBusy: boolean;
   onLoadFullCatalog: () => void;
   onOpenReport: () => void;
+  onPublish?: (rows: AuditRow[]) => void;
+  publishBusy?: boolean;
+  publishedUrl?: string | null;
+  readOnly?: boolean;
   onClearArtist: () => void;
 }) {
   const [onlyProblems, setOnlyProblems] = useState(true);
-  const [selectedVariant, setSelectedVariant] = useState(ALL_NAME_VARIANTS);
+  const [selectedVariantKeys, setSelectedVariantKeys] = useState<Set<string>>(() => new Set());
+  const [publishExcludedKeys, setPublishExcludedKeys] = useState<Set<string>>(() => new Set());
   const [enabledSources, setEnabledSources] = useState<Set<AuditSourceFilterId>>(
     () => new Set(ALL_SOURCE_FILTER_IDS),
   );
 
   useEffect(() => {
-    setSelectedVariant(ALL_NAME_VARIANTS);
+    if (!rows) return;
+    const variants = collectNameVariants(artistName, rows);
+    setSelectedVariantKeys(defaultPublishVariantKeys(variants));
+    setPublishExcludedKeys(new Set());
     setEnabledSources(new Set(ALL_SOURCE_FILTER_IDS));
-  }, [artistName]);
+  }, [artistName, rows]);
 
   const sorted = useMemo(() => (rows ? sortArtistAuditRows(rows) : []), [rows]);
 
   const variantRows = useMemo(
-    () => sorted.filter((row) => rowMatchesNameVariant(row, selectedVariant)),
-    [sorted, selectedVariant],
+    () => sorted.filter((row) => rowMatchesNameVariants(row, selectedVariantKeys)),
+    [sorted, selectedVariantKeys],
   );
 
   const displayMeta = useMemo(() => {
@@ -78,6 +92,53 @@ export function ArtistAuditResults({
   );
 
   const problemCount = useMemo(() => filtered.filter(rowHasPayoutProblem).length, [filtered]);
+
+  const publishRows = useMemo(
+    () =>
+      filtered.filter(
+        (row) =>
+          rowHasPayoutProblem(row) && !publishExcludedKeys.has(auditRowKey(row)),
+      ),
+    [filtered, publishExcludedKeys],
+  );
+
+  const publishExcludedVisible = useMemo(
+    () =>
+      filtered.filter(
+        (row) => rowHasPayoutProblem(row) && publishExcludedKeys.has(auditRowKey(row)),
+      ).length,
+    [filtered, publishExcludedKeys],
+  );
+
+  function togglePublishInclude(row: AuditRow, included: boolean) {
+    const key = auditRowKey(row);
+    setPublishExcludedKeys((prev) => {
+      const next = new Set(prev);
+      if (included) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  function includeAllVisibleForPublish() {
+    setPublishExcludedKeys((prev) => {
+      const next = new Set(prev);
+      for (const row of filtered) {
+        if (rowHasPayoutProblem(row)) next.delete(auditRowKey(row));
+      }
+      return next;
+    });
+  }
+
+  function excludeAllVisibleForPublish() {
+    setPublishExcludedKeys((prev) => {
+      const next = new Set(prev);
+      for (const row of filtered) {
+        if (rowHasPayoutProblem(row)) next.add(auditRowKey(row));
+      }
+      return next;
+    });
+  }
 
   function toggleSource(id: AuditSourceFilterId) {
     setEnabledSources((prev) => {
@@ -113,19 +174,25 @@ export function ArtistAuditResults({
         meta={displayMeta ?? meta}
         problemCount={problemCount}
         totalCount={filtered.length}
-        onClearArtist={onClearArtist}
+        onClearArtist={readOnly ? undefined : onClearArtist}
       />
 
       <ArtistAuditFilters
         query={artistName}
         allRows={sorted}
         countRows={variantRows}
-        selectedVariant={selectedVariant}
-        onVariantChange={setSelectedVariant}
+        selectedVariantKeys={selectedVariantKeys}
+        onVariantKeysChange={setSelectedVariantKeys}
         enabledSources={enabledSources}
         onToggleSource={toggleSource}
         onSelectOnlySource={selectOnlySource}
       />
+
+      {!readOnly && selectedVariantKeys.size === 0 ? (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          Válassz legalább egy névváltozatot a találatok megjelenítéséhez és a jelentéshez.
+        </p>
+      ) : null}
 
       <div className="space-y-2">
         <div className="flex flex-wrap gap-2">
@@ -174,17 +241,58 @@ export function ArtistAuditResults({
           ) : null}
         </div>
       ) : (
-        <ul className="divide-y divide-[var(--border)] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-primary)]">
-          {visible.map((row) => (
-            <ArtistAuditRowCard key={row.isrc} row={row} />
-          ))}
-        </ul>
+        <>
+          {!readOnly && problemCount > 0 ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2">
+              <p className="text-xs text-[var(--text-secondary)]">
+                Jelentésbe: <span className="font-semibold text-[var(--text-primary)]">{publishRows.length}</span>
+                {publishExcludedVisible > 0 ? (
+                  <span className="text-[var(--text-muted)]"> · {publishExcludedVisible} kihagyva</span>
+                ) : null}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={includeAllVisibleForPublish}
+                  className="text-[11px] font-semibold text-[var(--accent-primary)]"
+                >
+                  Mind be
+                </button>
+                <button
+                  type="button"
+                  onClick={excludeAllVisibleForPublish}
+                  className="text-[11px] font-semibold text-[var(--text-muted)]"
+                >
+                  Mind ki
+                </button>
+              </div>
+            </div>
+          ) : null}
+          <ul className="divide-y divide-[var(--border)] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-primary)]">
+            {visible.map((row) => (
+              <ArtistAuditRowCard
+                key={auditRowKey(row)}
+                row={row}
+                includeInPublish={
+                  !rowHasPayoutProblem(row) || !publishExcludedKeys.has(auditRowKey(row))
+                }
+                onTogglePublishInclude={
+                  rowHasPayoutProblem(row)
+                    ? (included) => togglePublishInclude(row, included)
+                    : undefined
+                }
+                showPublishToggle={!readOnly && rowHasPayoutProblem(row)}
+              />
+            ))}
+          </ul>
+        </>
       )}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {meta.mlcScanSource === "cache" ||
+        {!readOnly &&
+        (meta.mlcScanSource === "cache" ||
         meta.mlcScanSource === "duckdb" ||
-        meta.mlcUnclaimedScanSource === "duckdb" ? (
+        meta.mlcUnclaimedScanSource === "duckdb") ? (
           <details className="group text-sm">
             <summary className="flex cursor-pointer list-none items-center gap-1 font-medium text-[var(--text-secondary)] marker:content-none [&::-webkit-details-marker]:hidden">
               <ChevronDown className="size-4 transition group-open:rotate-180" aria-hidden />
@@ -215,16 +323,47 @@ export function ArtistAuditResults({
           <p className="text-xs text-[var(--text-muted)]">
             MLC: lassú TSV scan. Gyorsítás: npm run etl:parquet && npm run etl:catalog
           </p>
+        ) : !readOnly ? (
+          <span />
         ) : null}
 
-        <button
-          type="button"
-          onClick={onOpenReport}
-          disabled={filtered.length === 0}
-          className="shrink-0 rounded-[12px] bg-[var(--accent-primary)] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-105 disabled:opacity-40"
-        >
-          Részletes jelentés ({filtered.length})
-        </button>
+        {!readOnly ? (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            {onPublish ? (
+              <button
+                type="button"
+                onClick={() => onPublish(publishRows)}
+                disabled={publishBusy || publishRows.length === 0}
+                className="shrink-0 rounded-[12px] border border-[var(--border)] bg-[var(--bg-secondary)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] disabled:opacity-40"
+              >
+                {publishBusy ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                    Közzététel…
+                  </span>
+                ) : (
+                  `Jelentés közzététele (${publishRows.length})`
+                )}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={onOpenReport}
+              disabled={filtered.length === 0}
+              className="shrink-0 rounded-[12px] bg-[var(--accent-primary)] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-105 disabled:opacity-40"
+            >
+              Részletes jelentés ({filtered.length})
+            </button>
+          </div>
+        ) : null}
+        {publishedUrl ? (
+          <p className="text-xs text-[var(--text-secondary)]">
+            Közzétéve:{" "}
+            <a href={publishedUrl} className="font-semibold text-[var(--accent-primary)] underline">
+              {publishedUrl}
+            </a>
+          </p>
+        ) : null}
       </div>
     </section>
   );

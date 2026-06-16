@@ -32,9 +32,12 @@
     "etl:isrc-index:unmatched": "bash scripts/etl/run_unmatched_isrc_index.sh",
     "etl:isrc-index": ".venv/bin/python3 scripts/etl/build_mlc_isrc_index.py",
     "etl:query": ".venv/bin/python3 scripts/etl/query.py",
-    "etl:export-artist": ".venv/bin/python3 scripts/etl/export_artist_mlc_json.py"
+    "etl:export-artist": ".venv/bin/python3 scripts/etl/export_artist_mlc_json.py",
+    "db:migrate": "npx tsx scripts/db/migrate.mts",
+    "batch:artist-audit": "node scripts/batch_artist_audit.mjs"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "@tanstack/react-table": "^8.21.3",
     "lucide-react": "^1.14.0",
     "next": "16.2.6",

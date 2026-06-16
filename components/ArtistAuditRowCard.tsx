@@ -2,20 +2,47 @@
 
 import { useState } from "react";
 import { AlertCircle, CheckCircle2, ChevronDown } from "lucide-react";
+import { RecoveryPlaybookPanel } from "@/components/RecoveryPlaybookPanel";
 import { getSourceDetailsForRow, laymanSummaryForRow } from "@/lib/artist-audit-row-details";
 import { rowHasPayoutProblem } from "@/lib/artist-audit-display";
+import { playbookIdForBlock } from "@/lib/recovery-mapper";
+import { getPlaybook, toPlaybookSnapshot } from "@/lib/recovery-playbooks";
 import type { AuditRow } from "@/lib/types";
 import { isArtisjusSyntheticIsrc, isSyntheticAuditIsrc } from "@/lib/types";
 
-export function ArtistAuditRowCard({ row }: { row: AuditRow }) {
+export function ArtistAuditRowCard({
+  row,
+  showRecovery = true,
+  includeInPublish = true,
+  onTogglePublishInclude,
+  showPublishToggle = false,
+}: {
+  row: AuditRow;
+  showRecovery?: boolean;
+  includeInPublish?: boolean;
+  onTogglePublishInclude?: (included: boolean) => void;
+  showPublishToggle?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const hasProblem = rowHasPayoutProblem(row);
   const title = row.title ?? "(névtelen dal)";
   const details = getSourceDetailsForRow(row);
 
   return (
-    <li className="px-4 py-4">
+    <li
+      className={`px-4 py-4 ${showPublishToggle && !includeInPublish ? "bg-[var(--bg-secondary)]/60 opacity-75" : ""}`}
+    >
       <div className="flex items-start gap-3">
+        {showPublishToggle && onTogglePublishInclude ? (
+          <label className="mt-0.5 flex shrink-0 cursor-pointer items-center" title="Beleértve a jelentésbe">
+            <input
+              type="checkbox"
+              checked={includeInPublish}
+              onChange={(e) => onTogglePublishInclude(e.target.checked)}
+              className="size-4 accent-[var(--accent-primary)]"
+            />
+          </label>
+        ) : null}
         {hasProblem ? (
           <AlertCircle className="mt-0.5 size-4 shrink-0 text-[var(--accent-critical)]" aria-hidden />
         ) : (
@@ -85,11 +112,21 @@ export function ArtistAuditRowCard({ row }: { row: AuditRow }) {
                           ))}
                         </dl>
                       ) : null}
-                      {block.action ? (
+                      {block.action && !showRecovery ? (
                         <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">
                           <span className="font-semibold text-[var(--text-secondary)]">Teendő:</span>{" "}
                           {block.action}
                         </p>
+                      ) : null}
+                      {showRecovery ? (
+                        <RecoveryPlaybookPanel
+                          playbook={(() => {
+                            const id = playbookIdForBlock(block, row);
+                            const entry = id ? getPlaybook(id) : undefined;
+                            return entry ? toPlaybookSnapshot(entry) : null;
+                          })()}
+                          fallbackAction={block.action}
+                        />
                       ) : null}
                     </article>
                   ))}

@@ -1,0 +1,47 @@
+{
+  "id": "us.mlc.unclaimed_share",
+  "organization": "The MLC",
+  "country": "US",
+  "rightsType": "mechanical",
+  "summary": "A mű szerepel az MLC-nél, de a mechanikai share nincs claimelve (black box).",
+  "eligibility": "",
+  "steps": [
+    {
+      "id": "s1",
+      "order": 1,
+      "title": "Share audit",
+      "description": "Ellenőrizd a work share breakdown-t a Member Portalon."
+    },
+    {
+      "id": "s2",
+      "order": 2,
+      "title": "Claim / registration",
+      "description": "Regisztráld a hiányzó share-t vagy javítsd a publisher/songwriter linket."
+    }
+  ],
+  "requiredData": [
+    {
+      "field": "ISRC",
+      "required": true
+    },
+    {
+      "field": "MLC work ID",
+      "required": false
+    }
+  ],
+  "requiredPermissions": [],
+  "documents": [],
+  "channels": [
+    {
+      "type": "portal",
+      "url": "https://portal.themlc.com",
+      "label": "MLC Portal"
+    }
+  ],
+  "timelines": "",
+  "fees": "",
+  "pitfalls": [],
+  "sources": [],
+  "version": "2026-06",
+  "confidence": "draft"
+}

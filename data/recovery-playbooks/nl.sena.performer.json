@@ -1,0 +1,47 @@
+{
+  "id": "nl.sena.performer",
+  "organization": "SENA",
+  "country": "NL",
+  "rightsType": "neighbouring",
+  "summary": "Holland szomszédos jog — előadó (muzikanten) nem claimelt felvétel.",
+  "eligibility": "",
+  "steps": [
+    {
+      "id": "s1",
+      "order": 1,
+      "title": "SENA regisztráció",
+      "description": "Regisztráld magad előadóként a SENA-nál."
+    },
+    {
+      "id": "s2",
+      "order": 2,
+      "title": "Claim",
+      "description": "Igényeld a listán szereplő felvételt ISRC / Recording ID alapján."
+    }
+  ],
+  "requiredData": [
+    {
+      "field": "ISRC",
+      "required": true
+    },
+    {
+      "field": "Recording ID",
+      "required": true
+    }
+  ],
+  "requiredPermissions": [],
+  "documents": [],
+  "channels": [
+    {
+      "type": "portal",
+      "url": "https://www.sena.nl",
+      "label": "SENA"
+    }
+  ],
+  "timelines": "",
+  "fees": "",
+  "pitfalls": [],
+  "sources": [],
+  "version": "2026-06",
+  "confidence": "draft"
+}

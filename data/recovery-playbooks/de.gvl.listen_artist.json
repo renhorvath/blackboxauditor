@@ -1,0 +1,44 @@
+{
+  "id": "de.gvl.listen_artist",
+  "organization": "GVL",
+  "country": "DE",
+  "rightsType": "neighbouring",
+  "summary": "GVL jogosult előadó — cím vagy örökös ismeretlen (listen lista).",
+  "eligibility": "",
+  "steps": [
+    {
+      "id": "s1",
+      "order": 1,
+      "title": "Azonosítás",
+      "description": "Erősítsd meg, hogy te vagy a listán szereplő jogosult."
+    },
+    {
+      "id": "s2",
+      "order": 2,
+      "title": "Kapcsolat GVL",
+      "description": "Írj a GVL ügyfélszolgálatnak a listen listán megadott kontakttal."
+    }
+  ],
+  "requiredData": [],
+  "requiredPermissions": [],
+  "documents": [],
+  "channels": [
+    {
+      "type": "email",
+      "address": "kuenstlervertrag@gvl.de",
+      "label": "GVL Künstlervertrag"
+    }
+  ],
+  "timelines": "",
+  "fees": "",
+  "pitfalls": [],
+  "sources": [
+    {
+      "url": "https://www.gvl.de/listen",
+      "title": "GVL listen",
+      "checkedAt": "2026-06-01"
+    }
+  ],
+  "version": "2026-06",
+  "confidence": "draft"
+}

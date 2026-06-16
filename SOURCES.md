@@ -69,7 +69,18 @@ Phase 4 stubs (PRS, SGAE, BUMA): `scripts/cmo/pending/README.md`
 |------|-------------|
 | `docs/research/European_CMO_Unidentified_Works_Registry_Report_Corrected.docx` | CRM Art. 13 compliance mapping (62 CMOs, June 2026) |
 | `docs/research/European_CMO_Unidentified_Works_Registry_Report_Corrected.txt` | Plain-text extract for tooling / agents |
+| `docs/recovery/TEMPLATE.md` | Recovery playbook research template |
 | `music-metadata-audit-projekt-riport.md` | Project context (HU) |
+
+## Recovery playbooks (committed)
+
+| Path | Description |
+|------|-------------|
+| `data/recovery-playbooks/*.json` | Org-specific claim process (ARTISJUS, MLC, GVL, SENA, EJI) — loaded by `lib/recovery-playbooks.ts` |
+
+## Published reports (Neon)
+
+Snapshots are stored in Neon Postgres (`DATABASE_URL`), not on disk. Publish from local audit UI or `npm run batch:artist-audit -- --publish "Artist"`.
 
 ## Env vars (this machine)
 
@@ -81,6 +92,11 @@ MLC_HU_DATA_DIR=./derived/mlc-hu
 ARTISJUS_INDEX_PATH=./data/artisjus-index.json
 CMO_INDEX_PATH=./data/cmo-index.json
 # CMO_GVL_INDEX_PATH=./data/cmo-gvl-index.json
+DATABASE_URL=postgresql://...
+PUBLISH_API_KEY=...
+OPERATOR_SECRET=...
+REPORT_PUBLIC_BASE_URL=https://your-app.vercel.app
+MLC_SCAN_RACE_MS=600000
 ```
 
 Index build:

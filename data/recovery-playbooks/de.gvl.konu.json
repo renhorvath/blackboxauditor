@@ -1,0 +1,45 @@
+{
+  "id": "de.gvl.konu",
+  "organization": "GVL",
+  "country": "DE",
+  "rightsType": "neighbouring",
+  "summary": "Produkció szerepel a KONU listán — Mitwirkungsmeldung (előadói részvétel) hiányzik.",
+  "eligibility": "",
+  "steps": [
+    {
+      "id": "s1",
+      "order": 1,
+      "title": "GVL tagság",
+      "description": "Legyen érvényes GVL előadói regisztrációd."
+    },
+    {
+      "id": "s2",
+      "order": 2,
+      "title": "Mitwirkungsmeldung",
+      "description": "Jelentsd a részvételt a megadott produkcióhoz (ISRC / Produktionsnummer)."
+    }
+  ],
+  "requiredData": [
+    {
+      "field": "ISRC",
+      "required": true
+    },
+    {
+      "field": "Produktionsnummer",
+      "required": true
+    },
+    {
+      "field": "Hauptinterpret",
+      "required": true
+    }
+  ],
+  "requiredPermissions": [],
+  "documents": [],
+  "channels": [],
+  "timelines": "",
+  "fees": "",
+  "pitfalls": [],
+  "sources": [],
+  "version": "2026-06",
+  "confidence": "draft"
+}

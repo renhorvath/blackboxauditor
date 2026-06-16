@@ -59,6 +59,16 @@ export interface NameVariantOption {
 
 export const ALL_NAME_VARIANTS = "__all__";
 
+export function auditRowKey(row: AuditRow): string {
+  return row.isrc?.trim() || `row:${(row.title ?? "unknown").slice(0, 80)}`;
+}
+
+export function defaultPublishVariantKeys(variants: NameVariantOption[]): Set<string> {
+  const strong = variants.filter((v) => v.strength !== "substring").map((v) => v.key);
+  if (strong.length > 0) return new Set(strong);
+  return new Set(variants.map((v) => v.key));
+}
+
 export function collectNameVariants(query: string, rows: AuditRow[]): NameVariantOption[] {
   const map = new Map<
     string,
@@ -116,11 +126,11 @@ export function nameVariantLabel(option: NameVariantOption): string {
   return `${option.display} (${option.count}) · ${STRENGTH_LABEL[option.strength]}`;
 }
 
-export function rowMatchesNameVariant(
+export function rowMatchesNameVariants(
   row: AuditRow,
-  variantKey: string,
+  variantKeys: ReadonlySet<string>,
 ): boolean {
-  if (variantKey === ALL_NAME_VARIANTS) return true;
+  if (variantKeys.size === 0) return false;
 
   const candidates: string[] = [];
   if (row.artist?.trim()) {
@@ -132,7 +142,15 @@ export function rowMatchesNameVariant(
     if (hit.name?.trim()) candidates.push(hit.name.trim());
   }
 
-  return candidates.some((c) => normKey(c) === variantKey);
+  return candidates.some((c) => variantKeys.has(normKey(c)));
+}
+
+export function rowMatchesNameVariant(
+  row: AuditRow,
+  variantKey: string,
+): boolean {
+  if (variantKey === ALL_NAME_VARIANTS) return true;
+  return rowMatchesNameVariants(row, new Set([variantKey]));
 }
 
 export function getRowSourceIds(row: AuditRow): AuditSourceFilterId[] {

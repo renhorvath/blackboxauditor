@@ -1,0 +1,37 @@
+{
+  "id": "de.gvl.sendemeldung",
+  "organization": "GVL",
+  "country": "DE",
+  "rightsType": "neighbouring",
+  "summary": "Nyitott rádió/TV felhasználás — producer oldali Sendemeldung nem rendezett.",
+  "eligibility": "",
+  "steps": [
+    {
+      "id": "s1",
+      "order": 1,
+      "title": "Felhasználás ellenőrzés",
+      "description": "ISRC és Interpret egyeztetése a GVL nyitott nutzások listájával."
+    },
+    {
+      "id": "s2",
+      "order": 2,
+      "title": "Producer claim",
+      "description": "GVL produceri úton rendezd a felhasználást / küldd be a hiányzó adatot."
+    }
+  ],
+  "requiredData": [
+    {
+      "field": "ISRC",
+      "required": true
+    }
+  ],
+  "requiredPermissions": [],
+  "documents": [],
+  "channels": [],
+  "timelines": "",
+  "fees": "",
+  "pitfalls": [],
+  "sources": [],
+  "version": "2026-06",
+  "confidence": "draft"
+}

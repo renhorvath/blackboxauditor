@@ -1,9 +1,9 @@
 "use client";
 
 import {
-  ALL_NAME_VARIANTS,
   ALL_SOURCE_FILTER_IDS,
   collectNameVariants,
+  defaultPublishVariantKeys,
   nameVariantLabel,
   SOURCE_FILTER_LABELS,
   sourceFilterCount,
@@ -16,8 +16,8 @@ export function ArtistAuditFilters({
   query,
   allRows,
   countRows,
-  selectedVariant,
-  onVariantChange,
+  selectedVariantKeys,
+  onVariantKeysChange,
   enabledSources,
   onToggleSource,
   onSelectOnlySource,
@@ -27,8 +27,8 @@ export function ArtistAuditFilters({
   allRows: AuditRow[];
   /** Rows after name-variant filter — used for per-source counts. */
   countRows: AuditRow[];
-  selectedVariant: string;
-  onVariantChange: (key: string) => void;
+  selectedVariantKeys: ReadonlySet<string>;
+  onVariantKeysChange: (keys: Set<string>) => void;
   enabledSources: ReadonlySet<AuditSourceFilterId>;
   onToggleSource: (id: AuditSourceFilterId) => void;
   onSelectOnlySource: (id: AuditSourceFilterId) => void;
@@ -38,34 +38,78 @@ export function ArtistAuditFilters({
 
   if (variants.length === 0 && activeSources.length === 0) return null;
 
+  function toggleVariant(key: string) {
+    const next = new Set(selectedVariantKeys);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    onVariantKeysChange(next);
+  }
+
+  function selectStrongVariants() {
+    onVariantKeysChange(defaultPublishVariantKeys(variants));
+  }
+
+  function selectAllVariants() {
+    onVariantKeysChange(new Set(variants.map((v) => v.key)));
+  }
+
+  function clearVariants() {
+    onVariantKeysChange(new Set());
+  }
+
   return (
     <div className="space-y-4 rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] p-4">
       {variants.length > 0 ? (
         <div>
-          <label
-            htmlFor="artist-name-variant"
-            className="mb-1.5 block text-xs font-semibold text-[var(--text-secondary)]"
-          >
-            Névváltozat a találatokban
-          </label>
-          <select
-            id="artist-name-variant"
-            value={selectedVariant}
-            onChange={(e) => onVariantChange(e.target.value)}
-            className="input-bbox w-full px-3.5 py-2 text-sm"
-          >
-            <option value={ALL_NAME_VARIANTS}>
-              Összes névváltozat ({allRows.length} sor)
-            </option>
-            {variants.map((v: NameVariantOption) => (
-              <option key={v.key} value={v.key}>
-                {nameVariantLabel(v)}
-              </option>
-            ))}
-          </select>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-semibold text-[var(--text-secondary)]">
+              Névváltozatok a találatokban
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={selectStrongVariants}
+                className="rounded-full bg-[var(--bg-secondary)] px-2.5 py-1 text-[10px] font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
+              >
+                Pontos + szóegyezés
+              </button>
+              <button
+                type="button"
+                onClick={selectAllVariants}
+                className="rounded-full bg-[var(--bg-secondary)] px-2.5 py-1 text-[10px] font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
+              >
+                Összes
+              </button>
+              <button
+                type="button"
+                onClick={clearVariants}
+                className="rounded-full bg-[var(--bg-secondary)] px-2.5 py-1 text-[10px] font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
+              >
+                Egyik sem
+              </button>
+            </div>
+          </div>
+          <ul className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-2">
+            {variants.map((v: NameVariantOption) => {
+              const on = selectedVariantKeys.has(v.key);
+              return (
+                <li key={v.key}>
+                  <label className="flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 hover:bg-[var(--bg-primary)]">
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={() => toggleVariant(v.key)}
+                      className="mt-0.5 size-3.5 shrink-0 accent-[var(--accent-primary)]"
+                    />
+                    <span className="text-sm text-[var(--text-primary)]">{nameVariantLabel(v)}</span>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
           <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--text-muted)]">
-            A „hasonló név” találatok gyengébb egyezésűek — válassz pontosabb változatot, ha félrevezető
-            eredményeket látsz.
+            Több névváltozat is kijelölhető. A „hasonló név” gyenge egyezés — alapból ki van kapcsolva.
+            A jelentésbe csak a kijelölt változatokhoz tartozó dalok kerülnek (soronként is kihagyhatók).
           </p>
         </div>
       ) : null}

@@ -1,0 +1,38 @@
+{
+  "id": "hu.eji.unidentified",
+  "organization": "EJI",
+  "country": "HU",
+  "rightsType": "neighbouring",
+  "summary": "Magyar szomszédos jog — hiányzó adat miatt nem kifizethető.",
+  "eligibility": "",
+  "steps": [
+    {
+      "id": "s1",
+      "order": 1,
+      "title": "EJI regisztráció",
+      "description": "Regisztráld magad az EJI jogosultkutatás rendszerében."
+    },
+    {
+      "id": "s2",
+      "order": 2,
+      "title": "Adat pótlás",
+      "description": "Pótold a hiányzó előadói / felvételi adatokat."
+    }
+  ],
+  "requiredData": [],
+  "requiredPermissions": [],
+  "documents": [],
+  "channels": [
+    {
+      "type": "portal",
+      "url": "https://www.eji.hu/jogosultkutatas",
+      "label": "EJI jogosultkutatás"
+    }
+  ],
+  "timelines": "",
+  "fees": "",
+  "pitfalls": [],
+  "sources": [],
+  "version": "2026-06",
+  "confidence": "draft"
+}

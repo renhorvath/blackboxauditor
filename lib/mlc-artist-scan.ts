@@ -276,6 +276,10 @@ function runPythonJsonScript<T>(
 
   const python = process.env.MLC_PYTHON?.trim() || "python3";
   const outDir = scansBaseDir();
+  const venvBin = process.env.VIRTUAL_ENV?.trim()
+    ? `${process.env.VIRTUAL_ENV.trim()}/bin`
+    : null;
+  const pathEnv = venvBin ? `${venvBin}:${process.env.PATH ?? ""}` : process.env.PATH;
 
   return new Promise((resolve) => {
     const args = [script, "--name", artistName, "--out-dir", outDir, ...extraArgs];
@@ -284,7 +288,7 @@ function runPythonJsonScript<T>(
       stdio: ["ignore", "pipe", "pipe"],
       env: {
         ...process.env,
-        PATH: `${path.join(process.cwd(), ".venv/bin")}:${process.env.PATH ?? ""}`,
+        ...(pathEnv ? { PATH: pathEnv } : {}),
       },
     });
 

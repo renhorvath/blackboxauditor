@@ -1,0 +1,38 @@
+{
+  "id": "de.gvl.listen_producer",
+  "organization": "GVL",
+  "country": "DE",
+  "rightsType": "neighbouring",
+  "summary": "GVL producer — cím ismeretlen (listen lista).",
+  "eligibility": "",
+  "steps": [
+    {
+      "id": "s1",
+      "order": 1,
+      "title": "Producer azonosítás",
+      "description": "Igazold a produceri jogosultságot és címadatokat."
+    },
+    {
+      "id": "s2",
+      "order": 2,
+      "title": "GVL kapcsolat",
+      "description": "label@gvl.de — producer listen lista."
+    }
+  ],
+  "requiredData": [],
+  "requiredPermissions": [],
+  "documents": [],
+  "channels": [
+    {
+      "type": "email",
+      "address": "label@gvl.de",
+      "label": "GVL Label"
+    }
+  ],
+  "timelines": "",
+  "fees": "",
+  "pitfalls": [],
+  "sources": [],
+  "version": "2026-06",
+  "confidence": "draft"
+}

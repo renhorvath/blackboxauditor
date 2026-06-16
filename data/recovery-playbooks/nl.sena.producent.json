@@ -1,0 +1,37 @@
+{
+  "id": "nl.sena.producent",
+  "organization": "SENA",
+  "country": "NL",
+  "rightsType": "neighbouring",
+  "summary": "Holland szomszédos jog — producer nem claimelt felvétel.",
+  "eligibility": "",
+  "steps": [
+    {
+      "id": "s1",
+      "order": 1,
+      "title": "SENA producer regisztráció",
+      "description": "Produceri jogosultság regisztrálása."
+    },
+    {
+      "id": "s2",
+      "order": 2,
+      "title": "Claim",
+      "description": "Felvétel claim ISRC alapján."
+    }
+  ],
+  "requiredData": [
+    {
+      "field": "ISRC",
+      "required": true
+    }
+  ],
+  "requiredPermissions": [],
+  "documents": [],
+  "channels": [],
+  "timelines": "",
+  "fees": "",
+  "pitfalls": [],
+  "sources": [],
+  "version": "2026-06",
+  "confidence": "draft"
+}

@@ -53,7 +53,10 @@ flowchart LR
 | MLC unclaimed scan | `lib/mlc-artist-scan.ts` → `export_artist_unclaimed_json.py` | `MLC_UNCLAIMED_TSV`, ~7.6 GB |
 | MLC cache | `{MLC_HU_DATA_DIR}/hu_artist_scans/{slug}/` | Korábbi scan CSV újrahasználata |
 | ARTISJUS index | `lib/artisjus-index.ts`, `npm run artisjus:build-index` | `ARTISJUS_CSV_PATH` → `data/artisjus-index.json` |
-| CMO index (AKM, AUME, SENA) | `lib/cmo-index.ts`, `npm run cmo:build-index` | `data/cmo-index.json` |
+| CMO index (EU bulk + GVL) | `lib/cmo-index.ts`, `npm run cmo:build-index` | `data/cmo-index.json` + `data/cmo-gvl-index.json` |
+| GVL Sendemeldungen CSV | `npm run cmo:gvl-extract-sendemeldungen` | `derived/cmo/de-gvl/sendemeldungen/` |
+| Publisholt jelentés | `app/r/[token]`, `POST /api/reports/publish` | Neon `DATABASE_URL`, `PUBLISH_API_KEY` |
+| Recovery playbook | `data/recovery-playbooks/`, `lib/recovery-mapper.ts` | Kutatás + JSON |
 | ARTISJUS API | `/api/artisjus-match`, `/api/artisjus-artist-search` | Index fájl létezése |
 | ARTISJUS enrichment | `lib/artisjus-enrich.ts` | Audit sorokhoz issue-k |
 | ISRC audit (credits.fm) | `app/audit/page.tsx`, `lib/credits-fm.ts`, `/api/batch` stb. | `CREDITS_FM_API_KEY` opcionális |
@@ -168,7 +171,10 @@ Teszt: előadónév keresés a főoldalon (pl. ismert magyar előadó). Első ML
 | `ARTISJUS_INDEX_PATH` | ARTISJUS-hoz | Generált JSON (default: `./data/artisjus-index.json`) |
 | `SPOTIFY_*` | Spotify keresőhöz | |
 | `CREDITS_FM_API_KEY` | `/audit` oldalhoz | Opcionális |
-| `QUERY_API_URL` | Még nem | Későbbi online backend |
+| `QUERY_API_URL` | Vercel proxy (opcionális) | Scan inkább lokálisan + publish |
+| `DATABASE_URL` | Publisholt reportok | Neon Postgres |
+| `PUBLISH_API_KEY` | Report publish auth | Adatgép + Vercel |
+| `MLC_SCAN_RACE_MS` | DuckDB unmatched | Default 85000; növeld ha 4+ perc scan |
 
 ---
 

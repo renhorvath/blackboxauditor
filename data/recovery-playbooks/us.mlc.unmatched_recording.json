@@ -1,0 +1,65 @@
+{
+  "id": "us.mlc.unmatched_recording",
+  "organization": "The MLC",
+  "country": "US",
+  "rightsType": "mechanical",
+  "summary": "A streaming bevétel megvan, de a felvétel (ISRC) nincs BWARM műhöz rendelve.",
+  "eligibility": "",
+  "steps": [
+    {
+      "id": "s1",
+      "order": 1,
+      "title": "MLC tagság",
+      "description": "Regisztrálj publisher-ként vagy self-administered songwriter-ként a Member Portalon."
+    },
+    {
+      "id": "s2",
+      "order": 2,
+      "title": "Work + recording link",
+      "description": "Regisztráld a művet és kösd össze az ISRC-t a megfelelő musical work-del."
+    },
+    {
+      "id": "s3",
+      "order": 3,
+      "title": "Ellenőrzés",
+      "description": "Várd meg a match frissítést; szükség esetén support ticket."
+    }
+  ],
+  "requiredData": [
+    {
+      "field": "ISRC",
+      "required": true
+    },
+    {
+      "field": "work title",
+      "required": true
+    },
+    {
+      "field": "writer IPI",
+      "required": true
+    }
+  ],
+  "requiredPermissions": [],
+  "documents": [],
+  "channels": [
+    {
+      "type": "portal",
+      "url": "https://www.themlc.com",
+      "label": "The MLC Member Portal"
+    }
+  ],
+  "timelines": "",
+  "fees": "",
+  "pitfalls": [
+    "Unmatched ≠ unclaimed — más recovery út"
+  ],
+  "sources": [
+    {
+      "url": "https://www.themlc.com",
+      "title": "The MLC",
+      "checkedAt": "2026-06-01"
+    }
+  ],
+  "version": "2026-06",
+  "confidence": "draft"
+}

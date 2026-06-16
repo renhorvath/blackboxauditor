@@ -27,7 +27,7 @@ export function ArtistAuditSummaryHeader({
   meta: ArtistAuditMeta;
   problemCount: number;
   totalCount: number;
-  onClearArtist: () => void;
+  onClearArtist?: () => void;
 }) {
   const chips = buildAuditSourceChips({
     artisjusCount: meta.artisjusCount,
@@ -55,13 +55,15 @@ export function ArtistAuditSummaryHeader({
           <h2 className="mt-1 text-2xl font-bold text-[var(--text-primary)]">{artistName}</h2>
           <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">{verdict}</p>
         </div>
-        <button
-          type="button"
-          onClick={onClearArtist}
-          className="shrink-0 text-xs font-medium text-[var(--text-muted)] underline-offset-2 hover:text-[var(--text-primary)] hover:underline"
-        >
-          Másik előadó
-        </button>
+        {onClearArtist ? (
+          <button
+            type="button"
+            onClick={onClearArtist}
+            className="shrink-0 text-xs font-medium text-[var(--text-muted)] underline-offset-2 hover:text-[var(--text-primary)] hover:underline"
+          >
+            Másik előadó
+          </button>
+        ) : null}
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">

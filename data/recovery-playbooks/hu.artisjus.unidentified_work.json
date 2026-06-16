@@ -1,0 +1,65 @@
+{
+  "id": "hu.artisjus.unidentified_work",
+  "organization": "ARTISJUS",
+  "country": "HU",
+  "rightsType": "musical_work",
+  "summary": "A mű lejátszásra került Magyarországon, de az ARTISJUS nem tudta kinek kifizetni.",
+  "eligibility": "",
+  "steps": [
+    {
+      "id": "s1",
+      "order": 1,
+      "title": "Tagság / képviselet",
+      "description": "Legyen érvényes ARTISJUS tagságod vagy képviselőd (kiadó, admin)."
+    },
+    {
+      "id": "s2",
+      "order": 2,
+      "title": "Mű azonosítása",
+      "description": "Gyűjtsd össze a mű címét, szerzőit, ISRC-t ha van, és az érintett időszakot."
+    },
+    {
+      "id": "s3",
+      "order": 3,
+      "title": "Bejelentés az ARTISJUS-nál",
+      "description": "Jelezd az azonosítatlan művet / igényeld a kifizetést az ARTISJUS ügyfélszolgálaton."
+    }
+  ],
+  "requiredData": [
+    {
+      "field": "műcím",
+      "required": true
+    },
+    {
+      "field": "szerzők",
+      "required": true
+    },
+    {
+      "field": "ISRC",
+      "required": false
+    }
+  ],
+  "requiredPermissions": [
+    "ARTISJUS tagság vagy meghatalmazott képviselő"
+  ],
+  "documents": [],
+  "channels": [
+    {
+      "type": "portal",
+      "url": "https://www.artisjus.hu",
+      "label": "ARTISJUS"
+    }
+  ],
+  "timelines": "",
+  "fees": "",
+  "pitfalls": [],
+  "sources": [
+    {
+      "url": "https://www.artisjus.hu",
+      "title": "ARTISJUS",
+      "checkedAt": "2026-06-01"
+    }
+  ],
+  "version": "2026-06",
+  "confidence": "draft"
+}

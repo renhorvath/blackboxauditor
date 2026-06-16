@@ -36,6 +36,9 @@ export function HomeAuditor() {
   const [auditSummary, setAuditSummary] = useState<AuditSummary | null>(null);
   const [auditMeta, setAuditMeta] = useState<ArtistAuditMeta | null>(null);
   const [catalogBusy, setCatalogBusy] = useState(false);
+  const [publishBusy, setPublishBusy] = useState(false);
+  const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
+  const [lastReportId, setLastReportId] = useState<string | null>(null);
 
   const [singleTrackBusy, setSingleTrackBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +49,8 @@ export function HomeAuditor() {
     setAuditRows(null);
     setAuditSummary(null);
     setAuditMeta(null);
+    setPublishedUrl(null);
+    setLastReportId(null);
     setResolveError(null);
     setSpotifyUrl("");
   }
@@ -116,6 +121,38 @@ export function HomeAuditor() {
     };
     sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(stored));
     router.push("/audit");
+  }
+
+  async function publishReport(selectedRows: AuditRow[]) {
+    if (!auditSummary || !auditMeta || !resolvedArtistName || selectedRows.length === 0) return;
+    setPublishBusy(true);
+    setResolveError(null);
+    try {
+      const res = await fetch("/api/reports/publish-from-audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          artistName: resolvedArtistName,
+          scope: auditMeta.scope,
+          rows: selectedRows,
+          summary: auditSummary,
+          meta: auditMeta,
+          problemsOnly: true,
+          supersedesReportId: lastReportId,
+        }),
+      });
+      const data = (await res.json()) as { url?: string; reportId?: string; error?: string };
+      if (!res.ok) {
+        setResolveError(data.error ?? "Közzététel sikertelen.");
+        return;
+      }
+      if (data.url) setPublishedUrl(data.url);
+      if (data.reportId) setLastReportId(data.reportId);
+    } catch {
+      setResolveError("Hálózati hiba a közzététel közben.");
+    } finally {
+      setPublishBusy(false);
+    }
   }
 
   async function importSpotifyUrl() {
@@ -313,6 +350,9 @@ export function HomeAuditor() {
             catalogBusy={catalogBusy}
             onLoadFullCatalog={loadFullCatalog}
             onOpenReport={openReport}
+            onPublish={(rows) => void publishReport(rows)}
+            publishBusy={publishBusy}
+            publishedUrl={publishedUrl}
             onClearArtist={clearArtist}
           />
         ) : null}

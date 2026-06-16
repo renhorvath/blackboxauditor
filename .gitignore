@@ -52,6 +52,8 @@ next-env.d.ts
 # Generated indexes & query catalogs (build on each machine)
 /data/*
 !/data/.gitkeep
+!/data/recovery-playbooks/
+!/data/recovery-playbooks/**
 /raw/
 /exports/
 *.duckdb
