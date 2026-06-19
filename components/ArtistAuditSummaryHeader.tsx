@@ -7,6 +7,7 @@ import {
   buildAuditSourceChips,
 } from "@/lib/audit-source-labels";
 import { ArtistAuditSourceCoverage } from "@/components/ArtistAuditSourceCoverage";
+import { isOpsModeClient } from "@/lib/ops-mode";
 
 function SourceCountChip({ label, count }: { label: string; count: number }) {
   return (
@@ -31,6 +32,7 @@ export function ArtistAuditSummaryHeader({
   catalogGapLine?: string | null;
   onClearArtist?: () => void;
 }) {
+  const opsMode = isOpsModeClient();
   const chips = buildAuditSourceChips({
     artisjusCount: meta.artisjusCount,
     mlcUnmatchedCount: meta.mlcUnmatchedCount,
@@ -58,6 +60,17 @@ export function ArtistAuditSummaryHeader({
           <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">{verdict}</p>
           {catalogGapLine ? (
             <p className="mt-1 text-sm leading-relaxed text-[var(--text-muted)]">{catalogGapLine}</p>
+          ) : null}
+          {opsMode ? (
+            <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 font-mono text-[11px] text-[var(--text-muted)]">
+              <span>ISRC sorok: {meta.isrcCount}</span>
+              <span>Black box: {problemCount}</span>
+              {meta.catalogGaps ? (
+                <span>
+                  ISWC hiány (gap): {meta.catalogGaps.missingIswc}
+                </span>
+              ) : null}
+            </p>
           ) : null}
         </div>
         {onClearArtist ? (

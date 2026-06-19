@@ -5,6 +5,7 @@ import {
   scanMlcArtist,
   scanMlcUnclaimedArtist,
 } from "@/lib/mlc-artist-scan";
+import { artistAuditSkipMlcUnclaimed, artistAuditSkipMlcUnmatched } from "@/lib/query-api-config";
 import type { ArtistAuditSourcesPayload } from "@/lib/query-api-types";
 
 function mlcScanRaceMs(): number {
@@ -35,22 +36,15 @@ function raceMlcScan<T>(promise: Promise<T | null>): Promise<T | null> {
   ]);
 }
 
-/**
- * Load MLC + ARTISJUS + CMO from local files (data machine).
- * EJI stays on the caller — web scrape runs wherever the UI API lives.
- */
-export async function fetchLocalArtistSources(
-  artistName: string,
-  options?: {
-    forceRefresh?: boolean;
-    skipMlcUnmatched?: boolean;
-    skipMlcUnclaimed?: boolean;
-  },
-): Promise<ArtistAuditSourcesPayload> {
-  const forceRefresh = options?.forceRefresh ?? false;
-  const skipUnmatched = options?.skipMlcUnmatched ?? false;
-  const skipUnclaimed = options?.skipMlcUnclaimed ?? false;
+function sourceCapabilities(): ArtistAuditSourcesPayload["capabilities"] {
+  return {
+    catalog: catalogAvailable(),
+    artisjusIndex: artisjusIndexAvailable(),
+    cmoIndex: cmoIndexAvailable(),
+  };
+}
 
+async function fetchArtisjusAndCmo(artistName: string) {
   const [artisjusMatches, cmoMatches] = await Promise.all([
     artisjusIndexAvailable()
       ? Promise.resolve().then(() => {
@@ -71,10 +65,27 @@ export async function fetchLocalArtistSources(
         })
       : Promise.resolve([]),
   ]);
+  return { artisjusMatches, cmoMatches };
+}
 
-  // DuckDB: one catalog file — parallel unmatched+unclaimed contends on lock and doubles wall time.
+async function fetchMlcScans(
+  artistName: string,
+  options: {
+    forceRefresh?: boolean;
+    skipMlcUnmatched?: boolean;
+    skipMlcUnclaimed?: boolean;
+  },
+) {
+  const forceRefresh = options.forceRefresh ?? false;
+  const skipUnmatched = options.skipMlcUnmatched ?? artistAuditSkipMlcUnmatched();
+  const skipUnclaimed = options.skipMlcUnclaimed ?? artistAuditSkipMlcUnclaimed();
+
   let mlcUnmatched: Awaited<ReturnType<typeof scanMlcArtist>> = null;
   let mlcUnclaimed: Awaited<ReturnType<typeof scanMlcUnclaimedArtist>> = null;
+
+  if (skipUnmatched && skipUnclaimed) {
+    return { mlcUnmatched, mlcUnclaimed };
+  }
 
   if (catalogAvailable()) {
     if (!skipUnmatched) {
@@ -94,16 +105,49 @@ export async function fetchLocalArtistSources(
     ]);
   }
 
+  return { mlcUnmatched, mlcUnclaimed };
+}
+
+/** ARTISJUS + EU CMO index only — typically under a few seconds. */
+export async function fetchLocalFastSources(
+  artistName: string,
+): Promise<Pick<ArtistAuditSourcesPayload, "artistName" | "artisjusMatches" | "cmoMatches" | "capabilities">> {
+  const { artisjusMatches, cmoMatches } = await fetchArtisjusAndCmo(artistName);
   return {
     artistName,
-    mlcUnmatched,
-    mlcUnclaimed,
     artisjusMatches,
     cmoMatches,
-    capabilities: {
-      catalog: catalogAvailable(),
-      artisjusIndex: artisjusIndexAvailable(),
-      cmoIndex: cmoIndexAvailable(),
-    },
+    capabilities: sourceCapabilities(),
   };
+}
+
+/** MLC DuckDB / TSV scans only. */
+export async function fetchLocalMlcSources(
+  artistName: string,
+  options?: {
+    forceRefresh?: boolean;
+    skipMlcUnmatched?: boolean;
+    skipMlcUnclaimed?: boolean;
+  },
+): Promise<Pick<ArtistAuditSourcesPayload, "mlcUnmatched" | "mlcUnclaimed">> {
+  return fetchMlcScans(artistName, options ?? {});
+}
+
+/**
+ * Load MLC + ARTISJUS + CMO from local files (data machine).
+ * EJI stays on the caller — web scrape runs wherever the UI API lives.
+ */
+export async function fetchLocalArtistSources(
+  artistName: string,
+  options?: {
+    forceRefresh?: boolean;
+    skipMlcUnmatched?: boolean;
+    skipMlcUnclaimed?: boolean;
+  },
+): Promise<ArtistAuditSourcesPayload> {
+  const [fast, mlc] = await Promise.all([
+    fetchLocalFastSources(artistName),
+    fetchMlcScans(artistName, options ?? {}),
+  ]);
+  return { ...fast, ...mlc };
 }

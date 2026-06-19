@@ -1,3 +1,4 @@
+import type { GapBadge } from "@/lib/audit-core/gap-types";
 import type { ArtistAuditMeta, ArtistAuditScope, AuditSummary } from "@/lib/types";
 import type { SourceDetailBlock } from "@/lib/artist-audit-row-details";
 import type { PlaybookSnapshot } from "@/lib/recovery-types";
@@ -16,6 +17,8 @@ export interface PublishedFinding {
   title: string | null;
   artist: string | null;
   laymanSummary: string;
+  /** Snapshot at publish time — max 2 chips shown in UI. */
+  gapBadges?: GapBadge[];
   sourceBlocks: PublishedSourceBlock[];
   playbookIds: string[];
 }

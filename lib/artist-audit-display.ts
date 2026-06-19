@@ -1,7 +1,8 @@
+import { rowGapRank } from "@/lib/audit-core/derive-gap-badges";
+import { isUncertainNameMatch } from "@/lib/artist-name-match";
 import type { AuditRow } from "@/lib/types";
 import { CMO_CHIP_LABELS, CMO_SOURCE_LABELS } from "@/lib/cmo-types";
 import { CMO_WEB_LABELS } from "@/lib/cmo-web/web-types";
-import { isUncertainNameMatch } from "@/lib/artist-name-match";
 
 export function rowHasPayoutProblem(row: AuditRow): boolean {
   if (row.artisjusMatched) return true;
@@ -54,11 +55,13 @@ export function rowPayoutSummary(row: AuditRow): string {
   return parts.join(" · ");
 }
 
-export function sortArtistAuditRows(rows: AuditRow[]): AuditRow[] {
+export function sortArtistAuditRows(rows: AuditRow[], queryArtistName?: string): AuditRow[] {
   return [...rows].sort((a, b) => {
     const aProb = rowHasPayoutProblem(a) ? 0 : 1;
     const bProb = rowHasPayoutProblem(b) ? 0 : 1;
     if (aProb !== bProb) return aProb - bProb;
+    const gapDiff = rowGapRank(a, queryArtistName) - rowGapRank(b, queryArtistName);
+    if (gapDiff !== 0) return gapDiff;
     const titleA = a.title ?? "";
     const titleB = b.title ?? "";
     return titleA.localeCompare(titleB, "hu", { sensitivity: "base" });

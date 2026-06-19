@@ -264,6 +264,18 @@ function isCatalogLockError(stderr: string): boolean {
   );
 }
 
+/** DuckDB allows one writer — parallel Python scans stall each other for minutes. */
+let mlcScanQueue: Promise<unknown> = Promise.resolve();
+
+function withMlcScanLock<T>(work: () => Promise<T>): Promise<T> {
+  const run = mlcScanQueue.then(work, work);
+  mlcScanQueue = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
 function runPythonJsonScript<T>(
   scriptRel: string,
   artistName: string,
@@ -274,64 +286,67 @@ function runPythonJsonScript<T>(
   const script = path.join(process.cwd(), scriptRel);
   if (!fs.existsSync(script)) return Promise.resolve({ result: null, stderr: "" });
 
-  const python = process.env.MLC_PYTHON?.trim() || "python3";
-  const outDir = scansBaseDir();
-  const venvBin = process.env.VIRTUAL_ENV?.trim()
-    ? `${process.env.VIRTUAL_ENV.trim()}/bin`
-    : null;
-  const pathEnv = venvBin ? `${venvBin}:${process.env.PATH ?? ""}` : process.env.PATH;
+  return withMlcScanLock(
+    () =>
+      new Promise((resolve) => {
+        const python = process.env.MLC_PYTHON?.trim() || "python3";
+        const outDir = scansBaseDir();
+        const venvBin = process.env.VIRTUAL_ENV?.trim()
+          ? `${process.env.VIRTUAL_ENV.trim()}/bin`
+          : null;
+        const pathEnv = venvBin ? `${venvBin}:${process.env.PATH ?? ""}` : process.env.PATH;
 
-  return new Promise((resolve) => {
-    const args = [script, "--name", artistName, "--out-dir", outDir, ...extraArgs];
-    const proc = spawn(python, args, {
-      cwd: process.cwd(),
-      stdio: ["ignore", "pipe", "pipe"],
-      env: {
-        ...process.env,
-        ...(pathEnv ? { PATH: pathEnv } : {}),
-      },
-    });
+        const args = [script, "--name", artistName, "--out-dir", outDir, ...extraArgs];
+        const proc = spawn(python, args, {
+          cwd: process.cwd(),
+          stdio: ["ignore", "pipe", "pipe"],
+          env: {
+            ...process.env,
+            ...(pathEnv ? { PATH: pathEnv } : {}),
+          },
+        });
 
-    let stdout = "";
-    let stderr = "";
-    proc.stdout.on("data", (d: Buffer) => {
-      stdout += d.toString();
-    });
-    proc.stderr.on("data", (d: Buffer) => {
-      stderr += d.toString();
-    });
+        let stdout = "";
+        let stderr = "";
+        proc.stdout.on("data", (d: Buffer) => {
+          stdout += d.toString();
+        });
+        proc.stderr.on("data", (d: Buffer) => {
+          stderr += d.toString();
+        });
 
-    const timeoutMs = Number(process.env.MLC_ARTIST_SCAN_TIMEOUT_MS ?? 600_000) || 600_000;
-    let timer: ReturnType<typeof setTimeout> | undefined;
+        const timeoutMs = Number(process.env.MLC_ARTIST_SCAN_TIMEOUT_MS ?? 600_000) || 600_000;
+        let timer: ReturnType<typeof setTimeout> | undefined;
 
-    const finish = (result: T | null) => {
-      if (timer) clearTimeout(timer);
-      resolve({ result, stderr });
-    };
+        const finish = (result: T | null) => {
+          if (timer) clearTimeout(timer);
+          resolve({ result, stderr });
+        };
 
-    timer = setTimeout(() => {
-      proc.kill("SIGTERM");
-      finish(null);
-    }, timeoutMs);
+        timer = setTimeout(() => {
+          proc.kill("SIGTERM");
+          finish(null);
+        }, timeoutMs);
 
-    proc.on("error", (err) => {
-      console.error(`MLC script spawn failed (${scriptRel}):`, err.message);
-      finish(null);
-    });
+        proc.on("error", (err) => {
+          console.error(`MLC script spawn failed (${scriptRel}):`, err.message);
+          finish(null);
+        });
 
-    proc.on("close", (code) => {
-      if (code !== 0) {
-        console.error(`MLC script failed (${scriptRel}):`, stderr.slice(0, 500));
-        finish(null);
-        return;
-      }
-      try {
-        finish(JSON.parse(stdout) as T);
-      } catch {
-        finish(null);
-      }
-    });
-  });
+        proc.on("close", (code) => {
+          if (code !== 0) {
+            console.error(`MLC script failed (${scriptRel}):`, stderr.slice(0, 500));
+            finish(null);
+            return;
+          }
+          try {
+            finish(JSON.parse(stdout) as T);
+          } catch {
+            finish(null);
+          }
+        });
+      }),
+  );
 }
 
 async function scanViaDuckdb<T extends { hits: unknown[]; scanSource?: string }>(

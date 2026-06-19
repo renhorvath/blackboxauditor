@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { runArtistAudit } from "@/lib/artist-audit";
+import { runArtistAudit, type ArtistAuditMlcMode } from "@/lib/artist-audit";
 import type { ArtistAuditScope } from "@/lib/types";
 
 /** EJI web scrape can take 30–40s on cold cache. */
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
-  let body: { artistId?: string; artistName?: string; scope?: ArtistAuditScope };
+  let body: {
+    artistId?: string;
+    artistName?: string;
+    scope?: ArtistAuditScope;
+    mlc?: ArtistAuditMlcMode;
+  };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -21,7 +26,8 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await runArtistAudit({ artistName, scope });
+    const mlc = body.mlc === "skip" || body.mlc === "only" ? body.mlc : "wait";
+    const result = await runArtistAudit({ artistName, scope, mlc });
     return NextResponse.json(result);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Ismeretlen hiba";

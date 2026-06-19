@@ -22,6 +22,7 @@ import {
   AUDIT_FILTER_HINT,
   AUDIT_FILTER_PROBLEMS,
   AUDIT_LOADING_MESSAGE,
+  AUDIT_MLC_LOADING_MESSAGE,
 } from "@/lib/audit-source-labels";
 import type { ArtistAuditMeta } from "@/lib/types";
 import type { AuditRow, AuditSummary } from "@/lib/types";
@@ -36,6 +37,7 @@ export function ArtistAuditResults({
   summary,
   meta,
   catalogBusy,
+  mlcBusy = false,
   onLoadFullCatalog,
   onOpenReport,
   onPublish,
@@ -50,6 +52,7 @@ export function ArtistAuditResults({
   summary: AuditSummary | null;
   meta: ArtistAuditMeta | null;
   catalogBusy: boolean;
+  mlcBusy?: boolean;
   onLoadFullCatalog: () => void;
   onOpenReport: () => void;
   onPublish?: (rows: AuditRow[]) => void;
@@ -73,7 +76,10 @@ export function ArtistAuditResults({
     setEnabledSources(new Set(ALL_SOURCE_FILTER_IDS));
   }, [artistName, rows]);
 
-  const sorted = useMemo(() => (rows ? sortArtistAuditRows(rows) : []), [rows]);
+  const sorted = useMemo(
+    () => (rows ? sortArtistAuditRows(rows, artistName) : []),
+    [rows, artistName],
+  );
 
   const variantRows = useMemo(
     () => sorted.filter((row) => rowMatchesNameVariants(row, selectedVariantKeys)),
@@ -98,9 +104,10 @@ export function ArtistAuditResults({
   const problemCount = useMemo(() => filtered.filter(rowHasPayoutProblem).length, [filtered]);
 
   const catalogGapLine = useMemo(() => {
+    if (meta?.catalogGaps) return formatCatalogGapSummary(meta.catalogGaps);
     const problemRows = filtered.filter(rowHasPayoutProblem);
-    return formatCatalogGapSummary(summarizeCatalogGaps(problemRows));
-  }, [filtered]);
+    return formatCatalogGapSummary(summarizeCatalogGaps(problemRows, artistName));
+  }, [meta?.catalogGaps, filtered, artistName]);
 
   const publishRows = useMemo(
     () =>
@@ -178,6 +185,16 @@ export function ArtistAuditResults({
 
   return (
     <section className="space-y-4">
+      {mlcBusy ? (
+        <div
+          className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-3 text-sm text-[var(--text-secondary)]"
+          role="status"
+        >
+          <Loader2 className="size-4 shrink-0 animate-spin text-[var(--accent-primary)]" aria-hidden />
+          <span>{AUDIT_MLC_LOADING_MESSAGE}</span>
+        </div>
+      ) : null}
+
       <ArtistAuditSummaryHeader
         artistName={artistName}
         meta={displayMeta ?? meta}

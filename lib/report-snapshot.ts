@@ -1,6 +1,10 @@
-import { rowHasPayoutProblem } from "@/lib/artist-audit-display";
+import { rowHasPayoutProblem, sortArtistAuditRows } from "@/lib/artist-audit-display";
 import { computeAuditCountsFromRows } from "@/lib/artist-audit-filters";
 import { getSourceDetailsForRow, laymanSummaryForRow } from "@/lib/artist-audit-row-details";
+import {
+  deriveGapBadges,
+  userFacingGapBadges,
+} from "@/lib/audit-core/derive-gap-badges";
 import { playbookIdForBlock, playbookIdsForRow } from "@/lib/recovery-mapper";
 import { getPlaybook, toPlaybookSnapshot } from "@/lib/recovery-playbooks";
 import type { ReportSnapshot, PublishedFinding, PublishedSourceBlock } from "@/lib/report-types";
@@ -16,7 +20,8 @@ export function buildReportSnapshot(input: {
   problemsOnly?: boolean;
 }): ReportSnapshot {
   const problemsOnly = input.problemsOnly ?? true;
-  const rows = problemsOnly ? input.rows.filter(rowHasPayoutProblem) : input.rows;
+  const sourceRows = problemsOnly ? input.rows.filter(rowHasPayoutProblem) : input.rows;
+  const rows = sortArtistAuditRows(sourceRows, input.artistName);
 
   const findings: PublishedFinding[] = rows.map((row) => {
     const sourceBlocks: PublishedSourceBlock[] = getSourceDetailsForRow(row).map((block) => {
@@ -35,6 +40,7 @@ export function buildReportSnapshot(input: {
       title: row.title,
       artist: row.artist,
       laymanSummary: laymanSummaryForRow(row),
+      gapBadges: userFacingGapBadges(deriveGapBadges(row, input.artistName)),
       sourceBlocks,
       playbookIds: playbookIdsForRow(row),
     };

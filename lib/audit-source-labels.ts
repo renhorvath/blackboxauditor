@@ -21,7 +21,10 @@ export const AUDIT_FORM_HINT =
   "Ugyanaz a név, amit a daloknál látni szoktál — szóló, zenekar vagy feat-esődj is jó. Nem kell pontosan egyeznie a jogi névvel.";
 
 export const AUDIT_LOADING_MESSAGE =
-  "Kifizetetlen és azonosítatlan listákat nézem…";
+  "Magyar és európai listákat nézem…";
+
+export const AUDIT_MLC_LOADING_MESSAGE =
+  "USA streaming (MLC) listát nézem a nagy katalóguson — ez percekig tarthat.";
 
 export const AUDIT_FILTER_PROBLEMS = "Kifizetetlen listán szerepel";
 

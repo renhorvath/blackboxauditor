@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AlertCircle, ChevronDown } from "lucide-react";
+import { GapBadgeStrip } from "@/components/GapBadgeStrip";
 import { RecoveryPlaybookPanel } from "@/components/RecoveryPlaybookPanel";
 import type { PublishedFinding, PublishedSourceBlock } from "@/lib/report-types";
 import type { CaseFindingStatus } from "@/lib/report-types";
@@ -38,6 +39,9 @@ export function PublishedFindingCard({
           <p className="mt-2 text-sm leading-snug text-[var(--text-secondary)]">
             {finding.laymanSummary}
           </p>
+          {(finding.gapBadges ?? []).length > 0 ? (
+            <GapBadgeStrip badges={finding.gapBadges ?? []} />
+          ) : null}
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
@@ -36,6 +36,7 @@ export function HomeAuditor() {
   const [auditSummary, setAuditSummary] = useState<AuditSummary | null>(null);
   const [auditMeta, setAuditMeta] = useState<ArtistAuditMeta | null>(null);
   const [catalogBusy, setCatalogBusy] = useState(false);
+  const [mlcBusy, setMlcBusy] = useState(false);
   const [publishBusy, setPublishBusy] = useState(false);
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
   const [lastReportId, setLastReportId] = useState<string | null>(null);
@@ -43,7 +44,25 @@ export function HomeAuditor() {
   const [singleTrackBusy, setSingleTrackBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const auditAbortRef = useRef<AbortController | null>(null);
+  const auditRunIdRef = useRef(0);
+
+  function cancelInFlightAudit() {
+    auditAbortRef.current?.abort();
+    auditAbortRef.current = null;
+    auditRunIdRef.current += 1;
+  }
+
+  function isAuditRunStale(runId: number) {
+    return runId !== auditRunIdRef.current;
+  }
+
+  function isAbortError(err: unknown): boolean {
+    return err instanceof DOMException && err.name === "AbortError";
+  }
+
   function clearArtist() {
+    cancelInFlightAudit();
     setResolvedArtistId(null);
     setResolvedArtistName(null);
     setAuditRows(null);
@@ -53,15 +72,47 @@ export function HomeAuditor() {
     setLastReportId(null);
     setResolveError(null);
     setSpotifyUrl("");
+    setMlcBusy(false);
+  }
+
+  async function postArtistAudit(
+    artistName: string,
+    scope: "top15" | "full",
+    mlc: "wait" | "skip" | "only",
+    signal: AbortSignal,
+  ) {
+    const res = await fetch("/api/artist-audit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ artistName, scope, mlc }),
+      signal,
+    });
+    const data = (await res.json()) as {
+      rows?: AuditRow[];
+      summary?: AuditSummary;
+      meta?: ArtistAuditMeta;
+      error?: string;
+    };
+    if (!res.ok) {
+      throw new Error(data.error ?? "Az ellenőrzés nem sikerült.");
+    }
+    return data;
   }
 
   async function runArtistAudit(artistId: string, artistName: string, scope: "top15" | "full") {
+    cancelInFlightAudit();
+    const runId = auditRunIdRef.current;
+    const controller = new AbortController();
+    auditAbortRef.current = controller;
+    const { signal } = controller;
+
     if (scope === "top15") {
       setResolveStatus("loading");
       setResolveError(null);
       setAuditRows(null);
       setAuditSummary(null);
       setAuditMeta(null);
+      setMlcBusy(false);
     } else {
       setCatalogBusy(true);
       setResolveError(null);
@@ -71,31 +122,40 @@ export function HomeAuditor() {
     setResolvedArtistName(artistName);
 
     try {
-      const res = await fetch("/api/artist-audit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ artistId, artistName, scope }),
-      });
-      const data = (await res.json()) as {
-        rows?: AuditRow[];
-        summary?: AuditSummary;
-        meta?: ArtistAuditMeta;
-        error?: string;
-      };
-      if (!res.ok) {
-        setResolveError(data.error ?? "Az ellenőrzés nem sikerült.");
-        if (scope === "top15") clearArtist();
-        return;
-      }
-      setAuditRows(data.rows ?? []);
-      setAuditSummary(data.summary ?? null);
-      setAuditMeta(data.meta ?? null);
-    } catch {
-      setResolveError("Hálózati hiba az ellenőrzés közben.");
-      if (scope === "top15") clearArtist();
-    } finally {
+      const fast = await postArtistAudit(artistName, scope, "skip", signal);
+      if (isAuditRunStale(runId)) return;
+
+      setAuditRows(fast.rows ?? []);
+      setAuditSummary(fast.summary ?? null);
+      setAuditMeta(fast.meta ?? null);
       setResolveStatus("idle");
       setCatalogBusy(false);
+
+      if (fast.meta?.mlcPending) {
+        setMlcBusy(true);
+        try {
+          const full = await postArtistAudit(artistName, scope, "only", signal);
+          if (isAuditRunStale(runId)) return;
+          setAuditRows(full.rows ?? []);
+          setAuditSummary(full.summary ?? null);
+          setAuditMeta(full.meta ?? null);
+        } catch (err) {
+          if (isAbortError(err) || isAuditRunStale(runId)) return;
+          const msg = err instanceof Error ? err.message : "MLC lekérdezés sikertelen.";
+          setResolveError(`${msg} A magyar/európai találatok megvannak.`);
+        } finally {
+          if (!isAuditRunStale(runId)) setMlcBusy(false);
+        }
+      }
+    } catch (err) {
+      if (isAbortError(err) || isAuditRunStale(runId)) return;
+      setResolveError(err instanceof Error ? err.message : "Hálózati hiba az ellenőrzés közben.");
+      if (scope === "top15") clearArtist();
+    } finally {
+      if (!isAuditRunStale(runId)) {
+        if (scope === "top15") setResolveStatus("idle");
+        setCatalogBusy(false);
+      }
     }
   }
 
@@ -247,7 +307,7 @@ export function HomeAuditor() {
     }
   }
 
-  const showSearch = !resolvedArtistName || resolveStatus === "loading";
+  const showSearch = !resolvedArtistName;
 
   return (
     <div className="mx-auto w-full max-w-5xl px-6 pb-20 pt-10 md:pt-14">
@@ -348,6 +408,7 @@ export function HomeAuditor() {
             summary={auditSummary}
             meta={auditMeta}
             catalogBusy={catalogBusy}
+            mlcBusy={mlcBusy}
             onLoadFullCatalog={loadFullCatalog}
             onOpenReport={openReport}
             onPublish={(rows) => void publishReport(rows)}

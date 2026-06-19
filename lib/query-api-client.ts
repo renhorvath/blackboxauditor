@@ -33,7 +33,11 @@ export class QueryApiError extends Error {
 
 export async function fetchArtistSourcesFromQueryApi(
   artistName: string,
-  options?: { forceRefresh?: boolean },
+  options?: {
+    forceRefresh?: boolean;
+    skipMlcUnmatched?: boolean;
+    skipMlcUnclaimed?: boolean;
+  },
 ): Promise<ArtistAuditSourcesPayload> {
   const base = queryApiBaseUrl();
   if (!base) {
@@ -46,8 +50,10 @@ export async function fetchArtistSourcesFromQueryApi(
     body: JSON.stringify({
       artistName,
       forceRefresh: options?.forceRefresh ?? false,
-      skipMlcUnmatched: artistAuditSkipMlcUnmatched(),
-      skipMlcUnclaimed: artistAuditSkipMlcUnclaimed(),
+      skipMlcUnmatched:
+        options?.skipMlcUnmatched ?? artistAuditSkipMlcUnmatched(),
+      skipMlcUnclaimed:
+        options?.skipMlcUnclaimed ?? artistAuditSkipMlcUnclaimed(),
     }),
     signal: AbortSignal.timeout(queryApiTimeoutMs()),
     cache: "no-store",

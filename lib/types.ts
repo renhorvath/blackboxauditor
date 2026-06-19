@@ -211,6 +211,14 @@ export interface ArtistAuditMeta {
   mlcUnmatchedSkipped?: boolean;
   /** MLC unclaimed omitted (ARTIST_AUDIT_SKIP_MLC_ALL on Vercel). */
   mlcUnclaimedSkipped?: boolean;
+  /** Fast phase returned; MLC follow-up still running or pending in the UI. */
+  mlcPending?: boolean;
+  /** A×B gap counts on payout-problem rows (Sprint 2 header). */
+  catalogGaps?: {
+    missingIswc: number;
+    listedAndRegistered: number;
+    nameOnly: number;
+  };
   /** Which indexes were reachable on the data backend (if any). */
   sourceCapabilities?: {
     catalog: boolean;

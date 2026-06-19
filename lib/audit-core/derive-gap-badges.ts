@@ -124,7 +124,29 @@ export function deriveGapBadges(row: AuditRow, queryArtistName?: string): GapBad
   });
 }
 
-export function summarizeCatalogGaps(rows: AuditRow[]): {
+export const GAP_PRIORITY_RANK: Record<GapBadge["priority"], number> = {
+  P0: 0,
+  P1: 1,
+  P2: 2,
+};
+
+export function rowGapRank(row: AuditRow, queryArtistName?: string): number {
+  const badges = deriveGapBadges(row, queryArtistName);
+  if (badges.length === 0) return 99;
+  return Math.min(...badges.map((b) => GAP_PRIORITY_RANK[b.priority]));
+}
+
+/** Max N chips on publish cards — highest-priority gaps first (docs/ui_ab_roadmap.md §6.4). */
+export function userFacingGapBadges(badges: GapBadge[], limit = 2): GapBadge[] {
+  return [...badges]
+    .sort((a, b) => GAP_PRIORITY_RANK[a.priority] - GAP_PRIORITY_RANK[b.priority])
+    .slice(0, limit);
+}
+
+export function summarizeCatalogGaps(
+  rows: AuditRow[],
+  queryArtistName?: string,
+): {
   missingIswc: number;
   listedAndRegistered: number;
   nameOnly: number;
@@ -134,7 +156,7 @@ export function summarizeCatalogGaps(rows: AuditRow[]): {
   let nameOnly = 0;
 
   for (const row of rows) {
-    const kinds = new Set(deriveGapBadges(row).map((b) => b.kind));
+    const kinds = new Set(deriveGapBadges(row, queryArtistName).map((b) => b.kind));
     if (kinds.has("missing_iswc")) missingIswc += 1;
     if (kinds.has("listed_and_registered")) listedAndRegistered += 1;
     if (kinds.has("name_only_match")) nameOnly += 1;
