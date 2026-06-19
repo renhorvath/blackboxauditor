@@ -51,13 +51,7 @@ export async function fetchLocalArtistSources(
   const skipUnmatched = options?.skipMlcUnmatched ?? false;
   const skipUnclaimed = options?.skipMlcUnclaimed ?? false;
 
-  const [mlcUnmatched, mlcUnclaimed, artisjusMatches, cmoMatches] = await Promise.all([
-    skipUnmatched
-      ? Promise.resolve(null)
-      : raceMlcScan(scanMlcArtist(artistName, { forceRefresh })),
-    skipUnclaimed
-      ? Promise.resolve(null)
-      : raceMlcScan(scanMlcUnclaimedArtist(artistName, { forceRefresh })),
+  const [artisjusMatches, cmoMatches] = await Promise.all([
     artisjusIndexAvailable()
       ? Promise.resolve().then(() => {
           try {
@@ -77,6 +71,28 @@ export async function fetchLocalArtistSources(
         })
       : Promise.resolve([]),
   ]);
+
+  // DuckDB: one catalog file — parallel unmatched+unclaimed contends on lock and doubles wall time.
+  let mlcUnmatched: Awaited<ReturnType<typeof scanMlcArtist>> = null;
+  let mlcUnclaimed: Awaited<ReturnType<typeof scanMlcUnclaimedArtist>> = null;
+
+  if (catalogAvailable()) {
+    if (!skipUnmatched) {
+      mlcUnmatched = await raceMlcScan(scanMlcArtist(artistName, { forceRefresh }));
+    }
+    if (!skipUnclaimed) {
+      mlcUnclaimed = await raceMlcScan(scanMlcUnclaimedArtist(artistName, { forceRefresh }));
+    }
+  } else {
+    [mlcUnmatched, mlcUnclaimed] = await Promise.all([
+      skipUnmatched
+        ? Promise.resolve(null)
+        : raceMlcScan(scanMlcArtist(artistName, { forceRefresh })),
+      skipUnclaimed
+        ? Promise.resolve(null)
+        : raceMlcScan(scanMlcUnclaimedArtist(artistName, { forceRefresh })),
+    ]);
+  }
 
   return {
     artistName,
