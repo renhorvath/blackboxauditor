@@ -13,6 +13,7 @@
     "mlc:popular-artists": "python3 scripts/mlc/fetch_hu_popular_artists.py",
     "mlc:summary": "python3 scripts/mlc/summarize_isrc_conflicts.py",
     "artisjus:build-index": "node scripts/artisjus/build-index.mjs",
+    "artisjus:smoke-leaderboard": "python3 scripts/artisjus/smoke_leaderboard.py",
     "cmo:build-index": ".venv/bin/python3 scripts/cmo/build_indexes.py",
     "cmo:gvl-extract-sendemeldungen": ".venv/bin/python3 scripts/cmo/gvl_extract_sendemeldungen.py",
     "cmo:bootstrap": ".venv/bin/python3 scripts/cmo/build_indexes.py --bootstrap",
@@ -34,7 +35,7 @@
     "etl:query": ".venv/bin/python3 scripts/etl/query.py",
     "etl:export-artist": ".venv/bin/python3 scripts/etl/export_artist_mlc_json.py",
     "db:migrate": "npx tsx scripts/db/migrate.mts",
-    "batch:artist-audit": "node scripts/batch_artist_audit.mjs"
+    "batch:artist-audit": "npx tsx scripts/batch_artist_audit.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
