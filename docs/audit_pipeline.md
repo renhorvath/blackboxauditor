@@ -5,7 +5,7 @@
 > lefuttatja ugyanazt, amit a SNYL-en kézzel végigcsináltunk.
 >
 > Társdokumentumok: `docs/cisac_probe_findings.md` (CISAC ISWCnet API),
-> `docs/ui_ab_roadmap.md` (A×B UI integráció, komponens wireframe, sprint terv).
+> `docs/ui_ab_roadmap.md` (A×B UI integráció), `docs/recovery_case_model.md` (master RecoveryCase).
 
 ## 1. A gerinc: `ArtistContext` + 4 join-kulcs
 

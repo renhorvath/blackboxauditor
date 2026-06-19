@@ -24,4 +24,17 @@ export function loadDotenvLocal(cwd = process.cwd()): void {
       process.env[key] = value;
     }
   }
+
+  applyDefaultMlcPython(cwd);
+}
+
+function applyDefaultMlcPython(cwd: string): void {
+  if (process.env.MLC_PYTHON?.trim()) return;
+  const venvPy = path.join(cwd, ".venv", "bin", "python3");
+  try {
+    fs.accessSync(venvPy, fs.constants.X_OK);
+    process.env.MLC_PYTHON = venvPy;
+  } catch {
+    /* system python3 */
+  }
 }

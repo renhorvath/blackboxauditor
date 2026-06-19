@@ -35,7 +35,8 @@
     "etl:query": ".venv/bin/python3 scripts/etl/query.py",
     "etl:export-artist": ".venv/bin/python3 scripts/etl/export_artist_mlc_json.py",
     "db:migrate": "npx tsx scripts/db/migrate.mts",
-    "batch:artist-audit": "npx tsx scripts/batch_artist_audit.mjs"
+    "batch:artist-audit": "npx tsx scripts/batch_artist_audit.mjs",
+    "recovery:export-cases": "npx tsx scripts/recovery/export_cases.mts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
