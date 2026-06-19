@@ -24,8 +24,14 @@ import {
   AUDIT_LOADING_MESSAGE,
   AUDIT_MLC_LOADING_MESSAGE,
 } from "@/lib/audit-source-labels";
-import type { ArtistAuditMeta } from "@/lib/types";
-import type { AuditRow, AuditSummary } from "@/lib/types";
+import { catalogLensAvailable } from "@/lib/audit-core/catalog-lens";
+import { groupRowsIntoWorkBuckets } from "@/lib/audit-core/group-work-buckets";
+import type { AuditLensId } from "@/lib/audit-core/work-bucket-types";
+import { AuditLensToggle } from "@/components/AuditLensToggle";
+import { CatalogTable } from "@/components/CatalogTable";
+import { WorkBucketCard } from "@/components/WorkBucketCard";
+import { isOpsModeClient } from "@/lib/ops-mode";
+import type { ArtistAuditMeta, AuditRow, AuditSummary } from "@/lib/types";
 import { ArtistAuditFilters } from "@/components/ArtistAuditFilters";
 import { ArtistAuditRowCard } from "@/components/ArtistAuditRowCard";
 import { ArtistAuditSummaryHeader } from "@/components/ArtistAuditSummaryHeader";
@@ -67,6 +73,8 @@ export function ArtistAuditResults({
   const [enabledSources, setEnabledSources] = useState<Set<AuditSourceFilterId>>(
     () => new Set(ALL_SOURCE_FILTER_IDS),
   );
+  const [lens, setLens] = useState<AuditLensId>("findings");
+  const opsMode = isOpsModeClient();
 
   useEffect(() => {
     if (!rows) return;
@@ -74,6 +82,7 @@ export function ArtistAuditResults({
     setSelectedVariantKeys(defaultPublishVariantKeys(variants));
     setPublishExcludedKeys(new Set());
     setEnabledSources(new Set(ALL_SOURCE_FILTER_IDS));
+    setLens("findings");
   }, [artistName, rows]);
 
   const sorted = useMemo(
@@ -125,6 +134,20 @@ export function ArtistAuditResults({
       ).length,
     [filtered, publishExcludedKeys],
   );
+
+  const showCatalogLens = useMemo(
+    () => catalogLensAvailable(opsMode, meta ?? {}, filtered.length),
+    [opsMode, meta, filtered.length],
+  );
+
+  const workBuckets = useMemo(
+    () => groupRowsIntoWorkBuckets(visible, artistName),
+    [visible, artistName],
+  );
+
+  useEffect(() => {
+    if (lens === "catalog" && !showCatalogLens) setLens("findings");
+  }, [lens, showCatalogLens]);
 
   function togglePublishInclude(row: AuditRow, included: boolean) {
     const key = auditRowKey(row);
@@ -249,7 +272,18 @@ export function ArtistAuditResults({
         <p className="text-xs text-[var(--text-muted)]">{AUDIT_FILTER_HINT}</p>
       </div>
 
-      {visible.length === 0 ? (
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] p-4">
+        <AuditLensToggle
+          lens={lens}
+          onLensChange={setLens}
+          showCatalog={showCatalogLens}
+          opsMode={opsMode}
+        />
+      </div>
+
+      {lens === "catalog" ? (
+        <CatalogTable rows={filtered} />
+      ) : visible.length === 0 ? (
         <div className="rounded-xl border border-dashed border-[var(--border)] px-6 py-10 text-center">
           <CheckCircle2 className="mx-auto size-8 text-[var(--text-muted)]" aria-hidden />
           <p className="mt-3 font-medium text-[var(--text-primary)]">
@@ -267,6 +301,26 @@ export function ArtistAuditResults({
             </button>
           ) : null}
         </div>
+      ) : lens === "by_work" ? (
+        <>
+          {!readOnly && problemCount > 0 ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2">
+              <p className="text-xs text-[var(--text-secondary)]">
+                {workBuckets.length} mű-csoport · {visible.length} felvétel
+              </p>
+            </div>
+          ) : null}
+          <ul className="divide-y divide-[var(--border)] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-primary)]">
+            {workBuckets.map((bucket) => (
+              <WorkBucketCard
+                key={bucket.workKey}
+                bucket={bucket}
+                queryArtistName={artistName}
+                readOnly={readOnly}
+              />
+            ))}
+          </ul>
+        </>
       ) : (
         <>
           {!readOnly && problemCount > 0 ? (

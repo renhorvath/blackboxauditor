@@ -1,6 +1,7 @@
 import { buildAuditSummary } from "@/lib/audit-engine";
 import { rowHasPayoutProblem } from "@/lib/artist-audit-display";
 import { summarizeCatalogGaps } from "@/lib/audit-core/derive-gap-badges";
+import { computeCatalogReady } from "@/lib/audit-core/catalog-lens";
 import {
   fetchLocalArtistSources,
   fetchLocalFastSources,
@@ -232,6 +233,7 @@ function assembleArtistAuditResult(input: {
   const mlcUnclaimedSkipped = artistAuditSkipMlcUnclaimed();
   const problemRows = rows.filter(rowHasPayoutProblem);
   const catalogGaps = summarizeCatalogGaps(problemRows, artistName);
+  const catalogReady = computeCatalogReady(rows, artisjusMatches.length);
 
   return {
     rows,
@@ -257,6 +259,7 @@ function assembleArtistAuditResult(input: {
       mlcUnclaimedSkipped,
       mlcPending: mlcPending === true,
       catalogGaps,
+      catalogReady,
       sourceCapabilities,
     },
   };

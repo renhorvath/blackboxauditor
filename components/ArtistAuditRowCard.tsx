@@ -21,6 +21,7 @@ export function ArtistAuditRowCard({
   includeInPublish = true,
   onTogglePublishInclude,
   showPublishToggle = false,
+  asListItem = true,
 }: {
   row: AuditRow;
   queryArtistName?: string;
@@ -28,6 +29,8 @@ export function ArtistAuditRowCard({
   includeInPublish?: boolean;
   onTogglePublishInclude?: (included: boolean) => void;
   showPublishToggle?: boolean;
+  /** Nested in WorkBucketCard — render as div instead of li. */
+  asListItem?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const opsMode = isOpsModeClient();
@@ -43,8 +46,10 @@ export function ArtistAuditRowCard({
     [opsMode, row, queryArtistName],
   );
 
+  const Tag = asListItem ? "li" : "div";
+
   return (
-    <li
+    <Tag
       className={`px-4 py-4 ${showPublishToggle && !includeInPublish ? "bg-[var(--bg-secondary)]/60 opacity-75" : ""}`}
     >
       <div className="flex items-start gap-3">
@@ -173,6 +178,6 @@ export function ArtistAuditRowCard({
           ) : null}
         </div>
       </div>
-    </li>
+    </Tag>
   );
 }

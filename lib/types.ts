@@ -219,6 +219,8 @@ export interface ArtistAuditMeta {
     listedAndRegistered: number;
     nameOnly: number;
   };
+  /** At least one A-side identifier on rows (enables catalog lens for users). */
+  catalogReady?: boolean;
   /** Which indexes were reachable on the data backend (if any). */
   sourceCapabilities?: {
     catalog: boolean;
