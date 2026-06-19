@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, ChevronDown, Loader2 } from "lucide-react";
+import {
+  formatCatalogGapSummary,
+  summarizeCatalogGaps,
+} from "@/lib/audit-core/derive-gap-badges";
 import { rowHasPayoutProblem, sortArtistAuditRows } from "@/lib/artist-audit-display";
 import {
   ALL_SOURCE_FILTER_IDS,
@@ -93,6 +97,11 @@ export function ArtistAuditResults({
 
   const problemCount = useMemo(() => filtered.filter(rowHasPayoutProblem).length, [filtered]);
 
+  const catalogGapLine = useMemo(() => {
+    const problemRows = filtered.filter(rowHasPayoutProblem);
+    return formatCatalogGapSummary(summarizeCatalogGaps(problemRows));
+  }, [filtered]);
+
   const publishRows = useMemo(
     () =>
       filtered.filter(
@@ -174,6 +183,7 @@ export function ArtistAuditResults({
         meta={displayMeta ?? meta}
         problemCount={problemCount}
         totalCount={filtered.length}
+        catalogGapLine={catalogGapLine}
         onClearArtist={readOnly ? undefined : onClearArtist}
       />
 
@@ -273,6 +283,7 @@ export function ArtistAuditResults({
               <ArtistAuditRowCard
                 key={auditRowKey(row)}
                 row={row}
+                queryArtistName={artistName}
                 includeInPublish={
                   !rowHasPayoutProblem(row) || !publishExcludedKeys.has(auditRowKey(row))
                 }

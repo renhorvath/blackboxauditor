@@ -4,7 +4,8 @@
 > audit-folyamat terve. Cél: egy `audit(seed)` motor, amely tetszőleges előadóra
 > lefuttatja ugyanazt, amit a SNYL-en kézzel végigcsináltunk.
 >
-> Társdokumentum: `docs/cisac_probe_findings.md` (a CISAC ISWCnet API konkrét viselkedése).
+> Társdokumentumok: `docs/cisac_probe_findings.md` (CISAC ISWCnet API),
+> `docs/ui_ab_roadmap.md` (A×B UI integráció, komponens wireframe, sprint terv).
 
 ## 1. A gerinc: `ArtistContext` + 4 join-kulcs
 
@@ -147,6 +148,16 @@ gyorssá az ops-eszközt több előadóra.
 | 6 (recovery) | `scripts/snyl_eji_resolution.py` |
 
 A hiányzó "ragasztó": `ArtistContext` + normalizálás-modul + `resolve_ipi` + CLI.
+
+### SNYL scriptek = golden referencia, nem terméknév
+
+A `scripts/snyl_*.py` és a `data/snyl_*` outputok a **SNYL / Topa Ferenc pilot**
+kézi auditjából származnak — mintázat és golden file (pl. `Topa → IPI 00518140870`).
+**További fejlesztésben nem SNYL-specifikusnak kell maradniuk:** a cél a
+`data/artists/{slug}/` névtér, `ArtistContext` (aliasok, `exclude_aliases`, jogi név),
+és az `engine.py` / `audit_cli.py` általános motor. A SNYL-ben tanult minták
+(pl. Mr. Bizz alias-szűrő → `exclude_aliases`) általánosítandók; a fájlnevek
+átnevezése későbbi refaktor, amíg a golden diff működik.
 
 ## 8. Javasolt build-sorrend (golden-file háló köré)
 

@@ -21,12 +21,14 @@ export function ArtistAuditSummaryHeader({
   meta,
   problemCount,
   totalCount,
+  catalogGapLine,
   onClearArtist,
 }: {
   artistName: string;
   meta: ArtistAuditMeta;
   problemCount: number;
   totalCount: number;
+  catalogGapLine?: string | null;
   onClearArtist?: () => void;
 }) {
   const chips = buildAuditSourceChips({
@@ -54,6 +56,9 @@ export function ArtistAuditSummaryHeader({
           </p>
           <h2 className="mt-1 text-2xl font-bold text-[var(--text-primary)]">{artistName}</h2>
           <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">{verdict}</p>
+          {catalogGapLine ? (
+            <p className="mt-1 text-sm leading-relaxed text-[var(--text-muted)]">{catalogGapLine}</p>
+          ) : null}
         </div>
         {onClearArtist ? (
           <button

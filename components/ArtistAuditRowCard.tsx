@@ -1,10 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { AlertCircle, CheckCircle2, ChevronDown } from "lucide-react";
+import { GapBadgeStrip } from "@/components/GapBadgeStrip";
 import { RecoveryPlaybookPanel } from "@/components/RecoveryPlaybookPanel";
+import { catalogMetaFactsForRow } from "@/lib/audit-core/catalog-meta-facts";
+import { deriveGapBadges } from "@/lib/audit-core/derive-gap-badges";
 import { getSourceDetailsForRow, laymanSummaryForRow } from "@/lib/artist-audit-row-details";
 import { rowHasPayoutProblem } from "@/lib/artist-audit-display";
+import { isOpsModeClient } from "@/lib/ops-mode";
 import { playbookIdForBlock } from "@/lib/recovery-mapper";
 import { getPlaybook, toPlaybookSnapshot } from "@/lib/recovery-playbooks";
 import type { AuditRow } from "@/lib/types";
@@ -12,21 +16,32 @@ import { isArtisjusSyntheticIsrc, isSyntheticAuditIsrc } from "@/lib/types";
 
 export function ArtistAuditRowCard({
   row,
+  queryArtistName,
   showRecovery = true,
   includeInPublish = true,
   onTogglePublishInclude,
   showPublishToggle = false,
 }: {
   row: AuditRow;
+  queryArtistName?: string;
   showRecovery?: boolean;
   includeInPublish?: boolean;
   onTogglePublishInclude?: (included: boolean) => void;
   showPublishToggle?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const opsMode = isOpsModeClient();
   const hasProblem = rowHasPayoutProblem(row);
   const title = row.title ?? "(névtelen dal)";
   const details = getSourceDetailsForRow(row);
+  const gapBadges = useMemo(
+    () => deriveGapBadges(row, queryArtistName),
+    [row, queryArtistName],
+  );
+  const catalogFacts = useMemo(
+    () => (opsMode ? catalogMetaFactsForRow(row, queryArtistName) : []),
+    [opsMode, row, queryArtistName],
+  );
 
   return (
     <li
@@ -71,7 +86,9 @@ export function ArtistAuditRowCard({
             {laymanSummaryForRow(row)}
           </p>
 
-          {details.length > 0 ? (
+          <GapBadgeStrip badges={gapBadges} showPriority={opsMode} />
+
+          {details.length > 0 || (opsMode && catalogFacts.length > 0) ? (
             <div className="mt-3">
               <button
                 type="button"
@@ -82,10 +99,30 @@ export function ArtistAuditRowCard({
                   className={`size-3.5 transition ${open ? "rotate-180" : ""}`}
                   aria-hidden
                 />
-                {open ? "Részletek elrejtése" : `Részletek (${details.length} forrás)`}
+                {open ? "Részletek elrejtése" : `Részletek (${details.length} forrás${opsMode && catalogFacts.length > 0 ? " + metaadat" : ""})`}
               </button>
               {open ? (
                 <div className="mt-3 space-y-2">
+                  {opsMode && catalogFacts.length > 0 ? (
+                    <article className="rounded-lg border border-dashed border-[var(--border)] bg-[var(--bg-secondary)] p-3">
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">
+                        Metaadat (ops)
+                      </p>
+                      <dl className="mt-2 space-y-1">
+                        {catalogFacts.map((fact) => (
+                          <div
+                            key={`meta-${fact.label}`}
+                            className="grid grid-cols-[auto_1fr] gap-x-3 text-xs"
+                          >
+                            <dt className="text-[var(--text-muted)]">{fact.label}</dt>
+                            <dd className="font-mono text-[11px] text-[var(--text-secondary)]">
+                              {fact.value}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </article>
+                  ) : null}
                   {details.map((block) => (
                     <article
                       key={block.id}
