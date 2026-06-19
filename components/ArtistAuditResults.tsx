@@ -35,6 +35,11 @@ import type { ArtistAuditMeta, AuditRow, AuditSummary } from "@/lib/types";
 import { ArtistAuditFilters } from "@/components/ArtistAuditFilters";
 import { ArtistAuditRowCard } from "@/components/ArtistAuditRowCard";
 import { ArtistAuditSummaryHeader } from "@/components/ArtistAuditSummaryHeader";
+import {
+  IdentityStatusBanner,
+  IdentityWizard,
+  useArtistIdentity,
+} from "@/components/IdentityWizard";
 
 export function ArtistAuditResults({
   artistName,
@@ -51,6 +56,7 @@ export function ArtistAuditResults({
   publishedUrl,
   readOnly = false,
   onClearArtist,
+  spotifyId = null,
 }: {
   artistName: string;
   loading: boolean;
@@ -66,8 +72,10 @@ export function ArtistAuditResults({
   publishedUrl?: string | null;
   readOnly?: boolean;
   onClearArtist: () => void;
+  spotifyId?: string | null;
 }) {
   const [onlyProblems, setOnlyProblems] = useState(true);
+  const [identityWizardOpen, setIdentityWizardOpen] = useState(false);
   const [selectedVariantKeys, setSelectedVariantKeys] = useState<Set<string>>(() => new Set());
   const [publishExcludedKeys, setPublishExcludedKeys] = useState<Set<string>>(() => new Set());
   const [enabledSources, setEnabledSources] = useState<Set<AuditSourceFilterId>>(
@@ -75,6 +83,13 @@ export function ArtistAuditResults({
   );
   const [lens, setLens] = useState<AuditLensId>("findings");
   const opsMode = isOpsModeClient();
+
+  const identity = useArtistIdentity({
+    enabled: opsMode && !loading && Boolean(rows?.length),
+    artistName,
+    spotifyId,
+    rows,
+  });
 
   useEffect(() => {
     if (!rows) return;
@@ -226,6 +241,20 @@ export function ArtistAuditResults({
         catalogGapLine={catalogGapLine}
         onClearArtist={readOnly ? undefined : onClearArtist}
       />
+
+      {opsMode ? (
+        <IdentityStatusBanner
+          status={identity.status}
+          storageAvailable={identity.storageAvailable}
+          onOpenWizard={() => setIdentityWizardOpen(true)}
+        />
+      ) : null}
+
+      {identity.error ? (
+        <p className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2 text-xs text-[var(--text-muted)]">
+          Identitás: {identity.error}
+        </p>
+      ) : null}
 
       <ArtistAuditFilters
         query={artistName}
@@ -447,6 +476,20 @@ export function ArtistAuditResults({
           </p>
         ) : null}
       </div>
+
+      {opsMode ? (
+        <IdentityWizard
+          open={identityWizardOpen}
+          onClose={() => setIdentityWizardOpen(false)}
+          artistName={artistName}
+          proposals={identity.proposals}
+          context={identity.context}
+          storageAvailable={identity.storageAvailable}
+          busy={identity.busy}
+          error={identity.error}
+          onSave={identity.saveIdentity}
+        />
+      ) : null}
     </section>
   );
 }

@@ -403,6 +403,7 @@ export function HomeAuditor() {
         {resolvedArtistName ? (
           <ArtistAuditResults
             artistName={resolvedArtistName}
+            spotifyId={resolvedArtistId}
             loading={resolveStatus === "loading"}
             rows={auditRows}
             summary={auditSummary}

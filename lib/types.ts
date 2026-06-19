@@ -221,6 +221,9 @@ export interface ArtistAuditMeta {
   };
   /** At least one A-side identifier on rows (enables catalog lens for users). */
   catalogReady?: boolean;
+  /** Ops identity wizard gate (Sprint 4). */
+  identityStatus?: "pending_identity" | "resolved" | "auto" | "skipped";
+  identitySlug?: string;
   /** Which indexes were reachable on the data backend (if any). */
   sourceCapabilities?: {
     catalog: boolean;
