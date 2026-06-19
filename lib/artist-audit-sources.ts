@@ -8,11 +8,17 @@ import {
 import type { ArtistAuditSourcesPayload } from "@/lib/query-api-types";
 
 function mlcScanRaceMs(): number {
-  // Local TSV unmatched scan can take 20+ minutes on 113 GB — do not cut off early.
+  const explicit = process.env.MLC_SCAN_RACE_MS?.trim();
+  if (explicit !== undefined && explicit !== "") {
+    const n = Number(explicit);
+    if (Number.isFinite(n)) return n;
+  }
   if (process.env.MLC_USE_DUCKDB?.trim().toLowerCase() === "false") {
     return 0;
   }
-  return Number(process.env.MLC_SCAN_RACE_MS ?? 85_000);
+  // DuckDB artist queries on a full catalog often take 2–4+ minutes — do not cut off at 85s.
+  if (catalogAvailable()) return 0;
+  return 85_000;
 }
 
 function raceMlcScan<T>(promise: Promise<T | null>): Promise<T | null> {

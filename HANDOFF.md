@@ -174,7 +174,7 @@ Teszt: előadónév keresés a főoldalon (pl. ismert magyar előadó). Első ML
 | `QUERY_API_URL` | Vercel proxy (opcionális) | Scan inkább lokálisan + publish |
 | `DATABASE_URL` | Publisholt reportok | Neon Postgres |
 | `PUBLISH_API_KEY` | Report publish auth | Adatgép + Vercel |
-| `MLC_SCAN_RACE_MS` | DuckDB unmatched | Default 85000; növeld ha 4+ perc scan |
+| `MLC_SCAN_RACE_MS` | DuckDB unmatched | Default **0** (várjuk meg) ha van `catalog.duckdb`; egyébként 85000. Vercel proxy: `QUERY_API_TIMEOUT_MS` ≥ 180000 |
 
 ---
 
