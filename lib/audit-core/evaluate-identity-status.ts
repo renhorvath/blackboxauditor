@@ -19,14 +19,14 @@ export function evaluateIdentityStatus(
 ): IdentityStatus {
   if (context?.wizardCompletedAt) return "resolved";
 
-  const hasExclude = proposals.excludeAliasCandidates.length > 0;
+  const hasScopeExclude = proposals.excludeAliasCandidates.length > 0;
   const ambiguousLegal = topTwoAmbiguous(proposals.legalNames);
   const ambiguousIpi = topTwoAmbiguous(proposals.ipis);
   const missingLegal = proposals.legalNames.length === 0;
   const missingIpi = proposals.ipis.length === 0;
 
   if (
-    !hasExclude &&
+    !hasScopeExclude &&
     !ambiguousLegal &&
     !ambiguousIpi &&
     !missingLegal &&
@@ -44,7 +44,7 @@ export function evaluateIdentityStatus(
     return "resolved";
   }
 
-  if (hasExclude || ambiguousLegal || ambiguousIpi || missingLegal) {
+  if (hasScopeExclude || ambiguousLegal || ambiguousIpi || missingLegal) {
     return "pending_identity";
   }
 

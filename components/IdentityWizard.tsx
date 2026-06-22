@@ -229,9 +229,7 @@ export function IdentityWizard({
   useEffect(() => {
     if (!open || !proposals) return;
     setStep("exclude");
-    const defaultExclude = new Set(
-      proposals.excludeAliasCandidates.map((c) => c.value),
-    );
+    const defaultExclude = new Set<string>();
     if (context?.excludeAliases.length) {
       for (const v of context.excludeAliases) defaultExclude.add(v);
     }
@@ -317,7 +315,7 @@ export function IdentityWizard({
                     : "text-[var(--text-muted)]"
               }`}
             >
-              {id === "exclude" ? "1. Alias" : id === "legal" ? "2. Jogi név" : "3. IPI"}
+              {id === "exclude" ? "1. Scope" : id === "legal" ? "2. Jogi név" : "3. IPI"}
             </button>
           ))}
         </div>
@@ -337,7 +335,36 @@ export function IdentityWizard({
           {step === "exclude" ? (
             <>
               <p className="text-sm text-[var(--text-secondary)]">
-                Jelöld a kizárandó neveket (pl. kollaborátor, más előadó — Mr. Bizz).
+                Feat vendégek normálisak — nem kell kizárni. Csak olyan neveket jelölj, amelyek
+                más előadó katalógusára utalnak (pl. Mr. Bizz solo, téves találat).
+              </p>
+
+              {proposals?.featCollaborators.length ? (
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                    Feat / vendég (informatív)
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                    Ugyanazon a felvételen szerepelnek a keresett előadóval — nem kizárandók.
+                  </p>
+                  <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto font-mono text-[11px] text-[var(--text-primary)]">
+                    {proposals.featCollaborators.slice(0, 30).map((c) => (
+                      <li key={c.value}>
+                        {c.value}{" "}
+                        <span className="text-[var(--text-muted)]">({c.votes})</span>
+                      </li>
+                    ))}
+                    {proposals.featCollaborators.length > 30 ? (
+                      <li className="text-[var(--text-muted)]">
+                        +{proposals.featCollaborators.length - 30} további
+                      </li>
+                    ) : null}
+                  </ul>
+                </div>
+              ) : null}
+
+              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                Katalógusból kizárandó (scope)
               </p>
               {proposals?.excludeAliasCandidates.length ? (
                 <ul className="space-y-2">
@@ -368,7 +395,7 @@ export function IdentityWizard({
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-[var(--text-muted)]">Nincs kizárási jelölt.</p>
+                <p className="text-sm text-[var(--text-muted)]">Nincs scope-kizárási jelölt.</p>
               )}
               {proposals?.aliasCandidates.length ? (
                 <div className="pt-2">

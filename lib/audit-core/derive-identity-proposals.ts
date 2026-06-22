@@ -1,6 +1,7 @@
 import {
   artistNameMatchStrength,
   splitArtistNameSegments,
+  type ArtistNameMatchStrength,
 } from "@/lib/artist-name-match";
 import { normalizeArtisjusText } from "@/lib/artisjus-normalize";
 import type { IdentityProposals, IdentityVoteCandidate } from "@/lib/audit-core/artist-context-types";
@@ -13,6 +14,14 @@ function normKey(value: string): string {
 
 function normQueryKey(query: string): string {
   return normKey(query);
+}
+
+function isCollabArtistString(value: string): boolean {
+  return /[,/&]| FEAT\.? | FEAT | VS\.? | X /i.test(value);
+}
+
+function isStrongMatch(strength: ArtistNameMatchStrength): boolean {
+  return strength === "exact" || strength === "word";
 }
 
 function bump(
@@ -52,6 +61,15 @@ function rowMatchesQuery(query: string, row: AuditRow): boolean {
   return candidates.some((c) => artistNameMatchStrength(query, c) !== "none");
 }
 
+function artistFieldHasStrongQueryMatch(query: string, row: AuditRow): boolean {
+  const artist = row.artist?.trim();
+  if (!artist) return false;
+  if (isStrongMatch(artistNameMatchStrength(query, artist))) return true;
+  return splitArtistNameSegments(artist).some((seg) =>
+    isStrongMatch(artistNameMatchStrength(query, seg)),
+  );
+}
+
 function extractWritersFromRow(row: AuditRow): Array<{ name: string; ipi: string | null }> {
   const out: Array<{ name: string; ipi: string | null }> = [];
   const batch = row.rawBatchData as {
@@ -84,28 +102,44 @@ export function deriveIdentityProposals(
   const queryKey = normQueryKey(displayName);
   const aliasMap = new Map<string, IdentityVoteCandidate>();
   const excludeMap = new Map<string, IdentityVoteCandidate>();
+  const featMap = new Map<string, IdentityVoteCandidate>();
   const legalMap = new Map<string, IdentityVoteCandidate>();
   const ipiMap = new Map<string, IdentityVoteCandidate>();
 
   const matchedRows = rows.filter((row) => rowMatchesQuery(displayName, row));
 
   for (const row of matchedRows) {
-    const segments: string[] = [];
-    if (row.artist?.trim()) {
-      segments.push(row.artist.trim());
-      segments.push(...splitArtistNameSegments(row.artist));
-    }
+    const artist = row.artist?.trim() ?? "";
+    const segments = artist ? splitArtistNameSegments(artist) : [];
+    const strongOnArtistField = artistFieldHasStrongQueryMatch(displayName, row);
+
     for (const seg of segments) {
       const strength = artistNameMatchStrength(displayName, seg);
-      if (strength === "none") {
-        bump(excludeMap, seg, "artist_field");
+      const segKey = normKey(seg);
+      if (!segKey || segKey === queryKey) continue;
+
+      if (isStrongMatch(strength)) {
+        bump(aliasMap, seg, "artist_field");
         continue;
       }
-      const segKey = normKey(seg);
-      if (segKey && segKey !== queryKey) {
-        if (strength === "substring") bump(excludeMap, seg, "weak_match");
-        else bump(aliasMap, seg, "artist_field");
+
+      if (strongOnArtistField) {
+        bump(featMap, seg, "feat_on_track");
+        continue;
       }
+
+      if (strength === "none" || strength === "substring") {
+        bump(excludeMap, seg, "scope_candidate");
+      }
+    }
+
+    if (
+      artist &&
+      !isCollabArtistString(artist) &&
+      isStrongMatch(artistNameMatchStrength(displayName, artist)) &&
+      normKey(artist) !== queryKey
+    ) {
+      bump(aliasMap, artist, "artist_field");
     }
 
     for (const writer of extractWritersFromRow(row)) {
@@ -118,6 +152,7 @@ export function deriveIdentityProposals(
     slug: artistSlug(displayName),
     displayName,
     aliasCandidates: sortedCandidates(aliasMap),
+    featCollaborators: sortedCandidates(featMap),
     excludeAliasCandidates: sortedCandidates(excludeMap),
     legalNames: sortedCandidates(legalMap),
     ipis: sortedCandidates(ipiMap),

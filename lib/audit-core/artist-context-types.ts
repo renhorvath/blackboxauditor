@@ -11,7 +11,9 @@ export interface IdentityProposals {
   displayName: string;
   /** Művésznév variánsok (pontos / szóegyezés). */
   aliasCandidates: IdentityVoteCandidate[];
-  /** Kollaborátor / zavaró név — kizárandó (pl. Mr. Bizz). */
+  /** Feat / vendég ugyanazon a tracken — nem kizárás. */
+  featCollaborators: IdentityVoteCandidate[];
+  /** Katalógus-scope: más előadó dominál (pl. Mr. Bizz solo). */
   excludeAliasCandidates: IdentityVoteCandidate[];
   legalNames: IdentityVoteCandidate[];
   ipis: IdentityVoteCandidate[];
