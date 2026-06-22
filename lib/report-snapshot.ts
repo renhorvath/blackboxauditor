@@ -5,6 +5,7 @@ import {
   deriveGapBadges,
   userFacingGapBadges,
 } from "@/lib/audit-core/derive-gap-badges";
+import { primaryGapBadge } from "@/lib/audit-core/publish-gap";
 import { playbookIdForBlock, playbookIdsForRow } from "@/lib/recovery-mapper";
 import { getPlaybook, toPlaybookSnapshot } from "@/lib/recovery-playbooks";
 import type { ReportSnapshot, PublishedFinding, PublishedSourceBlock } from "@/lib/report-types";
@@ -24,6 +25,8 @@ export function buildReportSnapshot(input: {
   const rows = sortArtistAuditRows(sourceRows, input.artistName);
 
   const findings: PublishedFinding[] = rows.map((row) => {
+    const badges = deriveGapBadges(row, input.artistName);
+    const top = primaryGapBadge(row, input.artistName);
     const sourceBlocks: PublishedSourceBlock[] = getSourceDetailsForRow(row).map((block) => {
       const playbookId = playbookIdForBlock(block, row);
       const entry = playbookId ? getPlaybook(playbookId) : undefined;
@@ -40,7 +43,10 @@ export function buildReportSnapshot(input: {
       title: row.title,
       artist: row.artist,
       laymanSummary: laymanSummaryForRow(row),
-      gapBadges: userFacingGapBadges(deriveGapBadges(row, input.artistName)),
+      gapBadges: userFacingGapBadges(badges),
+      gapPriority: top?.priority,
+      primaryGapKind: top?.kind,
+      gapCatalogHint: top?.catalogHint,
       sourceBlocks,
       playbookIds: playbookIdsForRow(row),
     };

@@ -25,6 +25,7 @@ import {
   AUDIT_MLC_LOADING_MESSAGE,
 } from "@/lib/audit-source-labels";
 import { catalogLensAvailable } from "@/lib/audit-core/catalog-lens";
+import { downloadActionableGapsCsv, rowIsPublishEligible } from "@/lib/audit-core/publish-gap";
 import { groupRowsIntoWorkBuckets } from "@/lib/audit-core/group-work-buckets";
 import type { AuditLensId } from "@/lib/audit-core/work-bucket-types";
 import { AuditLensToggle } from "@/components/AuditLensToggle";
@@ -137,9 +138,11 @@ export function ArtistAuditResults({
     () =>
       filtered.filter(
         (row) =>
-          rowHasPayoutProblem(row) && !publishExcludedKeys.has(auditRowKey(row)),
+          rowHasPayoutProblem(row) &&
+          rowIsPublishEligible(row, artistName, { opsMode }) &&
+          !publishExcludedKeys.has(auditRowKey(row)),
       ),
-    [filtered, publishExcludedKeys],
+    [filtered, publishExcludedKeys, artistName, opsMode],
   );
 
   const publishExcludedVisible = useMemo(
@@ -248,6 +251,20 @@ export function ArtistAuditResults({
           storageAvailable={identity.storageAvailable}
           onOpenWizard={() => setIdentityWizardOpen(true)}
         />
+      ) : null}
+
+      {opsMode && rows?.length ? (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() =>
+              downloadActionableGapsCsv(rows, artistName, { problemsOnly: onlyProblems, opsMode })
+            }
+            className="rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]"
+          >
+            Export actionable_gaps.csv
+          </button>
+        </div>
       ) : null}
 
       {identity.error ? (
