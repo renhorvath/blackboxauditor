@@ -91,6 +91,8 @@ export interface AuditRow {
   mlcDspResourceId?: string | null;
   mlcProvider?: string | null;
   mlcResourceType?: string | null;
+  /** A-side enrich snapshot (credits.fm + MLC works) — Sprint 6. */
+  catalogEnrich?: CatalogRowEnrich;
 }
 
 export interface AuditSummary {
@@ -142,6 +144,14 @@ export interface UnmatchedAuditResult {
   isrc: string;
   matched: boolean;
   match_status: "matched" | "unmatched" | "not_in_mlc";
+}
+
+export interface CatalogRowEnrich {
+  enrichedAt: string;
+  creditsFmFound?: boolean;
+  creditsMlcStatus?: UnmatchedAuditResult["match_status"];
+  mlcWorkSongCode?: string | null;
+  mlcWorkFetched?: boolean;
 }
 
 export interface SearchTrackHit {
@@ -224,6 +234,12 @@ export interface ArtistAuditMeta {
   /** Ops identity wizard gate (Sprint 4). */
   identityStatus?: "pending_identity" | "resolved" | "auto" | "skipped";
   identitySlug?: string;
+  /** credits.fm + MLC works enrich completed (Sprint 6). */
+  catalogEnrichReady?: boolean;
+  catalogEnrichIsrcCount?: number;
+  catalogEnrichCreditsFm?: boolean;
+  catalogEnrichMlcWorks?: boolean;
+  catalogEnrichMlcWorkCount?: number;
   /** Which indexes were reachable on the data backend (if any). */
   sourceCapabilities?: {
     catalog: boolean;

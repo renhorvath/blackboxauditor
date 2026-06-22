@@ -13,7 +13,7 @@ import type {
   StoredAuditPayload,
   UnmatchedAuditResult,
 } from "@/lib/types";
-import { SESSION_STORAGE_KEY } from "@/lib/types";
+import { SESSION_STORAGE_KEY, isSyntheticAuditIsrc } from "@/lib/types";
 import { validateIsrc } from "@/lib/isrc-validator";
 import { buildAuditRows, buildAuditSummary } from "@/lib/audit-engine";
 import { applyArtisjusEnrichment } from "@/lib/artisjus-enrich";
@@ -21,7 +21,7 @@ import type { ArtisjusWork } from "@/lib/artisjus-types";
 import { ArtistAuditResults } from "@/components/ArtistAuditResults";
 import { ArtistNameAuditForm } from "@/components/ArtistNameAuditForm";
 import { ArtistSearchCombobox } from "@/components/ArtistSearchCombobox";
-import { AUDIT_HERO_SUBTITLE, AUDIT_HERO_TITLE } from "@/lib/audit-source-labels";
+import { AUDIT_CATALOG_ENRICH_LOADING_MESSAGE, AUDIT_HERO_SUBTITLE, AUDIT_HERO_TITLE } from "@/lib/audit-source-labels";
 import { TrackSearchCombobox } from "@/components/TrackSearchCombobox";
 
 export function HomeAuditor() {
@@ -37,6 +37,7 @@ export function HomeAuditor() {
   const [auditMeta, setAuditMeta] = useState<ArtistAuditMeta | null>(null);
   const [catalogBusy, setCatalogBusy] = useState(false);
   const [mlcBusy, setMlcBusy] = useState(false);
+  const [enrichBusy, setEnrichBusy] = useState(false);
   const [publishBusy, setPublishBusy] = useState(false);
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
   const [lastReportId, setLastReportId] = useState<string | null>(null);
@@ -73,6 +74,67 @@ export function HomeAuditor() {
     setResolveError(null);
     setSpotifyUrl("");
     setMlcBusy(false);
+    setEnrichBusy(false);
+  }
+
+  async function postCatalogEnrich(
+    rows: AuditRow[],
+    artistName: string,
+    signal: AbortSignal,
+  ) {
+    const res = await fetch("/api/artist-audit/enrich", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rows, artistName }),
+      signal,
+    });
+    const data = (await res.json()) as {
+      rows?: AuditRow[];
+      summary?: AuditSummary;
+      meta?: Partial<ArtistAuditMeta>;
+      error?: string;
+    };
+    if (!res.ok) {
+      throw new Error(data.error ?? "Metaadat enrich sikertelen.");
+    }
+    return data;
+  }
+
+  async function runCatalogEnrichIfNeeded(
+    rows: AuditRow[],
+    artistName: string,
+    runId: number,
+    signal: AbortSignal,
+  ) {
+    const hasIsrc = rows.some((r) => r.isrc?.trim() && !isSyntheticAuditIsrc(r.isrc));
+    if (!hasIsrc) return;
+
+    setEnrichBusy(true);
+    try {
+      const enriched = await postCatalogEnrich(rows, artistName, signal);
+      if (isAuditRunStale(runId)) return;
+      setAuditRows(enriched.rows ?? rows);
+      if (enriched.summary) setAuditSummary(enriched.summary);
+      if (enriched.meta?.catalogGaps) {
+        setAuditMeta((prev) =>
+          prev
+            ? {
+                ...prev,
+                ...enriched.meta,
+                catalogGaps: enriched.meta?.catalogGaps ?? prev.catalogGaps,
+              }
+            : prev,
+        );
+      } else if (enriched.meta) {
+        setAuditMeta((prev) => (prev ? { ...prev, ...enriched.meta } : prev));
+      }
+    } catch (err) {
+      if (isAbortError(err) || isAuditRunStale(runId)) return;
+      const msg = err instanceof Error ? err.message : "Metaadat enrich sikertelen.";
+      setResolveError(`${msg} A black box találatok megmaradtak.`);
+    } finally {
+      if (!isAuditRunStale(runId)) setEnrichBusy(false);
+    }
   }
 
   async function postArtistAudit(
@@ -113,6 +175,7 @@ export function HomeAuditor() {
       setAuditSummary(null);
       setAuditMeta(null);
       setMlcBusy(false);
+      setEnrichBusy(false);
     } else {
       setCatalogBusy(true);
       setResolveError(null);
@@ -139,13 +202,17 @@ export function HomeAuditor() {
           setAuditRows(full.rows ?? []);
           setAuditSummary(full.summary ?? null);
           setAuditMeta(full.meta ?? null);
+          await runCatalogEnrichIfNeeded(full.rows ?? [], artistName, runId, signal);
         } catch (err) {
           if (isAbortError(err) || isAuditRunStale(runId)) return;
           const msg = err instanceof Error ? err.message : "MLC lekérdezés sikertelen.";
           setResolveError(`${msg} A magyar/európai találatok megvannak.`);
+          await runCatalogEnrichIfNeeded(fast.rows ?? [], artistName, runId, signal);
         } finally {
           if (!isAuditRunStale(runId)) setMlcBusy(false);
         }
+      } else {
+        await runCatalogEnrichIfNeeded(fast.rows ?? [], artistName, runId, signal);
       }
     } catch (err) {
       if (isAbortError(err) || isAuditRunStale(runId)) return;
@@ -410,6 +477,7 @@ export function HomeAuditor() {
             meta={auditMeta}
             catalogBusy={catalogBusy}
             mlcBusy={mlcBusy}
+            enrichBusy={enrichBusy}
             onLoadFullCatalog={loadFullCatalog}
             onOpenReport={openReport}
             onPublish={(rows) => void publishReport(rows)}

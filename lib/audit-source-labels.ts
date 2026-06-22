@@ -26,6 +26,9 @@ export const AUDIT_LOADING_MESSAGE =
 export const AUDIT_MLC_LOADING_MESSAGE =
   "USA streaming (MLC) listát nézem a nagy katalóguson — ez percekig tarthat.";
 
+export const AUDIT_CATALOG_ENRICH_LOADING_MESSAGE =
+  "Metaadat enrich (credits.fm + MLC works) — ISWC, szerzők, share…";
+
 export const AUDIT_FILTER_PROBLEMS = "Kifizetetlen listán szerepel";
 
 export const AUDIT_FILTER_ALL = "Minden névegyezés";

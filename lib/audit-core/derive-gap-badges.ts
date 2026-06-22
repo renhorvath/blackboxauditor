@@ -19,7 +19,9 @@ function hasIswc(row: AuditRow): boolean {
 }
 
 function hasMlcMatched(row: AuditRow): boolean {
-  return row.mlcMatchStatus === "matched";
+  if (row.mlcMatchStatus === "matched") return true;
+  if (row.catalogEnrich?.creditsMlcStatus === "matched") return true;
+  return false;
 }
 
 function hasMissingIpiIssue(row: AuditRow): boolean {

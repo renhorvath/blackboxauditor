@@ -18,6 +18,7 @@ import {
   type AuditSourceFilterId,
 } from "@/lib/artist-audit-filters";
 import {
+  AUDIT_CATALOG_ENRICH_LOADING_MESSAGE,
   AUDIT_FILTER_ALL,
   AUDIT_FILTER_HINT,
   AUDIT_FILTER_PROBLEMS,
@@ -50,6 +51,7 @@ export function ArtistAuditResults({
   meta,
   catalogBusy,
   mlcBusy = false,
+  enrichBusy = false,
   onLoadFullCatalog,
   onOpenReport,
   onPublish,
@@ -66,6 +68,7 @@ export function ArtistAuditResults({
   meta: ArtistAuditMeta | null;
   catalogBusy: boolean;
   mlcBusy?: boolean;
+  enrichBusy?: boolean;
   onLoadFullCatalog: () => void;
   onOpenReport: () => void;
   onPublish?: (rows: AuditRow[]) => void;
@@ -233,6 +236,16 @@ export function ArtistAuditResults({
         >
           <Loader2 className="size-4 shrink-0 animate-spin text-[var(--accent-primary)]" aria-hidden />
           <span>{AUDIT_MLC_LOADING_MESSAGE}</span>
+        </div>
+      ) : null}
+
+      {enrichBusy ? (
+        <div
+          className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-3 text-sm text-[var(--text-secondary)]"
+          role="status"
+        >
+          <Loader2 className="size-4 shrink-0 animate-spin text-[var(--accent-primary)]" aria-hidden />
+          <span>{AUDIT_CATALOG_ENRICH_LOADING_MESSAGE}</span>
         </div>
       ) : null}
 
