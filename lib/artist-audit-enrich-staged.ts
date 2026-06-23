@@ -9,6 +9,7 @@ import {
   enrichArtistAuditRows,
   type CatalogEnrichResult,
 } from "@/lib/artist-audit-enrich";
+import { isServerlessRuntime } from "@/lib/runtime-env";
 import { mlcWorksApiAvailable } from "@/lib/mlc-works-api";
 import {
   fetchSpotifyArtistIsrcMap,
@@ -193,9 +194,13 @@ export async function enrichAuditLeg(
   }
 
   if (leg === "isrc") {
+    const maxIsrcs = isServerlessRuntime()
+      ? Number.parseInt(process.env.CATALOG_ENRICH_SERVERLESS_MAX_ISRCS ?? "50", 10) || 50
+      : undefined;
     const full = await enrichArtistAuditRows(rows, {
       ...options,
       legs: ["isrc"],
+      maxIsrcs,
     });
     return {
       rows: full.rows,

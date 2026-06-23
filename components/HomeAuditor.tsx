@@ -335,10 +335,8 @@ export function HomeAuditor() {
       const full = await postArtistAuditMlc(artistName, scope, signal);
       if (isAuditRunStale(runId)) return;
 
-      let prevRows: AuditRow[] = [];
       let mergedRows: AuditRow[] = [];
       setAuditRows((prev) => {
-        prevRows = prev ?? [];
         mergedRows = mergeAuditRowsPreservingEnrich(prev, full.rows ?? []);
         return mergedRows;
       });
@@ -351,10 +349,7 @@ export function HomeAuditor() {
             : prev,
       );
 
-      const gainedRealIsrcs = countRealIsrcs(mergedRows) > countRealIsrcs(prevRows);
-      if (gainedRealIsrcs) {
-        await runCatalogEnrichIfNeeded(mergedRows, artistName, artistId, runId, signal);
-      }
+      await runCatalogEnrichIfNeeded(mergedRows, artistName, artistId, runId, signal);
     } catch (err) {
       if (isAbortError(err) || isAuditRunStale(runId)) return;
       const msg = err instanceof Error ? err.message : "MLC lekérdezés sikertelen.";
@@ -421,10 +416,13 @@ export function HomeAuditor() {
       setResolveStatus("idle");
       setCatalogBusy(false);
 
-      void runCatalogEnrichIfNeeded(fast.rows ?? [], artistName, artistId, runId, signal);
+      const deferEnrichForMlc =
+        fast.meta?.mlcPending && countRealIsrcs(fast.rows ?? []) > 0;
 
-      if (fast.meta?.mlcPending && countRealIsrcs(fast.rows ?? []) > 0) {
+      if (deferEnrichForMlc) {
         void runMlcBackground(artistName, artistId, scope, runId, signal);
+      } else {
+        void runCatalogEnrichIfNeeded(fast.rows ?? [], artistName, artistId, runId, signal);
       }
     } catch (err) {
       if (isAbortError(err) || isAuditRunStale(runId)) return;
