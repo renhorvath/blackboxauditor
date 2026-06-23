@@ -1,3 +1,4 @@
+import { buildAuditSummary } from "@/lib/audit-engine";
 import { countRealIsrcs } from "@/lib/audit-core/enrich-profile";
 import { rowHasPayoutProblem } from "@/lib/artist-audit-display";
 import { summarizeCatalogGaps } from "@/lib/audit-core/derive-gap-badges";
