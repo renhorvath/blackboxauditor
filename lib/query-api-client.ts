@@ -1,6 +1,7 @@
 import type {
   ArtistAuditSourcesPayload,
   CmoWebSearchPayload,
+  EjiSearchPayload,
   QueryApiHealthResponse,
 } from "@/lib/query-api-types";
 import {
@@ -100,6 +101,38 @@ export async function fetchCmoWebFromQueryApi(
 
   const payload = (await res.json()) as CmoWebSearchPayload;
   return payload.results ?? [];
+}
+
+export async function fetchEjiFromQueryApi(
+  artistName: string,
+  options?: { forceRefresh?: boolean },
+): Promise<EjiSearchPayload["result"]> {
+  const base = queryApiBaseUrl();
+  if (!base) {
+    throw new QueryApiError("QUERY_API_URL is not configured");
+  }
+
+  const res = await fetch(`${base}/v1/eji/search`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({
+      artistName,
+      forceRefresh: options?.forceRefresh ?? false,
+    }),
+    signal: AbortSignal.timeout(queryApiTimeoutMs()),
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const detail = (await res.text()).slice(0, 300);
+    throw new QueryApiError(
+      `Query API eji ${res.status}${detail ? `: ${detail}` : ""}`,
+      res.status,
+    );
+  }
+
+  const payload = (await res.json()) as EjiSearchPayload;
+  return payload.result;
 }
 
 export async function fetchQueryApiHealth(): Promise<QueryApiHealthResponse | null> {

@@ -49,6 +49,7 @@ import { isServerlessRuntime } from "@/lib/runtime-env";
 import {
   fetchArtistSourcesFromQueryApi,
   fetchCmoWebFromQueryApi,
+  fetchEjiFromQueryApi,
   QueryApiError,
 } from "@/lib/query-api-client";
 import type { ArtistAuditSourcesPayload } from "@/lib/query-api-types";
@@ -159,6 +160,21 @@ async function loadCmoWebResults(
     return fetchCmoWebFromQueryApi(artistName, { forceRefresh }).catch(() => []);
   }
   return searchCmoWebByArtist(artistName, { forceRefresh }).catch(() => []);
+}
+
+async function loadEjiResult(
+  artistName: string,
+  forceRefresh: boolean,
+): Promise<Awaited<ReturnType<typeof searchEjiByArtist>> | null> {
+  if (shouldUseQueryApi()) {
+    return fetchEjiFromQueryApi(artistName, { forceRefresh }).catch((err) => {
+      if (err instanceof QueryApiError) {
+        console.error("[artist-audit] Query API EJI failed:", err.message);
+      }
+      return null;
+    });
+  }
+  return searchEjiByArtist(artistName, { forceRefresh }).catch(() => null);
 }
 
 function assembleArtistAuditResult(input: {
@@ -310,9 +326,7 @@ export async function runArtistAudit(input: {
       if (shouldUseQueryApi()) throw err;
       return { payload: emptyPayload(input.artistName), viaQueryApi: false };
     }),
-    searchEjiByArtist(input.artistName, { forceRefresh: forceRefresh && !skipEjiRefresh }).catch(
-      () => null,
-    ),
+    loadEjiResult(input.artistName, forceRefresh && !skipEjiRefresh),
     loadCmoWebResults(input.artistName, forceRefresh && !skipEjiRefresh),
   ]);
 

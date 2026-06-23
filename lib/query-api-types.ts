@@ -1,6 +1,7 @@
 import type { ArtisjusArtistMatch } from "@/lib/artisjus-types";
 import type { CmoArtistMatch } from "@/lib/cmo-types";
 import type { CmoWebSearchResult } from "@/lib/cmo-web/web-types";
+import type { EjiSearchResult } from "@/lib/cmo-web/eji-types";
 import type { MlcArtistScanResult, MlcUnclaimedScanResult } from "@/lib/mlc-artist-scan";
 
 /** Payload exchanged between query API (data machine) and Vercel proxy. */
@@ -27,4 +28,9 @@ export interface QueryApiHealthResponse {
 export interface CmoWebSearchPayload {
   artistName: string;
   results: CmoWebSearchResult[];
+}
+
+export interface EjiSearchPayload {
+  artistName: string;
+  result: EjiSearchResult;
 }

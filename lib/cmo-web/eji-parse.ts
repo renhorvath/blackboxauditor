@@ -1,14 +1,99 @@
 import type { EjiArtistHit, EjiTrackHit } from "@/lib/cmo-web/eji-types";
 
-/** Kendo grid embeds JS object literals in HTML — quote keys for JSON.parse. */
-function jsObjectArrayToJsonObjects(raw: string): Record<string, unknown>[] {
-  const trimmed = raw.replace(/,\s*$/, "");
-  const jsonLike = trimmed
-    .replace(/(\{|,)\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')
-    .replace(/,\s*}/g, "}");
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/&quot;/gi, '"')
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">");
+}
 
-  const parsed = JSON.parse(`[${jsonLike}]`) as Record<string, unknown>[];
-  return Array.isArray(parsed) ? parsed : [];
+function cleanEjiField(value: string): string {
+  return decodeHtmlEntities(value)
+    .replace(/^["']+|["']+$/g, "")
+    .trim();
+}
+
+/** Split top-level `{ ... }` blocks from a Kendo `dataSource: [ ... ]` array. */
+function splitKendoObjectBlocks(inner: string): string[] {
+  const blocks: string[] = [];
+  let depth = 0;
+  let start = -1;
+  for (let i = 0; i < inner.length; i++) {
+    const ch = inner[i]!;
+    if (ch === "{") {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (ch === "}") {
+      depth--;
+      if (depth === 0 && start >= 0) {
+        blocks.push(inner.slice(start, i + 1));
+        start = -1;
+      }
+    }
+  }
+  return blocks;
+}
+
+/** Read a double-quoted JS string value for `key:` in a Kendo object literal. */
+function extractJsQuotedField(block: string, key: string): string {
+  const marker = `${key}:`;
+  const idx = block.indexOf(marker);
+  if (idx < 0) return "";
+
+  let i = idx + marker.length;
+  while (i < block.length && /\s/.test(block[i]!)) i++;
+  if (block[i] !== '"') return "";
+  i++;
+
+  let out = "";
+  while (i < block.length) {
+    const ch = block[i]!;
+    if (ch === "\\") {
+      const next = block[i + 1];
+      if (next === '"') {
+        out += '"';
+        i += 2;
+        continue;
+      }
+      if (next === "\\") {
+        out += "\\";
+        i += 2;
+        continue;
+      }
+      out += ch;
+      i++;
+      continue;
+    }
+    if (ch === '"') break;
+    out += ch;
+    i++;
+  }
+
+  return cleanEjiField(out);
+}
+
+function kendoBlockToRecord(block: string): Record<string, string> {
+  const keys = [
+    "id",
+    "tipus",
+    "vezetoeloado",
+    "felvetelcim",
+    "kiado",
+    "kiadaseve",
+    "album",
+    "performers_num",
+    "main_artists_num",
+    "refId",
+    "nev",
+    "felosztas_idoszak_nev",
+  ];
+  const row: Record<string, string> = {};
+  for (const key of keys) {
+    const value = extractJsQuotedField(block, key);
+    if (value) row[key] = value;
+  }
+  return row;
 }
 
 export function extractKendoDataSource(html: string): Record<string, unknown>[] {
@@ -16,11 +101,8 @@ export function extractKendoDataSource(html: string): Record<string, unknown>[] 
   if (!match) return [];
   const inner = match[1]?.trim();
   if (!inner) return [];
-  try {
-    return jsObjectArrayToJsonObjects(inner);
-  } catch {
-    return [];
-  }
+
+  return splitKendoObjectBlocks(inner).map((block) => kendoBlockToRecord(block));
 }
 
 function asString(value: unknown): string {
