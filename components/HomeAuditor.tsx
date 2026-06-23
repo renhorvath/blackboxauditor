@@ -15,6 +15,9 @@ import type {
 } from "@/lib/types";
 import { SESSION_STORAGE_KEY, isSyntheticAuditIsrc } from "@/lib/types";
 import { validateIsrc } from "@/lib/isrc-validator";
+import { catalogEnrichProfile, countRealIsrcs } from "@/lib/audit-core/enrich-profile";
+import { planEnrichLegs, type EnrichLegId } from "@/lib/audit-core/enrich-plan";
+import { mergeAuditRowsPreservingEnrich } from "@/lib/artist-audit-rows-merge";
 import { buildAuditRows, buildAuditSummary } from "@/lib/audit-engine";
 import { applyArtisjusEnrichment } from "@/lib/artisjus-enrich";
 import type { ArtisjusWork } from "@/lib/artisjus-types";
@@ -47,6 +50,7 @@ export function HomeAuditor() {
 
   const auditAbortRef = useRef<AbortController | null>(null);
   const auditRunIdRef = useRef(0);
+  const enrichChainRef = useRef<Promise<void>>(Promise.resolve());
 
   function cancelInFlightAudit() {
     auditAbortRef.current?.abort();
@@ -77,15 +81,50 @@ export function HomeAuditor() {
     setEnrichBusy(false);
   }
 
-  async function postCatalogEnrich(
+  async function postCatalogEnrichLeg(
     rows: AuditRow[],
+    leg: EnrichLegId,
     artistName: string,
+    spotifyArtistId: string | null,
     signal: AbortSignal,
   ) {
     const res = await fetch("/api/artist-audit/enrich", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rows, artistName }),
+      body: JSON.stringify({
+        rows,
+        artistName,
+        spotifyArtistId: spotifyArtistId ?? undefined,
+        leg,
+      }),
+      signal,
+    });
+    const data = (await res.json()) as {
+      rows?: AuditRow[];
+      summary?: AuditSummary;
+      meta?: Partial<ArtistAuditMeta>;
+      error?: string;
+    };
+    if (!res.ok) {
+      throw new Error(data.error ?? `Metaadat enrich (${leg}) sikertelen.`);
+    }
+    return data;
+  }
+
+  async function postCatalogEnrich(
+    rows: AuditRow[],
+    artistName: string,
+    spotifyArtistId: string | null,
+    signal: AbortSignal,
+  ) {
+    const res = await fetch("/api/artist-audit/enrich", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        rows,
+        artistName,
+        spotifyArtistId: spotifyArtistId ?? undefined,
+      }),
       signal,
     });
     const data = (await res.json()) as {
@@ -103,37 +142,226 @@ export function HomeAuditor() {
   async function runCatalogEnrichIfNeeded(
     rows: AuditRow[],
     artistName: string,
+    spotifyArtistId: string | null,
     runId: number,
     signal: AbortSignal,
   ) {
     const hasIsrc = rows.some((r) => r.isrc?.trim() && !isSyntheticAuditIsrc(r.isrc));
-    if (!hasIsrc) return;
+    const hasTitles = rows.some((r) => r.title?.trim());
+    if (!hasIsrc && !hasTitles) {
+      setAuditMeta((prev) =>
+        prev
+          ? { ...prev, catalogEnrichSkipReason: "no_isrc", catalogEnrichReady: false }
+          : prev,
+      );
+      return;
+    }
 
-    setEnrichBusy(true);
-    try {
-      const enriched = await postCatalogEnrich(rows, artistName, signal);
+    const task = async () => {
       if (isAuditRunStale(runId)) return;
-      setAuditRows(enriched.rows ?? rows);
-      if (enriched.summary) setAuditSummary(enriched.summary);
-      if (enriched.meta?.catalogGaps) {
+      const profile = catalogEnrichProfile(rows);
+      const plan = planEnrichLegs(profile);
+      const legsDone: string[] = [];
+
+      setAuditMeta((prev) =>
+        prev
+          ? {
+              ...prev,
+              catalogEnrichReady: false,
+              catalogEnrichProfile: profile,
+              catalogEnrichLegsDone: [],
+              catalogEnrichLegBusy: null,
+            }
+          : prev,
+      );
+      setEnrichBusy(true);
+
+      let currentRows = rows;
+
+      const applyLegResult = (leg: EnrichLegId, enriched: Awaited<ReturnType<typeof postCatalogEnrichLeg>>) => {
+        if (isAuditRunStale(runId)) return;
+        currentRows = enriched.rows ?? currentRows;
+        setAuditRows((prev) => mergeAuditRowsPreservingEnrich(prev, currentRows));
+        if (enriched.summary) setAuditSummary(enriched.summary);
+        legsDone.push(leg);
         setAuditMeta((prev) =>
-          prev
+          prev && enriched.meta
             ? {
                 ...prev,
                 ...enriched.meta,
-                catalogGaps: enriched.meta?.catalogGaps ?? prev.catalogGaps,
+                catalogEnrichSkipReason: undefined,
+                catalogEnrichLegsDone: [...legsDone],
+                catalogEnrichLegBusy: null,
               }
             : prev,
         );
-      } else if (enriched.meta) {
-        setAuditMeta((prev) => (prev ? { ...prev, ...enriched.meta } : prev));
+      };
+
+      try {
+        for (const leg of plan.blocking) {
+          if (isAuditRunStale(runId)) return;
+          setAuditMeta((prev) => (prev ? { ...prev, catalogEnrichLegBusy: leg } : prev));
+          const enriched = await postCatalogEnrichLeg(
+            currentRows,
+            leg,
+            artistName,
+            spotifyArtistId,
+            signal,
+          );
+          applyLegResult(leg, enriched);
+        }
+
+        setAuditMeta((prev) => (prev ? { ...prev, catalogEnrichReady: true, catalogEnrichLegBusy: null } : prev));
+        setEnrichBusy(false);
+
+        for (const leg of plan.background) {
+          if (isAuditRunStale(runId)) return;
+          setAuditMeta((prev) => (prev ? { ...prev, catalogEnrichLegBusy: leg } : prev));
+          try {
+            const enriched = await postCatalogEnrichLeg(
+              currentRows,
+              leg,
+              artistName,
+              spotifyArtistId,
+              signal,
+            );
+            applyLegResult(leg, enriched);
+          } catch (bgErr) {
+            if (isAbortError(bgErr) || isAuditRunStale(runId)) return;
+            console.warn(`[enrich] background leg ${leg} failed:`, bgErr);
+            setAuditMeta((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    catalogEnrichLegBusy: null,
+                    catalogEnrichCisacCatalogWorks: prev.catalogEnrichCisacCatalogWorks ?? 0,
+                  }
+                : prev,
+            );
+          }
+        }
+      } catch (err) {
+        if (isAbortError(err) || isAuditRunStale(runId)) return;
+        const msg = err instanceof Error ? err.message : "Metaadat enrich sikertelen.";
+        setResolveError(`${msg} A black box találatok megmaradtak.`);
+        setEnrichBusy(false);
+        setAuditMeta((prev) => (prev ? { ...prev, catalogEnrichLegBusy: null } : prev));
+      }
+    };
+
+    enrichChainRef.current = enrichChainRef.current.then(task).catch(() => {});
+    await enrichChainRef.current;
+  }
+
+  /** Re-run CISAC leg after identity wizard saves IPI (enrich at audit time may have skipped). */
+  async function runCisacEnrichAfterIdentity(
+    rows: AuditRow[],
+    artistName: string,
+    spotifyArtistId: string | null,
+  ) {
+    const runId = auditRunIdRef.current;
+    const signal = auditAbortRef.current?.signal ?? new AbortController().signal;
+
+    setAuditMeta((prev) =>
+      prev ? { ...prev, catalogEnrichLegBusy: "cisac" } : prev,
+    );
+    setEnrichBusy(true);
+    try {
+      const enriched = await postCatalogEnrichLeg(
+        rows,
+        "cisac",
+        artistName,
+        spotifyArtistId,
+        signal,
+      );
+      if (isAuditRunStale(runId)) return;
+      setAuditRows((prev) => mergeAuditRowsPreservingEnrich(prev, enriched.rows ?? rows));
+      if (enriched.summary) setAuditSummary(enriched.summary);
+      setAuditMeta((prev) => {
+        if (!prev || !enriched.meta) return prev;
+        const legsDone = [...(prev.catalogEnrichLegsDone ?? [])];
+        if (!legsDone.includes("cisac")) legsDone.push("cisac");
+        return {
+          ...prev,
+          ...enriched.meta,
+          catalogEnrichReady: true,
+          catalogEnrichLegBusy: null,
+          catalogEnrichLegsDone: legsDone,
+        };
+      });
+    } catch (err) {
+      if (isAbortError(err) || isAuditRunStale(runId)) return;
+      const msg = err instanceof Error ? err.message : "CISAC enrich sikertelen.";
+      setResolveError(`${msg} Az IPI mentve — próbáld újra pár perc múlva.`);
+    } finally {
+      if (!isAuditRunStale(runId)) {
+        setEnrichBusy(false);
+        setAuditMeta((prev) => (prev ? { ...prev, catalogEnrichLegBusy: null } : prev));
+      }
+    }
+  }
+
+  async function postArtistAuditMlc(
+    artistName: string,
+    scope: "top15" | "full",
+    signal: AbortSignal,
+  ) {
+    const res = await fetch("/api/artist-audit/mlc", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ artistName, scope }),
+      signal,
+    });
+    const data = (await res.json()) as {
+      rows?: AuditRow[];
+      summary?: AuditSummary;
+      meta?: ArtistAuditMeta;
+      error?: string;
+    };
+    if (!res.ok) {
+      throw new Error(data.error ?? "MLC lekérdezés sikertelen.");
+    }
+    return data;
+  }
+
+  async function runMlcBackground(
+    artistName: string,
+    artistId: string,
+    scope: "top15" | "full",
+    runId: number,
+    signal: AbortSignal,
+  ) {
+    setMlcBusy(true);
+    try {
+      const full = await postArtistAuditMlc(artistName, scope, signal);
+      if (isAuditRunStale(runId)) return;
+
+      let prevRows: AuditRow[] = [];
+      let mergedRows: AuditRow[] = [];
+      setAuditRows((prev) => {
+        prevRows = prev ?? [];
+        mergedRows = mergeAuditRowsPreservingEnrich(prev, full.rows ?? []);
+        return mergedRows;
+      });
+      if (full.summary) setAuditSummary(full.summary);
+      setAuditMeta((prev) =>
+        full.meta
+          ? { ...prev, ...full.meta, mlcPending: false }
+          : prev
+            ? { ...prev, mlcPending: false }
+            : prev,
+      );
+
+      const gainedRealIsrcs = countRealIsrcs(mergedRows) > countRealIsrcs(prevRows);
+      if (gainedRealIsrcs) {
+        await runCatalogEnrichIfNeeded(mergedRows, artistName, artistId, runId, signal);
       }
     } catch (err) {
       if (isAbortError(err) || isAuditRunStale(runId)) return;
-      const msg = err instanceof Error ? err.message : "Metaadat enrich sikertelen.";
-      setResolveError(`${msg} A black box találatok megmaradtak.`);
+      const msg = err instanceof Error ? err.message : "MLC lekérdezés sikertelen.";
+      setResolveError(`${msg} A magyar/európai találatok megmaradtak.`);
     } finally {
-      if (!isAuditRunStale(runId)) setEnrichBusy(false);
+      if (!isAuditRunStale(runId)) setMlcBusy(false);
     }
   }
 
@@ -194,25 +422,10 @@ export function HomeAuditor() {
       setResolveStatus("idle");
       setCatalogBusy(false);
 
+      void runCatalogEnrichIfNeeded(fast.rows ?? [], artistName, artistId, runId, signal);
+
       if (fast.meta?.mlcPending) {
-        setMlcBusy(true);
-        try {
-          const full = await postArtistAudit(artistName, scope, "only", signal);
-          if (isAuditRunStale(runId)) return;
-          setAuditRows(full.rows ?? []);
-          setAuditSummary(full.summary ?? null);
-          setAuditMeta(full.meta ?? null);
-          await runCatalogEnrichIfNeeded(full.rows ?? [], artistName, runId, signal);
-        } catch (err) {
-          if (isAbortError(err) || isAuditRunStale(runId)) return;
-          const msg = err instanceof Error ? err.message : "MLC lekérdezés sikertelen.";
-          setResolveError(`${msg} A magyar/európai találatok megvannak.`);
-          await runCatalogEnrichIfNeeded(fast.rows ?? [], artistName, runId, signal);
-        } finally {
-          if (!isAuditRunStale(runId)) setMlcBusy(false);
-        }
-      } else {
-        await runCatalogEnrichIfNeeded(fast.rows ?? [], artistName, runId, signal);
+        void runMlcBackground(artistName, artistId, scope, runId, signal);
       }
     } catch (err) {
       if (isAbortError(err) || isAuditRunStale(runId)) return;
@@ -227,7 +440,17 @@ export function HomeAuditor() {
   }
 
   function activateArtistByName(artistName: string) {
-    void runArtistAudit("", artistName, "top15");
+    void (async () => {
+      let artistId = "";
+      try {
+        const res = await fetch(`/api/search-artists?q=${encodeURIComponent(artistName)}`);
+        const data = (await res.json()) as { artists?: { spotifyId: string }[] };
+        artistId = data.artists?.[0]?.spotifyId ?? "";
+      } catch {
+        /* audit without Spotify id — enrich will try name resolve server-side */
+      }
+      await runArtistAudit(artistId, artistName, "top15");
+    })();
   }
 
   function activateArtist(artistId: string, artistName: string) {
@@ -377,20 +600,22 @@ export function HomeAuditor() {
   const showSearch = !resolvedArtistName;
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-6 pb-20 pt-10 md:pt-14">
-      <div className="mx-auto max-w-2xl text-center">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[var(--text-muted)]">
-          BBOX AUDIT
-        </p>
-        <h1 className="mt-4 text-balance text-3xl font-bold tracking-tight text-[var(--text-primary)] md:text-4xl md:leading-[1.15]">
-          {AUDIT_HERO_TITLE}
-        </h1>
-        <p className="mt-5 text-pretty text-base leading-relaxed text-[var(--text-secondary)]">
-          {AUDIT_HERO_SUBTITLE}
-        </p>
-      </div>
+    <div className={`mx-auto w-full px-4 pb-20 pt-8 md:px-6 md:pt-12 ${resolvedArtistName ? "max-w-7xl" : "max-w-3xl"}`}>
+      {showSearch ? (
+        <div className="mx-auto max-w-xl text-center">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[var(--text-muted)]">
+            BBOX AUDIT
+          </p>
+          <h1 className="mt-4 text-balance text-3xl font-bold tracking-tight text-[var(--text-primary)] md:text-4xl">
+            {AUDIT_HERO_TITLE}
+          </h1>
+          <p className="mt-4 text-pretty text-base leading-relaxed text-[var(--text-secondary)]">
+            {AUDIT_HERO_SUBTITLE}
+          </p>
+        </div>
+      ) : null}
 
-      <div className="mx-auto mt-12 max-w-xl space-y-5">
+      <div className={`space-y-5 ${showSearch ? "mx-auto mt-10 max-w-xl" : "mt-2"}`}>
         {showSearch ? (
           <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] px-6 py-8 shadow-[0_1px_3px_rgba(0,0,0,0.06)] md:px-8">
             <ArtistNameAuditForm
@@ -478,6 +703,14 @@ export function HomeAuditor() {
             catalogBusy={catalogBusy}
             mlcBusy={mlcBusy}
             enrichBusy={enrichBusy}
+            onIdentitySaved={(saved) => {
+              if (!auditRows || !resolvedArtistName || !saved.ipi?.trim()) return;
+              void runCisacEnrichAfterIdentity(
+                auditRows,
+                resolvedArtistName,
+                resolvedArtistId,
+              );
+            }}
             onLoadFullCatalog={loadFullCatalog}
             onOpenReport={openReport}
             onPublish={(rows) => void publishReport(rows)}

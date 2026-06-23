@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ChevronDown, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import {
   formatCatalogGapSummary,
   summarizeCatalogGaps,
@@ -18,17 +18,15 @@ import {
   type AuditSourceFilterId,
 } from "@/lib/artist-audit-filters";
 import {
-  AUDIT_CATALOG_ENRICH_LOADING_MESSAGE,
-  AUDIT_FILTER_ALL,
-  AUDIT_FILTER_HINT,
-  AUDIT_FILTER_PROBLEMS,
   AUDIT_LOADING_MESSAGE,
-  AUDIT_MLC_LOADING_MESSAGE,
 } from "@/lib/audit-source-labels";
+import { formatCatalogEnrichLine } from "@/lib/audit-core/catalog-enrich-label";
 import { catalogLensAvailable } from "@/lib/audit-core/catalog-lens";
 import { downloadActionableGapsCsv, rowIsPublishEligible } from "@/lib/audit-core/publish-gap";
 import { groupRowsIntoWorkBuckets } from "@/lib/audit-core/group-work-buckets";
 import type { AuditLensId } from "@/lib/audit-core/work-bucket-types";
+import { AuditProgressStrip } from "@/components/AuditProgressStrip";
+import { EnrichStatusPanel } from "@/components/EnrichStatusPanel";
 import { AuditLensToggle } from "@/components/AuditLensToggle";
 import { CatalogTable } from "@/components/CatalogTable";
 import { WorkBucketCard } from "@/components/WorkBucketCard";
@@ -60,6 +58,7 @@ export function ArtistAuditResults({
   readOnly = false,
   onClearArtist,
   spotifyId = null,
+  onIdentitySaved,
 }: {
   artistName: string;
   loading: boolean;
@@ -77,6 +76,7 @@ export function ArtistAuditResults({
   readOnly?: boolean;
   onClearArtist: () => void;
   spotifyId?: string | null;
+  onIdentitySaved?: (saved: { ipi: string | null; legalName: string | null }) => void;
 }) {
   const [onlyProblems, setOnlyProblems] = useState(true);
   const [identityWizardOpen, setIdentityWizardOpen] = useState(false);
@@ -130,6 +130,11 @@ export function ArtistAuditResults({
   );
 
   const problemCount = useMemo(() => filtered.filter(rowHasPayoutProblem).length, [filtered]);
+
+  const catalogEnrichLine = useMemo(
+    () => (meta ? formatCatalogEnrichLine(meta, enrichBusy) : null),
+    [meta, enrichBusy],
+  );
 
   const catalogGapLine = useMemo(() => {
     if (meta?.catalogGaps) return formatCatalogGapSummary(meta.catalogGaps);
@@ -228,283 +233,248 @@ export function ArtistAuditResults({
   if (!rows || !summary || !meta) return null;
 
   return (
-    <section className="space-y-4">
-      {mlcBusy ? (
-        <div
-          className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-3 text-sm text-[var(--text-secondary)]"
-          role="status"
-        >
-          <Loader2 className="size-4 shrink-0 animate-spin text-[var(--accent-primary)]" aria-hidden />
-          <span>{AUDIT_MLC_LOADING_MESSAGE}</span>
-        </div>
-      ) : null}
+    <section className="space-y-5">
+      <AuditProgressStrip mlcBusy={mlcBusy} enrichBusy={enrichBusy} />
 
-      {enrichBusy ? (
-        <div
-          className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-3 text-sm text-[var(--text-secondary)]"
-          role="status"
-        >
-          <Loader2 className="size-4 shrink-0 animate-spin text-[var(--accent-primary)]" aria-hidden />
-          <span>{AUDIT_CATALOG_ENRICH_LOADING_MESSAGE}</span>
-        </div>
-      ) : null}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,300px)_1fr] xl:items-start">
+        <aside className="space-y-4 xl:sticky xl:top-20">
+          <ArtistAuditSummaryHeader
+            artistName={artistName}
+            meta={displayMeta ?? meta}
+            problemCount={problemCount}
+            totalCount={filtered.length}
+            catalogGapLine={catalogGapLine}
+            catalogEnrichLine={catalogEnrichLine}
+            onClearArtist={readOnly ? undefined : onClearArtist}
+            compact
+          />
 
-      <ArtistAuditSummaryHeader
-        artistName={artistName}
-        meta={displayMeta ?? meta}
-        problemCount={problemCount}
-        totalCount={filtered.length}
-        catalogGapLine={catalogGapLine}
-        onClearArtist={readOnly ? undefined : onClearArtist}
-      />
+          <EnrichStatusPanel meta={meta} enrichBusy={enrichBusy} />
 
-      {opsMode ? (
-        <IdentityStatusBanner
-          status={identity.status}
-          storageAvailable={identity.storageAvailable}
-          onOpenWizard={() => setIdentityWizardOpen(true)}
-        />
-      ) : null}
-
-      {opsMode && rows?.length ? (
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={() =>
-              downloadActionableGapsCsv(rows, artistName, { problemsOnly: onlyProblems, opsMode })
-            }
-            className="rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]"
-          >
-            Export actionable_gaps.csv
-          </button>
-        </div>
-      ) : null}
-
-      {identity.error ? (
-        <p className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2 text-xs text-[var(--text-muted)]">
-          Identitás: {identity.error}
-        </p>
-      ) : null}
-
-      <ArtistAuditFilters
-        query={artistName}
-        allRows={sorted}
-        countRows={variantRows}
-        selectedVariantKeys={selectedVariantKeys}
-        onVariantKeysChange={setSelectedVariantKeys}
-        enabledSources={enabledSources}
-        onToggleSource={toggleSource}
-        onSelectOnlySource={selectOnlySource}
-      />
-
-      {!readOnly && selectedVariantKeys.size === 0 ? (
-        <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          Válassz legalább egy névváltozatot a találatok megjelenítéséhez és a jelentéshez.
-        </p>
-      ) : null}
-
-      <div className="space-y-2">
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setOnlyProblems(true)}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-              onlyProblems
-                ? "bg-[var(--accent-primary)] text-white"
-                : "bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
-            }`}
-          >
-            {AUDIT_FILTER_PROBLEMS} ({problemCount})
-          </button>
-          <button
-            type="button"
-            onClick={() => setOnlyProblems(false)}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-              !onlyProblems
-                ? "bg-[var(--accent-primary)] text-white"
-                : "bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
-            }`}
-          >
-            {AUDIT_FILTER_ALL} ({filtered.length})
-          </button>
-        </div>
-        <p className="text-xs text-[var(--text-muted)]">{AUDIT_FILTER_HINT}</p>
-      </div>
-
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] p-4">
-        <AuditLensToggle
-          lens={lens}
-          onLensChange={setLens}
-          showCatalog={showCatalogLens}
-          opsMode={opsMode}
-        />
-      </div>
-
-      {lens === "catalog" ? (
-        <CatalogTable rows={filtered} />
-      ) : visible.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-[var(--border)] px-6 py-10 text-center">
-          <CheckCircle2 className="mx-auto size-8 text-[var(--text-muted)]" aria-hidden />
-          <p className="mt-3 font-medium text-[var(--text-primary)]">
-            {onlyProblems
-              ? "Ezeken a dalokon nem találtunk kifizetetlen listás bejegyzést."
-              : "Nincs megjeleníthető találat."}
-          </p>
-          {onlyProblems && filtered.length > 0 ? (
-            <button
-              type="button"
-              onClick={() => setOnlyProblems(false)}
-              className="mt-2 text-sm font-semibold text-[var(--accent-primary)] underline-offset-2 hover:underline"
-            >
-              Mind a {filtered.length} találat megtekintése
-            </button>
+          {opsMode ? (
+            <IdentityStatusBanner
+              status={identity.status}
+              storageAvailable={identity.storageAvailable}
+              onOpenWizard={() => setIdentityWizardOpen(true)}
+            />
           ) : null}
-        </div>
-      ) : lens === "by_work" ? (
-        <>
-          {!readOnly && problemCount > 0 ? (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2">
-              <p className="text-xs text-[var(--text-secondary)]">
-                {workBuckets.length} mű-csoport · {visible.length} felvétel
-              </p>
-            </div>
-          ) : null}
-          <ul className="divide-y divide-[var(--border)] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-primary)]">
-            {workBuckets.map((bucket) => (
-              <WorkBucketCard
-                key={bucket.workKey}
-                bucket={bucket}
-                queryArtistName={artistName}
-                readOnly={readOnly}
-              />
-            ))}
-          </ul>
-        </>
-      ) : (
-        <>
-          {!readOnly && problemCount > 0 ? (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2">
-              <p className="text-xs text-[var(--text-secondary)]">
-                Jelentésbe: <span className="font-semibold text-[var(--text-primary)]">{publishRows.length}</span>
-                {publishExcludedVisible > 0 ? (
-                  <span className="text-[var(--text-muted)]"> · {publishExcludedVisible} kihagyva</span>
-                ) : null}
-              </p>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={includeAllVisibleForPublish}
-                  className="text-[11px] font-semibold text-[var(--accent-primary)]"
-                >
-                  Mind be
-                </button>
-                <button
-                  type="button"
-                  onClick={excludeAllVisibleForPublish}
-                  className="text-[11px] font-semibold text-[var(--text-muted)]"
-                >
-                  Mind ki
-                </button>
-              </div>
-            </div>
-          ) : null}
-          <ul className="divide-y divide-[var(--border)] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-primary)]">
-            {visible.map((row) => (
-              <ArtistAuditRowCard
-                key={auditRowKey(row)}
-                row={row}
-                queryArtistName={artistName}
-                includeInPublish={
-                  !rowHasPayoutProblem(row) || !publishExcludedKeys.has(auditRowKey(row))
-                }
-                onTogglePublishInclude={
-                  rowHasPayoutProblem(row)
-                    ? (included) => togglePublishInclude(row, included)
-                    : undefined
-                }
-                showPublishToggle={!readOnly && rowHasPayoutProblem(row)}
-              />
-            ))}
-          </ul>
-        </>
-      )}
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {!readOnly &&
-        (meta.mlcScanSource === "cache" ||
-        meta.mlcScanSource === "duckdb" ||
-        meta.mlcUnclaimedScanSource === "duckdb") ? (
-          <details className="group text-sm">
-            <summary className="flex cursor-pointer list-none items-center gap-1 font-medium text-[var(--text-secondary)] marker:content-none [&::-webkit-details-marker]:hidden">
-              <ChevronDown className="size-4 transition group-open:rotate-180" aria-hidden />
-              MLC adat frissítése
-            </summary>
-            <div className="mt-2 space-y-2 pl-5">
-              <p className="text-xs text-[var(--text-muted)]">
-                Újra lekérdezi az MLC adatbázist (DuckDB: másodpercek, TSV scan: percek).
-              </p>
-              <button
-                type="button"
-                disabled={catalogBusy}
-                onClick={onLoadFullCatalog}
-                className="rounded-[10px] border border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] disabled:opacity-45"
-              >
-                {catalogBusy ? (
-                  <span className="inline-flex items-center gap-2">
-                    <Loader2 className="size-4 animate-spin" aria-hidden />
-                    MLC lekérdezés…
-                  </span>
-                ) : (
-                  "MLC újralekérdezése"
-                )}
-              </button>
-            </div>
-          </details>
-        ) : meta.mlcScanSource === "live" || meta.mlcUnclaimedScanSource === "live" ? (
-          <p className="text-xs text-[var(--text-muted)]">
-            MLC: lassú TSV scan. Gyorsítás: npm run etl:parquet && npm run etl:catalog
-          </p>
-        ) : !readOnly ? (
-          <span />
-        ) : null}
+          <ArtistAuditFilters
+            query={artistName}
+            allRows={sorted}
+            countRows={variantRows}
+            selectedVariantKeys={selectedVariantKeys}
+            onVariantKeysChange={setSelectedVariantKeys}
+            enabledSources={enabledSources}
+            onToggleSource={toggleSource}
+            onSelectOnlySource={selectOnlySource}
+            compact
+          />
 
-        {!readOnly ? (
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            {onPublish ? (
+          {!readOnly && onPublish ? (
+            <div className="hidden space-y-2 xl:block">
               <button
                 type="button"
                 onClick={() => onPublish(publishRows)}
                 disabled={publishBusy || publishRows.length === 0}
-                className="shrink-0 rounded-[12px] border border-[var(--border)] bg-[var(--bg-secondary)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] disabled:opacity-40"
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] disabled:opacity-40"
               >
-                {publishBusy ? (
-                  <span className="inline-flex items-center gap-2">
-                    <Loader2 className="size-4 animate-spin" aria-hidden />
-                    Közzététel…
-                  </span>
-                ) : (
-                  `Jelentés közzététele (${publishRows.length})`
-                )}
+                {publishBusy ? "Közzététel…" : `Jelentés (${publishRows.length})`}
               </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={onOpenReport}
-              disabled={filtered.length === 0}
-              className="shrink-0 rounded-[12px] bg-[var(--accent-primary)] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-105 disabled:opacity-40"
-            >
-              Részletes jelentés ({filtered.length})
-            </button>
+              <button
+                type="button"
+                onClick={onOpenReport}
+                disabled={filtered.length === 0}
+                className="w-full rounded-lg bg-[var(--accent-primary)] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+              >
+                Részletes táblázat
+              </button>
+            </div>
+          ) : null}
+        </aside>
+
+        <div className="min-w-0 space-y-4">
+          {!readOnly && selectedVariantKeys.size === 0 ? (
+            <p className="rounded-lg border border-amber-200/80 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
+              Válassz legalább egy névváltozatot.
+            </p>
+          ) : null}
+
+          {identity.error ? (
+            <p className="text-xs text-[var(--text-muted)]">Identitás: {identity.error}</p>
+          ) : null}
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => setOnlyProblems(true)}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
+                  onlyProblems
+                    ? "bg-[var(--accent-primary)] text-white"
+                    : "bg-[var(--bg-secondary)] text-[var(--text-secondary)]"
+                }`}
+              >
+                Problémák ({problemCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setOnlyProblems(false)}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
+                  !onlyProblems
+                    ? "bg-[var(--accent-primary)] text-white"
+                    : "bg-[var(--bg-secondary)] text-[var(--text-secondary)]"
+                }`}
+              >
+                Mind ({filtered.length})
+              </button>
+            </div>
+
+            <AuditLensToggle
+              lens={lens}
+              onLensChange={setLens}
+              showCatalog={showCatalogLens}
+              opsMode={opsMode}
+              inline
+            />
           </div>
-        ) : null}
-        {publishedUrl ? (
-          <p className="text-xs text-[var(--text-secondary)]">
-            Közzétéve:{" "}
-            <a href={publishedUrl} className="font-semibold text-[var(--accent-primary)] underline">
-              {publishedUrl}
-            </a>
-          </p>
-        ) : null}
+
+          {opsMode && rows?.length ? (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() =>
+                  downloadActionableGapsCsv(rows, artistName, { problemsOnly: onlyProblems, opsMode })
+                }
+                className="text-xs font-semibold text-[var(--accent-primary)] hover:underline"
+              >
+                Export CSV
+              </button>
+            </div>
+          ) : null}
+
+          {!readOnly && problemCount > 0 && lens === "findings" ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--text-muted)]">
+              <span>
+                Jelentésbe: <strong className="text-[var(--text-primary)]">{publishRows.length}</strong>
+                {publishExcludedVisible > 0 ? ` · ${publishExcludedVisible} kihagyva` : ""}
+              </span>
+              <span className="flex gap-2">
+                <button type="button" onClick={includeAllVisibleForPublish} className="font-semibold text-[var(--accent-primary)]">
+                  Mind be
+                </button>
+                <button type="button" onClick={excludeAllVisibleForPublish} className="font-semibold text-[var(--text-muted)]">
+                  Mind ki
+                </button>
+              </span>
+            </div>
+          ) : null}
+
+          {lens === "catalog" ? (
+            <CatalogTable rows={filtered} />
+          ) : visible.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-[var(--border)] px-6 py-12 text-center">
+              <CheckCircle2 className="mx-auto size-8 text-[var(--text-muted)]" aria-hidden />
+              <p className="mt-3 font-medium text-[var(--text-primary)]">
+                {onlyProblems ? "Nincs kifizetetlen találat." : "Nincs megjeleníthető sor."}
+              </p>
+              {onlyProblems && filtered.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setOnlyProblems(false)}
+                  className="mt-2 text-sm font-semibold text-[var(--accent-primary)]"
+                >
+                  Mind a {filtered.length} találat
+                </button>
+              ) : null}
+            </div>
+          ) : lens === "by_work" ? (
+            <ul className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-primary)]">
+              {workBuckets.map((bucket) => (
+                <WorkBucketCard
+                  key={bucket.workKey}
+                  bucket={bucket}
+                  queryArtistName={artistName}
+                  readOnly={readOnly}
+                />
+              ))}
+            </ul>
+          ) : (
+            <ul className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-primary)]">
+              {visible.map((row) => (
+                <ArtistAuditRowCard
+                  key={auditRowKey(row)}
+                  row={row}
+                  queryArtistName={artistName}
+                  includeInPublish={
+                    !rowHasPayoutProblem(row) || !publishExcludedKeys.has(auditRowKey(row))
+                  }
+                  onTogglePublishInclude={
+                    rowHasPayoutProblem(row)
+                      ? (included) => togglePublishInclude(row, included)
+                      : undefined
+                  }
+                  showPublishToggle={!readOnly && rowHasPayoutProblem(row)}
+                />
+              ))}
+            </ul>
+          )}
+
+          <div className="flex flex-col gap-3 border-t border-[var(--border)] pt-4 sm:flex-row sm:items-center sm:justify-between xl:hidden">
+            {!readOnly &&
+            (meta.mlcScanSource === "cache" ||
+              meta.mlcScanSource === "duckdb" ||
+              meta.mlcUnclaimedScanSource === "duckdb") ? (
+              <details className="text-sm">
+                <summary className="cursor-pointer text-xs font-medium text-[var(--text-muted)]">
+                  MLC frissítés
+                </summary>
+                <button
+                  type="button"
+                  disabled={catalogBusy}
+                  onClick={onLoadFullCatalog}
+                  className="mt-2 rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-semibold disabled:opacity-45"
+                >
+                  {catalogBusy ? "Lekérdezés…" : "MLC újra"}
+                </button>
+              </details>
+            ) : (
+              <span />
+            )}
+
+            {!readOnly ? (
+              <div className="flex flex-wrap gap-2">
+                {onPublish ? (
+                  <button
+                    type="button"
+                    onClick={() => onPublish(publishRows)}
+                    disabled={publishBusy || publishRows.length === 0}
+                    className="rounded-lg border border-[var(--border)] px-4 py-2.5 text-sm font-semibold disabled:opacity-40"
+                  >
+                    Jelentés ({publishRows.length})
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={onOpenReport}
+                  disabled={filtered.length === 0}
+                  className="rounded-lg bg-[var(--accent-primary)] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+                >
+                  Táblázat ({filtered.length})
+                </button>
+              </div>
+            ) : null}
+          </div>
+
+          {publishedUrl ? (
+            <p className="text-xs text-[var(--text-secondary)]">
+              Közzétéve:{" "}
+              <a href={publishedUrl} className="font-semibold text-[var(--accent-primary)] underline">
+                {publishedUrl}
+              </a>
+            </p>
+          ) : null}
+        </div>
       </div>
 
       {opsMode ? (
@@ -517,7 +487,11 @@ export function ArtistAuditResults({
           storageAvailable={identity.storageAvailable}
           busy={identity.busy}
           error={identity.error}
-          onSave={identity.saveIdentity}
+          onSave={async (input) => {
+            await identity.saveIdentity(input);
+            onIdentitySaved?.(input);
+          }}
+          onRefresh={identity.refreshProposals}
         />
       ) : null}
     </section>

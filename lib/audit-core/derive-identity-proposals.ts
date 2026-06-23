@@ -70,8 +70,10 @@ function artistFieldHasStrongQueryMatch(query: string, row: AuditRow): boolean {
   );
 }
 
-function extractWritersFromRow(row: AuditRow): Array<{ name: string; ipi: string | null }> {
-  const out: Array<{ name: string; ipi: string | null }> = [];
+function extractWritersFromRow(
+  row: AuditRow,
+): Array<{ name: string; ipi: string | null; source: string }> {
+  const out: Array<{ name: string; ipi: string | null; source: string }> = [];
   const batch = row.rawBatchData as {
     data?: { songwriters?: unknown[] };
   };
@@ -80,11 +82,20 @@ function extractWritersFromRow(row: AuditRow): Array<{ name: string; ipi: string
     const o = item as Record<string, unknown>;
     const name = String(o.name ?? "").trim();
     const ipi = String(o.ipi ?? "").trim() || null;
-    if (name || ipi) out.push({ name: name || ipi || "", ipi });
+    if (name || ipi) out.push({ name: name || ipi || "", ipi, source: "credits.fm" });
   }
   for (const hit of row.cmoHits ?? []) {
-    if (hit.composer?.trim()) out.push({ name: hit.composer.trim(), ipi: null });
-    if (hit.performer?.trim()) out.push({ name: hit.performer.trim(), ipi: null });
+    if (hit.composer?.trim()) out.push({ name: hit.composer.trim(), ipi: null, source: "CMO" });
+    if (hit.performer?.trim()) out.push({ name: hit.performer.trim(), ipi: null, source: "CMO" });
+  }
+  for (const writer of row.catalogEnrich?.mlcWriters ?? []) {
+    if (writer.name || writer.ipi) {
+      out.push({
+        name: writer.name || writer.ipi || "",
+        ipi: writer.ipi,
+        source: "MLC writer",
+      });
+    }
   }
   return out;
 }
@@ -107,6 +118,7 @@ export function deriveIdentityProposals(
   const ipiMap = new Map<string, IdentityVoteCandidate>();
 
   const matchedRows = rows.filter((row) => rowMatchesQuery(displayName, row));
+  const writerRows = matchedRows.length > 0 ? matchedRows : rows;
 
   for (const row of matchedRows) {
     const artist = row.artist?.trim() ?? "";
@@ -141,10 +153,12 @@ export function deriveIdentityProposals(
     ) {
       bump(aliasMap, artist, "artist_field");
     }
+  }
 
+  for (const row of writerRows) {
     for (const writer of extractWritersFromRow(row)) {
-      if (writer.name) bump(legalMap, writer.name, "credits.fm");
-      if (writer.ipi) bump(ipiMap, normalizeIpi(writer.ipi), "credits.fm");
+      if (writer.name) bump(legalMap, writer.name, writer.source);
+      if (writer.ipi) bump(ipiMap, normalizeIpi(writer.ipi), writer.source);
     }
   }
 

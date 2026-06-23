@@ -32,7 +32,7 @@ export default function RootLayout({
       className={`${inter.variable} ${ibm.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="flex min-h-full flex-col bg-[var(--bg-primary)]">
+      <body className="flex min-h-full flex-col bg-[var(--bg-secondary)]">
         <Script id="bbox-theme-init" strategy="beforeInteractive">
           {`(function(){try{if(localStorage.getItem('bbox-theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})()`}
         </Script>

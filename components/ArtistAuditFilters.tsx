@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 import {
   ALL_SOURCE_FILTER_IDS,
   collectNameVariants,
@@ -24,27 +26,25 @@ export function ArtistAuditFilters({
   variantOptions,
   sourceCount,
   publishedMode = false,
+  compact = false,
 }: {
   query: string;
-  /** All rows — used to list name variants (omit when variantOptions set). */
   allRows?: AuditRow[];
-  /** Rows after name-variant filter — used for per-source counts. */
   countRows?: AuditRow[];
   selectedVariantKeys: ReadonlySet<string>;
   onVariantKeysChange: (keys: Set<string>) => void;
   enabledSources: ReadonlySet<AuditSourceFilterId>;
   onToggleSource: (id: AuditSourceFilterId) => void;
   onSelectOnlySource: (id: AuditSourceFilterId) => void;
-  /** Published report: precomputed variants. */
   variantOptions?: NameVariantOption[];
-  /** Published report: per-source count override. */
   sourceCount?: (id: AuditSourceFilterId) => number;
   publishedMode?: boolean;
+  compact?: boolean;
 }) {
+  const [variantsOpen, setVariantsOpen] = useState(!compact);
   const variants = variantOptions ?? collectNameVariants(query, allRows);
   const countFor = sourceCount ?? ((id: AuditSourceFilterId) => sourceFilterCount(countRows, id));
   const activeSources = ALL_SOURCE_FILTER_IDS.filter((id) => countFor(id) > 0);
-  const totalRows = allRows.length > 0 ? allRows.length : variants.reduce((s, v) => s + v.count, 0);
 
   if (variants.length === 0 && activeSources.length === 0) return null;
 
@@ -55,82 +55,79 @@ export function ArtistAuditFilters({
     onVariantKeysChange(next);
   }
 
-  function selectStrongVariants() {
-    onVariantKeysChange(defaultPublishVariantKeys(variants));
-  }
-
-  function selectAllVariants() {
-    onVariantKeysChange(new Set(variants.map((v) => v.key)));
-  }
-
-  function clearVariants() {
-    onVariantKeysChange(new Set());
-  }
-
   return (
-    <div className="space-y-4 rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] p-4">
+    <div className="space-y-3">
       {variants.length > 0 ? (
-        <div>
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs font-semibold text-[var(--text-secondary)]">
-              Névváltozatok a találatokban
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={selectStrongVariants}
-                className="rounded-full bg-[var(--bg-secondary)] px-2.5 py-1 text-[10px] font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
-              >
-                Pontos + szóegyezés
-              </button>
-              <button
-                type="button"
-                onClick={selectAllVariants}
-                className="rounded-full bg-[var(--bg-secondary)] px-2.5 py-1 text-[10px] font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
-              >
-                Összes
-              </button>
-              <button
-                type="button"
-                onClick={clearVariants}
-                className="rounded-full bg-[var(--bg-secondary)] px-2.5 py-1 text-[10px] font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
-              >
-                Egyik sem
-              </button>
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-primary)]">
+          <button
+            type="button"
+            onClick={() => setVariantsOpen((v) => !v)}
+            className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]"
+          >
+            <span>
+              Névváltozatok ({selectedVariantKeys.size}/{variants.length})
+            </span>
+            <ChevronDown className={`size-4 transition ${variantsOpen ? "rotate-180" : ""}`} aria-hidden />
+          </button>
+          {variantsOpen ? (
+            <div className="border-t border-[var(--border)] px-3 py-2">
+              <div className="mb-2 flex flex-wrap gap-1">
+                <button
+                  type="button"
+                  onClick={() => onVariantKeysChange(defaultPublishVariantKeys(variants))}
+                  className="rounded-md bg-[var(--bg-secondary)] px-2 py-1 text-[10px] font-semibold text-[var(--text-secondary)]"
+                >
+                  Ajánlott
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onVariantKeysChange(new Set(variants.map((v) => v.key)))}
+                  className="rounded-md bg-[var(--bg-secondary)] px-2 py-1 text-[10px] font-semibold text-[var(--text-secondary)]"
+                >
+                  Összes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onVariantKeysChange(new Set())}
+                  className="rounded-md bg-[var(--bg-secondary)] px-2 py-1 text-[10px] font-semibold text-[var(--text-muted)]"
+                >
+                  Törlés
+                </button>
+              </div>
+              <ul className="max-h-36 space-y-0.5 overflow-y-auto">
+                {variants.map((v: NameVariantOption) => {
+                  const on = selectedVariantKeys.has(v.key);
+                  return (
+                    <li key={v.key}>
+                      <label className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 hover:bg-[var(--bg-secondary)]">
+                        <input
+                          type="checkbox"
+                          checked={on}
+                          onChange={() => toggleVariant(v.key)}
+                          className="size-3.5 accent-[var(--accent-primary)]"
+                        />
+                        <span className="text-xs text-[var(--text-primary)]">{nameVariantLabel(v)}</span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+              {!publishedMode ? (
+                <p className="mt-2 text-[10px] leading-relaxed text-[var(--text-muted)]">
+                  A jelentésbe csak a kijelölt névváltozatok kerülnek.
+                </p>
+              ) : null}
             </div>
-          </div>
-          <ul className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-2">
-            {variants.map((v: NameVariantOption) => {
-              const on = selectedVariantKeys.has(v.key);
-              return (
-                <li key={v.key}>
-                  <label className="flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 hover:bg-[var(--bg-primary)]">
-                    <input
-                      type="checkbox"
-                      checked={on}
-                      onChange={() => toggleVariant(v.key)}
-                      className="mt-0.5 size-3.5 shrink-0 accent-[var(--accent-primary)]"
-                    />
-                    <span className="text-sm text-[var(--text-primary)]">{nameVariantLabel(v)}</span>
-                  </label>
-                </li>
-              );
-            })}
-          </ul>
-          <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--text-muted)]">
-            {publishedMode
-              ? "Több névváltozat is kijelölhető a jelentésben szereplő dalok szűréséhez."
-              : "Több névváltozat is kijelölhető. A „hasonló név” gyenge egyezés — alapból ki van kapcsolva. A jelentésbe csak a kijelölt változatokhoz tartozó dalok kerülnek (soronként is kihagyhatók)."}
-          </p>
+          ) : null}
         </div>
       ) : null}
 
       {activeSources.length > 0 ? (
         <div>
-          <p className="mb-2 text-xs font-semibold text-[var(--text-secondary)]">
-            Forrás szerinti szűrés
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+            Forrás
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {activeSources.map((id) => {
               const on = enabledSources.has(id);
               const count = countFor(id);
@@ -140,22 +137,18 @@ export function ArtistAuditFilters({
                   type="button"
                   onClick={() => onToggleSource(id)}
                   onDoubleClick={() => onSelectOnlySource(id)}
-                  title="Dupla kattintás: csak ez a forrás"
-                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                  title="Dupla katt: csak ez"
+                  className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
                     on
                       ? "bg-[var(--accent-primary)] text-white"
-                      : "bg-[var(--bg-secondary)] text-[var(--text-muted)] line-through opacity-60"
+                      : "bg-[var(--bg-secondary)] text-[var(--text-muted)] line-through opacity-50"
                   }`}
                 >
-                  {SOURCE_FILTER_LABELS[id]} ({count})
+                  {SOURCE_FILTER_LABELS[id]} {count}
                 </button>
               );
             })}
           </div>
-          <p className="mt-1.5 text-[11px] text-[var(--text-muted)]">
-            Csak a bejelölt forrásokból származó találatok jelennek meg. Dupla kattintás egy forrásra:
-            csak az.
-          </p>
         </div>
       ) : null}
     </div>

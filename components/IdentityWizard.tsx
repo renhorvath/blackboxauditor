@@ -86,10 +86,40 @@ export function useArtistIdentity({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const rowKey = useMemo(
-    () => (rows ? `${rows.length}:${rows[0]?.isrc ?? ""}` : ""),
-    [rows],
-  );
+  const rowKey = useMemo(() => {
+    if (!rows?.length) return "";
+    const mlcIpis = rows
+      .flatMap((r) => r.catalogEnrich?.mlcWriters?.map((w) => w.ipi) ?? [])
+      .filter(Boolean)
+      .join(",");
+    return `${rows.length}:${mlcIpis}`;
+  }, [rows]);
+
+  async function fetchProposals(signal?: AbortSignal) {
+    const res = await fetch("/api/artist-identity", {
+      method: "POST",
+      headers: identityHeaders(),
+      body: JSON.stringify({
+        action: "propose",
+        artistName,
+        spotifyId,
+        rows,
+      }),
+      signal,
+    });
+    const data = (await res.json()) as {
+      status?: IdentityStatus;
+      proposals?: IdentityProposals;
+      context?: ArtistContext | null;
+      storageAvailable?: boolean;
+      error?: string;
+    };
+    if (!res.ok) throw new Error(data.error ?? "Identitás lekérdezés sikertelen.");
+    setStatus(data.status ?? null);
+    setProposals(data.proposals ?? null);
+    setContext(data.context ?? null);
+    setStorageAvailable(data.storageAvailable !== false);
+  }
 
   useEffect(() => {
     if (!enabled || !artistName || !rows?.length) {
@@ -99,37 +129,14 @@ export function useArtistIdentity({
       return;
     }
 
+    const controller = new AbortController();
     let cancelled = false;
     setBusy(true);
     setError(null);
 
-    void fetch("/api/artist-identity", {
-      method: "POST",
-      headers: identityHeaders(),
-      body: JSON.stringify({
-        action: "propose",
-        artistName,
-        spotifyId,
-        rows,
-      }),
-    })
-      .then(async (res) => {
-        const data = (await res.json()) as {
-          status?: IdentityStatus;
-          proposals?: IdentityProposals;
-          context?: ArtistContext | null;
-          storageAvailable?: boolean;
-          error?: string;
-        };
-        if (!res.ok) throw new Error(data.error ?? "Identitás lekérdezés sikertelen.");
-        if (cancelled) return;
-        setStatus(data.status ?? null);
-        setProposals(data.proposals ?? null);
-        setContext(data.context ?? null);
-        setStorageAvailable(data.storageAvailable !== false);
-      })
+    void fetchProposals(controller.signal)
       .catch((err) => {
-        if (cancelled) return;
+        if (cancelled || err.name === "AbortError") return;
         setError(err instanceof Error ? err.message : "Hiba");
       })
       .finally(() => {
@@ -138,8 +145,22 @@ export function useArtistIdentity({
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [enabled, artistName, spotifyId, rowKey, rows]);
+
+  async function refreshProposals() {
+    if (!enabled || !artistName || !rows?.length) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await fetchProposals();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Hiba");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function saveIdentity(input: {
     excludeAliases: string[];
@@ -187,7 +208,8 @@ export function useArtistIdentity({
     busy,
     error,
     saveIdentity,
-    refresh: () => setStatus((s) => s),
+    refreshProposals,
+    refresh: refreshProposals,
   };
 }
 
@@ -203,6 +225,7 @@ export function IdentityWizard({
   busy,
   error,
   onSave,
+  onRefresh,
 }: {
   open: boolean;
   onClose: () => void;
@@ -212,6 +235,7 @@ export function IdentityWizard({
   storageAvailable: boolean;
   busy: boolean;
   error: string | null;
+  onRefresh?: () => void | Promise<void>;
   onSave: (input: {
     excludeAliases: string[];
     aliases: string[];
@@ -225,6 +249,11 @@ export function IdentityWizard({
   const [legalName, setLegalName] = useState("");
   const [ipi, setIpi] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    void onRefresh?.();
+  }, [open]);
 
   useEffect(() => {
     if (!open || !proposals) return;
@@ -457,9 +486,11 @@ export function IdentityWizard({
                     </li>
                   ))}
                 </ul>
+              ) : busy ? (
+                <p className="text-sm text-[var(--text-muted)]">MLC writer jelöltek betöltése…</p>
               ) : (
                 <p className="text-sm text-[var(--text-muted)]">
-                  Nincs writer jelölt az audit sorokban (credits.fm enrich később).
+                  Nincs writer jelölt az audit sorokban — az MLC probe sem adott találatot.
                 </p>
               )}
               <label className="block text-sm">
@@ -469,8 +500,10 @@ export function IdentityWizard({
                   value={legalName}
                   onChange={(e) => setLegalName(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2 text-[var(--text-primary)]"
-                  placeholder="pl. Topa Ferenc"
                 />
+                <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                  MLC/CISAC writer formátum: vezetéknév + keresztnév (pl. magyar előadónál gyakran fordított sorrend).
+                </p>
               </label>
             </>
           ) : null}
@@ -502,8 +535,10 @@ export function IdentityWizard({
                     </li>
                   ))}
                 </ul>
+              ) : busy ? (
+                <p className="text-sm text-[var(--text-muted)]">MLC / CISAC IPI jelöltek betöltése…</p>
               ) : (
-                <p className="text-sm text-[var(--text-muted)]">Nincs IPI jelölt a sorokban.</p>
+                <p className="text-sm text-[var(--text-muted)]">Nincs IPI jelölt — kézi megadás alul.</p>
               )}
               <label className="block text-sm">
                 <span className="text-[var(--text-secondary)]">Kézi IPI</span>
@@ -512,8 +547,12 @@ export function IdentityWizard({
                   value={ipi}
                   onChange={(e) => setIpi(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2 font-mono text-[var(--text-primary)]"
-                  placeholder="00518140870"
+                  inputMode="numeric"
+                  autoComplete="off"
                 />
+                <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                  11 számjegyű IPI name number — az MLC Public Search writer sorában látható.
+                </p>
               </label>
             </>
           ) : null}

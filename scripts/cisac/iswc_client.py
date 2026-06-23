@@ -82,6 +82,19 @@ class IswcClient:
             body = e.read().decode(errors="replace")
             raise RuntimeError(f"ISWC HTTP {e.code} {method} {path}: {body[:400]}") from e
 
+    def search_by_title_and_contributor(
+        self, title: str, last_name: str, *, title_type: str = "OT"
+    ) -> list[dict]:
+        result = self._request(
+            "POST",
+            "/iswc/searchByTitleAndContributor",
+            data={
+                "titles": [{"title": title, "type": title_type}],
+                "lastName": last_name,
+            },
+        )
+        return result if isinstance(result, list) else [result]
+
     def search_by_ipi(self, ipi_name_number: str | int, last_name: str = "") -> list[dict]:
         """Összes mű egy IPI Name Number alapján (cím nélküli creator-keresés)."""
         name_number = int(str(ipi_name_number).lstrip("0") or "0")

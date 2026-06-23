@@ -15,9 +15,9 @@ function mlcScanRaceMs(): number {
     if (Number.isFinite(n)) return n;
   }
   if (process.env.MLC_USE_DUCKDB?.trim().toLowerCase() === "false") {
-    return 0;
+    return 85_000;
   }
-  // DuckDB artist queries on a full catalog often take 2–4+ minutes — do not cut off at 85s.
+  // Background MLC route — optional cap (0 = no limit). Default 0 for full DuckDB scans.
   if (catalogAvailable()) return 0;
   return 85_000;
 }
@@ -87,23 +87,14 @@ async function fetchMlcScans(
     return { mlcUnmatched, mlcUnclaimed };
   }
 
-  if (catalogAvailable()) {
-    if (!skipUnmatched) {
-      mlcUnmatched = await raceMlcScan(scanMlcArtist(artistName, { forceRefresh }));
-    }
-    if (!skipUnclaimed) {
-      mlcUnclaimed = await raceMlcScan(scanMlcUnclaimedArtist(artistName, { forceRefresh }));
-    }
-  } else {
-    [mlcUnmatched, mlcUnclaimed] = await Promise.all([
-      skipUnmatched
-        ? Promise.resolve(null)
-        : raceMlcScan(scanMlcArtist(artistName, { forceRefresh })),
-      skipUnclaimed
-        ? Promise.resolve(null)
-        : raceMlcScan(scanMlcUnclaimedArtist(artistName, { forceRefresh })),
-    ]);
-  }
+  [mlcUnmatched, mlcUnclaimed] = await Promise.all([
+    skipUnmatched
+      ? Promise.resolve(null)
+      : raceMlcScan(scanMlcArtist(artistName, { forceRefresh })),
+    skipUnclaimed
+      ? Promise.resolve(null)
+      : raceMlcScan(scanMlcUnclaimedArtist(artistName, { forceRefresh })),
+  ]);
 
   return { mlcUnmatched, mlcUnclaimed };
 }

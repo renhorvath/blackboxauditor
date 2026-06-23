@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { ArtistContext } from "@/lib/audit-core/artist-context-types";
 import { deriveIdentityProposals } from "@/lib/audit-core/derive-identity-proposals";
 import { evaluateIdentityStatus } from "@/lib/audit-core/evaluate-identity-status";
+import { supplementIdentityProposalsFromMlc } from "@/lib/mlc-identity-hints";
 import {
   artistContextSlug,
   artistContextStorageAvailable,
@@ -18,7 +19,13 @@ type IdentityAction = "propose" | "save";
 async function buildSnapshot(displayName: string, rows: AuditRow[] | null) {
   const slug = artistContextSlug(displayName);
   const context = await loadArtistContext(slug);
-  const proposals = rows && rows.length > 0 ? deriveIdentityProposals(displayName, rows) : null;
+  let proposals = rows && rows.length > 0 ? deriveIdentityProposals(displayName, rows) : null;
+  if (proposals) {
+    proposals = await supplementIdentityProposalsFromMlc(proposals, {
+      legalName: context?.legalName,
+      ipi: context?.ipi,
+    });
+  }
   const status = proposals
     ? evaluateIdentityStatus(proposals, context)
     : context?.wizardCompletedAt

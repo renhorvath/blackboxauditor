@@ -152,6 +152,11 @@ export interface CatalogRowEnrich {
   creditsMlcStatus?: UnmatchedAuditResult["match_status"];
   mlcWorkSongCode?: string | null;
   mlcWorkFetched?: boolean;
+  mlcRecordingFetched?: boolean;
+  mlcTitleMatch?: boolean;
+  cisacFetched?: boolean;
+  cisacIswc?: string | null;
+  mlcWriters?: Array<{ name: string; ipi: string | null }>;
 }
 
 export interface SearchTrackHit {
@@ -237,9 +242,46 @@ export interface ArtistAuditMeta {
   /** credits.fm + MLC works enrich completed (Sprint 6). */
   catalogEnrichReady?: boolean;
   catalogEnrichIsrcCount?: number;
+  catalogEnrichCreditsFound?: number;
+  catalogEnrichIswcFilled?: number;
   catalogEnrichCreditsFm?: boolean;
   catalogEnrichMlcWorks?: boolean;
   catalogEnrichMlcWorkCount?: number;
+  catalogEnrichMlcRecordings?: boolean;
+  catalogEnrichMlcRecordingCount?: number;
+  catalogEnrichMlcWriterSearchFilled?: number;
+  catalogEnrichMlcWriterSearchLookups?: number;
+  catalogEnrichMlcWriterTitlesMatched?: number;
+  catalogEnrichMlcWriterTitlesQueried?: number;
+  catalogEnrichMlcWriterSkipReason?: "no_api" | "no_titles" | "no_writer" | "synthetic_catalog";
+  catalogEnrichProfile?: "recording" | "composer" | "hybrid";
+  /** Staged enrich: which legs finished successfully. */
+  catalogEnrichLegsDone?: string[];
+  catalogEnrichLegBusy?: string | null;
+  catalogEnrichMlcApiAvailable?: boolean;
+  catalogEnrichMlcDiscoveredIpi?: string | null;
+  catalogEnrichMlcDiscoveredLegalName?: string | null;
+  /** Total unique real ISRCs in audit rows (enrich may cap below this). */
+  catalogEnrichIsrcTotal?: number;
+  /** Audit ISRCs with Spotify title/artist for MLC search. */
+  catalogEnrichSpotifyMetaCount?: number;
+  /** ISRC count in Spotify discography map for this artist. */
+  catalogEnrichSpotifyCatalogCount?: number;
+  catalogEnrichCisacFilled?: number;
+  catalogEnrichCisacCatalogWorks?: number;
+  catalogEnrichCisacIpi?: string | null;
+  catalogEnrichCisacTitleLookups?: number;
+  catalogEnrichLegalNameUsed?: boolean;
+  catalogEnrichSpotifyArtistResolved?: boolean;
+  catalogEnrichIswcNetAttempted?: boolean;
+  catalogEnrichIswcNetFilled?: number;
+  catalogEnrichMlcTitleMatchCount?: number;
+  catalogEnrichMlcCatalogSource?: string;
+  catalogEnrichCatalogSeedCount?: number;
+  /** @deprecated use catalogEnrichCatalogSeedCount */
+  catalogEnrichBeatportSeedCount?: number;
+  /** no_isrc — enrich not attempted (only synthetic / empty ISRC rows). */
+  catalogEnrichSkipReason?: "no_isrc";
   /** Which indexes were reachable on the data backend (if any). */
   sourceCapabilities?: {
     catalog: boolean;

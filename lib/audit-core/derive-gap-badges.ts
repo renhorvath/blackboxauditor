@@ -21,6 +21,7 @@ function hasIswc(row: AuditRow): boolean {
 function hasMlcMatched(row: AuditRow): boolean {
   if (row.mlcMatchStatus === "matched") return true;
   if (row.catalogEnrich?.creditsMlcStatus === "matched") return true;
+  if (row.catalogEnrich?.mlcWorkFetched || row.catalogEnrich?.mlcRecordingFetched) return true;
   return false;
 }
 

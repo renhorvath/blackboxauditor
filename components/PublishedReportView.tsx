@@ -38,8 +38,7 @@ export function PublishedReportView({
   useEffect(() => {
     const variants = collectNameVariantsFromFindings(report.artistDisplayName, findings);
     setSelectedVariantKeys(new Set(variants.map((v) => v.key)));
-    const active = ALL_SOURCE_FILTER_IDS.filter((id) => findingSourceFilterCount(findings, id) > 0);
-    setEnabledSources(new Set(active.length > 0 ? active : ALL_SOURCE_FILTER_IDS));
+    setEnabledSources(new Set(ALL_SOURCE_FILTER_IDS));
   }, [report.artistDisplayName, findings]);
 
   const caseByPlaybook = useMemo(() => {
@@ -96,56 +95,56 @@ export function PublishedReportView({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] px-5 py-4">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[var(--text-muted)]">
-          Jogdíj-ellenőrzés · pillanatkép
-        </p>
-        <p className="mt-1 text-xs text-[var(--text-muted)]">{published}</p>
-        <p className="mt-3 text-xs leading-relaxed text-[var(--text-muted)]">
-          Ez egy pillanatkép az ellenőrzésről — nem minősül jogi tanácsnak, és nem garantál
-          claimet vagy kifizetést. A recovery lépések tájékoztató jellegűek.
-        </p>
+    <div className="space-y-5">
+      <p className="text-xs text-[var(--text-muted)]">
+        Pillanatkép · {published} · tájékoztató jellegű, nem minősül jogi tanácsnak.
+      </p>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,300px)_1fr] xl:items-start">
+        <aside className="space-y-4 xl:sticky xl:top-20">
+          <ArtistAuditSummaryHeader
+            artistName={report.artistDisplayName}
+            meta={displayMeta}
+            problemCount={filtered.length}
+            totalCount={variantFindings.length}
+            compact
+          />
+          <ArtistAuditFilters
+            query={report.artistDisplayName}
+            selectedVariantKeys={selectedVariantKeys}
+            onVariantKeysChange={setSelectedVariantKeys}
+            enabledSources={enabledSources}
+            onToggleSource={toggleSource}
+            onSelectOnlySource={selectOnlySource}
+            variantOptions={variantOptions}
+            sourceCount={(id) => findingSourceFilterCount(variantFindings, id)}
+            publishedMode
+            compact
+          />
+        </aside>
+
+        <div className="min-w-0 space-y-4">
+          {selectedVariantKeys.size === 0 ? (
+            <p className="rounded-lg border border-amber-200/80 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
+              Válassz legalább egy névváltozatot.
+            </p>
+          ) : filtered.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-[var(--border)] px-6 py-12 text-center text-[var(--text-secondary)]">
+              Nincs találat a jelenlegi szűrőkkel.
+            </p>
+          ) : (
+            <ul className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-primary)]">
+              {filtered.map((f) => (
+                <PublishedFindingCard
+                  key={f.findingKey}
+                  finding={f}
+                  caseByPlaybook={caseByPlaybook}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
-
-      <ArtistAuditSummaryHeader
-        artistName={report.artistDisplayName}
-        meta={displayMeta}
-        problemCount={filtered.length}
-        totalCount={variantFindings.length}
-      />
-
-      <ArtistAuditFilters
-        query={report.artistDisplayName}
-        selectedVariantKeys={selectedVariantKeys}
-        onVariantKeysChange={setSelectedVariantKeys}
-        enabledSources={enabledSources}
-        onToggleSource={toggleSource}
-        onSelectOnlySource={selectOnlySource}
-        variantOptions={variantOptions}
-        sourceCount={(id) => findingSourceFilterCount(variantFindings, id)}
-        publishedMode
-      />
-
-      {selectedVariantKeys.size === 0 ? (
-        <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          Válassz legalább egy névváltozatot a találatok megjelenítéséhez.
-        </p>
-      ) : filtered.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-[var(--border)] px-6 py-10 text-center text-[var(--text-secondary)]">
-          Nincs találat a jelenlegi szűrőkkel.
-        </p>
-      ) : (
-        <ul className="divide-y divide-[var(--border)] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-primary)]">
-          {filtered.map((f) => (
-            <PublishedFindingCard
-              key={f.findingKey}
-              finding={f}
-              caseByPlaybook={caseByPlaybook}
-            />
-          ))}
-        </ul>
-      )}
     </div>
   );
 }

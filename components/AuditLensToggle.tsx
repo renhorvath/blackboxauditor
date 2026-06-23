@@ -13,43 +13,47 @@ export function AuditLensToggle({
   onLensChange,
   showCatalog,
   opsMode,
+  inline = false,
 }: {
   lens: AuditLensId;
   onLensChange: (lens: AuditLensId) => void;
   showCatalog: boolean;
   opsMode: boolean;
+  inline?: boolean;
 }) {
   const options = showCatalog
     ? LENS_OPTIONS
     : LENS_OPTIONS.filter((o) => o.id !== "catalog");
 
   return (
-    <div className="space-y-1.5">
-      <p className="text-xs font-semibold text-[var(--text-secondary)]">
-        Nézet{opsMode ? " (ops)" : ""}
-      </p>
-      <div className="flex flex-wrap gap-2">
+    <div className={inline ? "" : "space-y-1.5"}>
+      {!inline ? (
+        <p className="text-xs font-semibold text-[var(--text-secondary)]">
+          Nézet{opsMode ? " (ops)" : ""}
+        </p>
+      ) : null}
+      <div className="flex flex-wrap gap-1.5">
         {options.map((opt) => (
           <button
             key={opt.id}
             type="button"
             onClick={() => onLensChange(opt.id)}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+            className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${
               lens === opt.id
-                ? "bg-[var(--accent-primary)] text-white"
-                : "bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
+                ? "bg-[var(--bg-secondary)] text-[var(--text-primary)] ring-1 ring-[var(--border)]"
+                : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
             }`}
           >
             {opt.label}
           </button>
         ))}
       </div>
-      {lens === "by_work" ? (
+      {!inline && lens === "by_work" ? (
         <p className="text-[11px] text-[var(--text-muted)]">
           Ugyanazon műhöz tartozó felvételek egy csoportban (ISWC, műkód vagy cím alapján).
         </p>
       ) : null}
-      {lens === "catalog" ? (
+      {!inline && lens === "catalog" ? (
         <p className="text-[11px] text-[var(--text-muted)]">
           Metaadat táblázat — ISRC, ISWC, MLC és ARTISJUS azonosítók egy helyen.
         </p>
