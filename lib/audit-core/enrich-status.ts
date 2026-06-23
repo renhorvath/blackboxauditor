@@ -92,8 +92,12 @@ export function buildEnrichStatusLegs(
 
   if (!meta.catalogEnrichReady) {
     if (!enrichBusy && meta.catalogEnrichProfile) {
+      const composerHint =
+        meta.catalogEnrichProfile === "composer"
+          ? "Spotify/CISAC enrich megszakadt — indítsd újra az auditot (zeneszerző katalógus, ~30 mp)."
+          : "Metaadat scan megszakadt vagy timeout — indítsd újra az auditot.";
       return [
-        leg("spotify", "Spotify ISRC", "warn", "Metaadat scan megszakadt vagy timeout — indítsd újra az auditot."),
+        leg("spotify", "Spotify ISRC", "warn", composerHint),
         leg("credits", "credits.fm", "pending", "—"),
         leg("mlc", "MLC API", "pending", "—"),
         leg("mlc-writer", "MLC writer katalógus", "pending", "—"),

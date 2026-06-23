@@ -86,7 +86,7 @@ export function HomeAuditor() {
     leg: EnrichLegId,
     artistName: string,
     spotifyArtistId: string | null,
-    signal: AbortSignal,
+    _signal: AbortSignal,
   ) {
     const res = await fetch("/api/artist-audit/enrich", {
       method: "POST",
@@ -97,7 +97,6 @@ export function HomeAuditor() {
         spotifyArtistId: spotifyArtistId ?? undefined,
         leg,
       }),
-      signal,
     });
     const data = (await res.json()) as {
       rows?: AuditRow[];
@@ -424,7 +423,7 @@ export function HomeAuditor() {
 
       void runCatalogEnrichIfNeeded(fast.rows ?? [], artistName, artistId, runId, signal);
 
-      if (fast.meta?.mlcPending) {
+      if (fast.meta?.mlcPending && countRealIsrcs(fast.rows ?? []) > 0) {
         void runMlcBackground(artistName, artistId, scope, runId, signal);
       }
     } catch (err) {

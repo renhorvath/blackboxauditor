@@ -13,7 +13,7 @@ export interface EnrichLegPlan {
 export function planEnrichLegs(profile: CatalogEnrichProfile): EnrichLegPlan {
   if (profile === "composer") {
     return {
-      blocking: ["local", "spotify"],
+      blocking: ["local"],
       background: ["cisac"],
     };
   }

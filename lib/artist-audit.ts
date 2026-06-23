@@ -1,4 +1,4 @@
-import { buildAuditSummary } from "@/lib/audit-engine";
+import { countRealIsrcs } from "@/lib/audit-core/enrich-profile";
 import { rowHasPayoutProblem } from "@/lib/artist-audit-display";
 import { summarizeCatalogGaps } from "@/lib/audit-core/derive-gap-badges";
 import { computeCatalogReady } from "@/lib/audit-core/catalog-lens";
@@ -168,10 +168,19 @@ function assembleArtistAuditResult(input: {
   viaQueryApi: boolean;
   ejiResult: Awaited<ReturnType<typeof searchEjiByArtist>> | null;
   cmoWebResults: Awaited<ReturnType<typeof searchCmoWebByArtist>>;
+  mlcUnmatchedSkipped?: boolean;
+  mlcUnclaimedSkipped?: boolean;
   mlcPending?: boolean;
 }): ArtistAuditResult {
-  const { artistName, scope, payload, viaQueryApi, ejiResult, cmoWebResults, mlcPending } =
-    input;
+  const {
+    artistName,
+    scope,
+    payload,
+    viaQueryApi,
+    ejiResult,
+    cmoWebResults,
+    mlcPending,
+  } = input;
 
   const dataBackend = viaQueryApi
     ? "query-api"
@@ -229,8 +238,10 @@ function assembleArtistAuditResult(input: {
             cmoIndex: cmoIndexAvailable(),
           };
 
-  const mlcUnmatchedSkipped = artistAuditSkipMlcUnmatched();
-  const mlcUnclaimedSkipped = artistAuditSkipMlcUnclaimed();
+  const mlcUnmatchedSkipped =
+    input.mlcUnmatchedSkipped ?? artistAuditSkipMlcUnmatched();
+  const mlcUnclaimedSkipped =
+    input.mlcUnclaimedSkipped ?? artistAuditSkipMlcUnclaimed();
   const problemRows = rows.filter(rowHasPayoutProblem);
   const catalogGaps = summarizeCatalogGaps(problemRows, artistName);
   const catalogReady = computeCatalogReady(rows, artisjusMatches.length);
@@ -265,8 +276,12 @@ function assembleArtistAuditResult(input: {
   };
 }
 
-/** True when a follow-up MLC-only request is worthwhile (local catalog, MLC not env-skipped). */
-export function artistAuditNeedsMlcFollowUp(meta: Pick<ArtistAuditMeta, "mlcUnmatchedSkipped" | "mlcUnclaimedSkipped" | "sourceCapabilities">): boolean {
+/** True when a follow-up MLC-only request is worthwhile. */
+export function artistAuditNeedsMlcFollowUp(
+  meta: Pick<ArtistAuditMeta, "mlcUnmatchedSkipped" | "mlcUnclaimedSkipped" | "sourceCapabilities">,
+  options?: { realIsrcCount?: number },
+): boolean {
+  if ((options?.realIsrcCount ?? 1) === 0) return false;
   if (meta.mlcUnmatchedSkipped && meta.mlcUnclaimedSkipped) return false;
   return meta.sourceCapabilities?.catalog === true;
 }
@@ -288,6 +303,10 @@ export async function runArtistAudit(input: {
   const forceRefresh = input.scope === "full";
   const skipEjiRefresh = mlcMode === "only" && !forceRefresh;
 
+  const skipMlc = mlcMode === "skip";
+  const mlcUnmatchedSkipped = skipMlc || artistAuditSkipMlcUnmatched();
+  const mlcUnclaimedSkipped = skipMlc || artistAuditSkipMlcUnclaimed();
+
   const [loaded, ejiResult, cmoWebResults] = await Promise.all([
     loadArtistSources(input.artistName, { forceRefresh, mlcMode }).catch((err) => {
       if (shouldUseQueryApi()) throw err;
@@ -299,17 +318,28 @@ export async function runArtistAudit(input: {
     loadCmoWebResults(input.artistName, forceRefresh && !skipEjiRefresh),
   ]);
 
-  return assembleArtistAuditResult({
+  const result = assembleArtistAuditResult({
     artistName: input.artistName,
     scope: input.scope,
     payload: loaded.payload,
     viaQueryApi: loaded.viaQueryApi,
     ejiResult,
     cmoWebResults,
-    mlcPending: mlcMode === "skip" && artistAuditNeedsMlcFollowUp({
-      mlcUnmatchedSkipped: artistAuditSkipMlcUnmatched(),
-      mlcUnclaimedSkipped: artistAuditSkipMlcUnclaimed(),
-      sourceCapabilities: loaded.payload.capabilities,
-    }),
+    mlcUnmatchedSkipped,
+    mlcUnclaimedSkipped,
   });
+
+  const realIsrcCount = countRealIsrcs(result.rows);
+  result.meta.mlcPending =
+    mlcMode === "skip" &&
+    artistAuditNeedsMlcFollowUp(
+      {
+        mlcUnmatchedSkipped: artistAuditSkipMlcUnmatched(),
+        mlcUnclaimedSkipped: artistAuditSkipMlcUnclaimed(),
+        sourceCapabilities: loaded.payload.capabilities,
+      },
+      { realIsrcCount },
+    );
+
+  return result;
 }

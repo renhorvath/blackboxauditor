@@ -237,7 +237,7 @@ export function ArtistAuditResults({
       <AuditProgressStrip mlcBusy={mlcBusy} enrichBusy={enrichBusy} />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,300px)_1fr] xl:items-start">
-        <aside className="space-y-4 xl:sticky xl:top-20">
+        <aside className="space-y-4 pb-8 xl:sticky xl:top-20 xl:max-h-[calc(100vh-5.5rem)] xl:overflow-y-auto xl:overscroll-contain">
           <ArtistAuditSummaryHeader
             artistName={artistName}
             meta={displayMeta ?? meta}
