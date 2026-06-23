@@ -31,8 +31,12 @@ function envFlag(name: string): boolean {
   return process.env[name]?.trim().toLowerCase() === "true";
 }
 
-/** Vercel: skip slow MLC unmatched (~845M rows). Unclaimed still runs. */
+/** Vercel: skip slow MLC unmatched (~845M rows) unless explicitly enabled. */
 export function artistAuditSkipMlcUnmatched(): boolean {
+  if (process.env.ARTIST_AUDIT_ENABLE_MLC_UNMATCHED?.trim().toLowerCase() === "true") {
+    return false;
+  }
+  if (isServerlessRuntime()) return true;
   return envFlag("ARTIST_AUDIT_SKIP_MLC_UNMATCHED") || envFlag("ARTIST_AUDIT_SKIP_MLC");
 }
 
