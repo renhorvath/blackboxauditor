@@ -98,7 +98,13 @@ export function ArtistAuditResults({
   useEffect(() => {
     if (!rows) return;
     const variants = collectNameVariants(artistName, rows);
-    setSelectedVariantKeys(defaultPublishVariantKeys(variants));
+    setSelectedVariantKeys((prev) => {
+      const defaults = defaultPublishVariantKeys(variants);
+      if (prev.size === 0) return defaults;
+      const next = new Set(prev);
+      for (const k of defaults) next.add(k);
+      return next;
+    });
     setPublishExcludedKeys(new Set());
     setEnabledSources(new Set(ALL_SOURCE_FILTER_IDS));
     setLens("findings");
@@ -116,8 +122,9 @@ export function ArtistAuditResults({
 
   const displayMeta = useMemo(() => {
     if (!meta) return null;
-    return { ...meta, ...computeAuditCountsFromRows(variantRows) };
-  }, [meta, variantRows]);
+    // Header totals reflect the full audit, not the name-variant subset (MLC rows often use different spellings).
+    return { ...meta, ...computeAuditCountsFromRows(sorted) };
+  }, [meta, sorted]);
 
   const filtered = useMemo(
     () => variantRows.filter((row) => rowMatchesSourceFilters(row, enabledSources)),

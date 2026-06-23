@@ -112,10 +112,7 @@ export async function enrichAuditLeg(
       artistSlug,
       spotifyByIsrc: spotify.map,
     });
-    const outRows =
-      profile === "composer"
-        ? applySpotifyTitlesToRows(net.rows, spotify.map)
-        : net.rows;
+    const outRows = applySpotifyTitlesToRows(net.rows, spotify.map);
     const realRows = outRows.filter(
       (r) => r.isrc?.trim() && !isSyntheticAuditIsrc(r.isrc),
     );
@@ -130,8 +127,7 @@ export async function enrichAuditLeg(
         catalogEnrichIswcNetAttempted: Boolean(artistSlug),
         catalogEnrichIsrcCount: realRows.length,
         catalogEnrichIsrcTotal: realRows.length,
-        catalogEnrichSpotifyMetaCount:
-          profile === "composer" ? countSpotifyMetaMatches(outRows, spotify.map) : 0,
+        catalogEnrichSpotifyMetaCount: countSpotifyMetaMatches(outRows, spotify.map),
         catalogEnrichSpotifyCatalogCount: spotify.catalogCount,
         catalogEnrichSpotifyArtistResolved: spotify.artistResolved,
         catalogEnrichCreditsFound: 0,

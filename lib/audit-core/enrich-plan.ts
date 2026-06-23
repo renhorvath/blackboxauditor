@@ -20,13 +20,13 @@ export function planEnrichLegs(profile: CatalogEnrichProfile): EnrichLegPlan {
 
   if (profile === "hybrid") {
     return {
-      blocking: ["local", "spotify", "isrc"],
+      blocking: ["local", "isrc"],
       background: ["cisac"],
     };
   }
 
   return {
-    blocking: ["local", "spotify", "isrc"],
+    blocking: ["local", "isrc"],
     background: ["cisac"],
   };
 }

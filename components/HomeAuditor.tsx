@@ -242,9 +242,23 @@ export function HomeAuditor() {
       } catch (err) {
         if (isAbortError(err) || isAuditRunStale(runId)) return;
         const msg = err instanceof Error ? err.message : "Metaadat enrich sikertelen.";
-        setResolveError(`${msg} A black box találatok megmaradtak.`);
-        setEnrichBusy(false);
-        setAuditMeta((prev) => (prev ? { ...prev, catalogEnrichLegBusy: null } : prev));
+        const preIsrcDone =
+          plan.blocking.includes("isrc") &&
+          legsDone.includes("local") &&
+          !legsDone.includes("isrc");
+        if (preIsrcDone) {
+          setAuditMeta((prev) =>
+            prev ? { ...prev, catalogEnrichReady: true, catalogEnrichLegBusy: null } : prev,
+          );
+          setEnrichBusy(false);
+          setResolveError(
+            `${msg} Spotify meta kész — ISRC enrich részben kimaradt (nagy katalógus).`,
+          );
+        } else {
+          setResolveError(`${msg} A black box találatok megmaradtak.`);
+          setEnrichBusy(false);
+          setAuditMeta((prev) => (prev ? { ...prev, catalogEnrichLegBusy: null } : prev));
+        }
       }
     };
 
@@ -416,12 +430,16 @@ export function HomeAuditor() {
       setResolveStatus("idle");
       setCatalogBusy(false);
 
-      const deferEnrichForMlc =
-        fast.meta?.mlcPending && countRealIsrcs(fast.rows ?? []) > 0;
+      const mlcFollowUp =
+        fast.meta?.mlcPending &&
+        (Boolean(artistId?.trim()) || countRealIsrcs(fast.rows ?? []) > 0);
 
-      if (deferEnrichForMlc) {
+      if (mlcFollowUp) {
         void runMlcBackground(artistName, artistId, scope, runId, signal);
       } else {
+        if (fast.meta?.mlcPending) {
+          setAuditMeta((prev) => (prev ? { ...prev, mlcPending: false } : prev));
+        }
         void runCatalogEnrichIfNeeded(fast.rows ?? [], artistName, artistId, runId, signal);
       }
     } catch (err) {

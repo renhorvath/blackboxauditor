@@ -1,5 +1,4 @@
 import { buildAuditSummary } from "@/lib/audit-engine";
-import { countRealIsrcs } from "@/lib/audit-core/enrich-profile";
 import { rowHasPayoutProblem } from "@/lib/artist-audit-display";
 import { summarizeCatalogGaps } from "@/lib/audit-core/derive-gap-badges";
 import { computeCatalogReady } from "@/lib/audit-core/catalog-lens";
@@ -280,9 +279,7 @@ function assembleArtistAuditResult(input: {
 /** True when a follow-up MLC-only request is worthwhile. */
 export function artistAuditNeedsMlcFollowUp(
   meta: Pick<ArtistAuditMeta, "mlcUnmatchedSkipped" | "mlcUnclaimedSkipped" | "sourceCapabilities">,
-  options?: { realIsrcCount?: number },
 ): boolean {
-  if ((options?.realIsrcCount ?? 1) === 0) return false;
   if (meta.mlcUnmatchedSkipped && meta.mlcUnclaimedSkipped) return false;
   return meta.sourceCapabilities?.catalog === true;
 }
@@ -330,17 +327,13 @@ export async function runArtistAudit(input: {
     mlcUnclaimedSkipped,
   });
 
-  const realIsrcCount = countRealIsrcs(result.rows);
   result.meta.mlcPending =
     mlcMode === "skip" &&
-    artistAuditNeedsMlcFollowUp(
-      {
-        mlcUnmatchedSkipped: artistAuditSkipMlcUnmatched(),
-        mlcUnclaimedSkipped: artistAuditSkipMlcUnclaimed(),
-        sourceCapabilities: loaded.payload.capabilities,
-      },
-      { realIsrcCount },
-    );
+    artistAuditNeedsMlcFollowUp({
+      mlcUnmatchedSkipped: artistAuditSkipMlcUnmatched(),
+      mlcUnclaimedSkipped: artistAuditSkipMlcUnclaimed(),
+      sourceCapabilities: loaded.payload.capabilities,
+    });
 
   return result;
 }

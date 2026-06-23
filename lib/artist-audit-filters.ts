@@ -142,6 +142,11 @@ export function rowMatchesNameVariants(
     if (hit.name?.trim()) candidates.push(hit.name.trim());
   }
 
+  // MLC scan rows belong to this artist audit even when performer spelling differs.
+  if ((row.mlcMatchStatus === "unmatched" || row.mlcUnclaimed) && variantKeys.size > 0) {
+    return true;
+  }
+
   return candidates.some((c) => variantKeys.has(normKey(c)));
 }
 
