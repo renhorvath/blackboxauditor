@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { runArtistAudit, type ArtistAuditMlcMode } from "@/lib/artist-audit";
 import type { ArtistAuditScope } from "@/lib/types";
 
-/** EJI web scrape can take 30–40s on cold cache. */
-export const maxDuration = 60;
+/** EJI scrape (~40s) + CMO web via query API (SAMI up to 60s) run in parallel. */
+export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
   let body: {
