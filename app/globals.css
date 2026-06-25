@@ -64,3 +64,28 @@ body {
   border-color: var(--border-active);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 22%, transparent);
 }
+
+/* Landing: gradient accents (primary -> complementary) */
+.cta-grad {
+  background-image: var(--accent-grad);
+  box-shadow: 0 12px 32px -10px color-mix(in srgb, var(--accent-primary) 65%, transparent);
+}
+
+.cta-grad:hover {
+  box-shadow: 0 16px 40px -10px color-mix(in srgb, var(--accent-primary) 75%, transparent);
+}
+
+.grad-fill {
+  background-image: var(--accent-grad);
+}
+
+.text-grad {
+  background-image: var(--accent-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.glow-grad {
+  box-shadow: 0 24px 70px -24px color-mix(in srgb, var(--accent-primary) 55%, transparent);
+}
