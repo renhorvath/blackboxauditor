@@ -54,6 +54,7 @@ import {
 } from "@/lib/query-api-client";
 import type { ArtistAuditSourcesPayload } from "@/lib/query-api-types";
 import type { AuditRow, AuditSummary, ArtistAuditMeta, ArtistAuditScope } from "@/lib/types";
+import { buildLandingTeaser, type LandingTeaserResult } from "@/lib/landing-teaser";
 
 export type ArtistAuditMlcMode = "wait" | "skip" | "only";
 
@@ -350,4 +351,42 @@ export async function runArtistAudit(input: {
     });
 
   return result;
+}
+
+/**
+ * Gyors, kapuzott teaser a publikus landinghez: index + EJI + CMO web (MLC nélkül).
+ * Csak az aggregált összegzőt számolja ki; a teljes találati lista szerveroldalon marad.
+ */
+export async function runLandingTeaser(artistName: string): Promise<LandingTeaserResult> {
+  const name = artistName.trim();
+  const available = !(isServerlessRuntime() && !queryApiBaseUrl());
+
+  if (!available) {
+    return buildLandingTeaser({
+      resolvedName: name,
+      available: false,
+      artisjusMatches: [],
+      cmoMatches: [],
+      ejiHits: [],
+      cmoWebHits: [],
+    });
+  }
+
+  const [loaded, ejiResult, cmoWebResults] = await Promise.all([
+    loadArtistSources(name, { forceRefresh: false, mlcMode: "skip" }).catch((err) => {
+      if (shouldUseQueryApi()) throw err;
+      return { payload: emptyPayload(name), viaQueryApi: false };
+    }),
+    loadEjiResult(name, false),
+    loadCmoWebResults(name, false),
+  ]);
+
+  return buildLandingTeaser({
+    resolvedName: name,
+    available: true,
+    artisjusMatches: loaded.payload.artisjusMatches,
+    cmoMatches: loaded.payload.cmoMatches,
+    ejiHits: ejiResult ? flattenEjiHits(ejiResult) : [],
+    cmoWebHits: flattenCmoWebResults(cmoWebResults ?? []),
+  });
 }

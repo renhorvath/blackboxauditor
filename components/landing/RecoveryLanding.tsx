@@ -11,17 +11,30 @@ import {
   Lock,
   Music4,
   Search,
+  SearchX,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
+import type {
+  LandingTeaserGroup,
+  LandingTeaserHit,
+  LandingTeaserResult,
+} from "@/lib/landing-teaser";
 
 /**
  * Warm "recovery partner" landing.
- * Mock only: the search is faked (static sample result) and the email gate
- * just confirms locally. No real audit API is called here.
+ * The search hits the real, gated teaser endpoint (/api/landing-search) for the
+ * fast sources (ARTISJUS, EJI, EU CMO). MLC (USA) is intentionally excluded
+ * here: its scan takes minutes and belongs to the full audit after the gate.
+ * Only aggregated totals + a few sample titles are returned; the full hit list
+ * stays server-side behind the email gate.
  */
 
 type Phase = "idle" | "loading" | "result";
+
+type SearchStatus = LandingTeaserResult["status"] | "error";
+
+const EMPTY_SUMMARY = { totalItems: 0, societies: 0, countries: 0 };
 
 /** Preview-only color palettes. Scoped to the landing via CSS vars on the root. */
 type Palette = {
@@ -62,84 +75,7 @@ const SOURCE_GROUPS: { region: string; flag: string; items: string[] }[] = [
       "SAMI (SE)",
     ],
   },
-  { region: "USA", flag: "🇺🇸", items: ["The MLC"] },
 ];
-
-type SampleHit = { title: string; type: string; year?: number };
-type SampleGroup = {
-  source: string;
-  region: string;
-  flag: string;
-  total: number;
-  confidence: "high" | "fuzzy";
-  hits: SampleHit[];
-};
-
-/** Mock data for the gated teaser. High-confidence groups show titles; fuzzy ones stay blurred. */
-const SAMPLE_GROUPS: SampleGroup[] = [
-  {
-    source: "ARTISJUS",
-    region: "Magyarország",
-    flag: "🇭🇺",
-    total: 47,
-    confidence: "high",
-    hits: [
-      { title: "1849 (sorozat) – főcím", type: "film", year: 2023 },
-      { title: "Aranyélet – 3. évad, cue", type: "film", year: 2022 },
-      { title: "Reklámfilm – TV spot zene", type: "reklám", year: 2024 },
-    ],
-  },
-  {
-    source: "EJI",
-    region: "Magyarország",
-    flag: "🇭🇺",
-    total: 8,
-    confidence: "high",
-    hits: [
-      { title: "Stúdiófelvétel – előadói jogdíj", type: "rádió", year: 2023 },
-      { title: "Koncertközvetítés – sugárzás", type: "tv", year: 2022 },
-      { title: "Válogatásalbum – lejátszás", type: "rádió", year: 2021 },
-    ],
-  },
-  {
-    source: "GVL",
-    region: "Németország",
-    flag: "🇩🇪",
-    total: 3,
-    confidence: "high",
-    hits: [
-      { title: "Filmzene – ARD sugárzás", type: "film", year: 2022 },
-      { title: "Score – streaming felosztás", type: "streaming", year: 2023 },
-      { title: "Co-produkció – RBB", type: "tv", year: 2021 },
-    ],
-  },
-  {
-    source: "STIM",
-    region: "Svédország",
-    flag: "🇸🇪",
-    total: 6,
-    confidence: "fuzzy",
-    hits: [
-      { title: "Reklámzene – SVT", type: "reklám", year: 2023 },
-      { title: "Sorozatzene – licenc", type: "film", year: 2022 },
-      { title: "Háttérzene – sugárzás", type: "tv", year: 2021 },
-    ],
-  },
-  {
-    source: "SOZA",
-    region: "Szlovákia",
-    flag: "🇸🇰",
-    total: 1,
-    confidence: "fuzzy",
-    hits: [{ title: "Rádiós lejátszás – cue", type: "rádió", year: 2022 }],
-  },
-];
-
-const SAMPLE_SUMMARY = {
-  totalItems: SAMPLE_GROUPS.reduce((sum, g) => sum + g.total, 0),
-  societies: SAMPLE_GROUPS.length,
-  countries: new Set(SAMPLE_GROUPS.map((g) => g.region)).size,
-};
 
 const HOW_STEPS = [
   {
@@ -193,7 +129,7 @@ const FAQ = [
   },
   {
     q: "Honnan vannak a listák?",
-    a: "Hivatalos jogkezelők nyilvános, azonosítatlan és kifizetetlen tétel-listáiból: ARTISJUS, EJI, és 10+ ország további szervezetei, plusz az amerikai The MLC.",
+    a: "Hivatalos jogkezelők nyilvános, azonosítatlan és kifizetetlen tétel-listáiból: ARTISJUS, EJI, és 10+ ország további szervezetei.",
   },
 ];
 
@@ -201,6 +137,9 @@ export function RecoveryLanding({ preview = false }: { preview?: boolean }) {
   const [name, setName] = useState("");
   const [phase, setPhase] = useState<Phase>("idle");
   const [resolvedName, setResolvedName] = useState("");
+  const [groups, setGroups] = useState<LandingTeaserGroup[]>([]);
+  const [summary, setSummary] = useState(EMPTY_SUMMARY);
+  const [searchStatus, setSearchStatus] = useState<SearchStatus>("none");
   const [email, setEmail] = useState("");
   const [emailSent, setEmailSent] = useState(false);
   const [emailSending, setEmailSending] = useState(false);
@@ -216,16 +155,44 @@ export function RecoveryLanding({ preview = false }: { preview?: boolean }) {
     "--accent-grad": `linear-gradient(120deg, ${palette.primary} 0%, ${palette.comp} 100%)`,
   } as React.CSSProperties;
 
-  function runSearch(e: FormEvent) {
+  async function runSearch(e: FormEvent) {
     e.preventDefault();
     const trimmed = name.trim();
-    if (!trimmed) return;
+    if (trimmed.length < 2 || phase === "loading") return;
     setResolvedName(trimmed);
     setPhase("loading");
+    setGroups([]);
+    setSummary(EMPTY_SUMMARY);
     setEmailSent(false);
     setEmailError(null);
     setEmail("");
-    window.setTimeout(() => setPhase("result"), 1100);
+
+    let phase1: LandingTeaserResult | null = null;
+    try {
+      const res = await fetch("/api/landing-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ artistName: trimmed }),
+      });
+      if (res.ok) {
+        phase1 = (await res.json().catch(() => null)) as LandingTeaserResult | null;
+      }
+    } catch {
+      phase1 = null;
+    }
+
+    if (!phase1) {
+      setGroups([]);
+      setSummary(EMPTY_SUMMARY);
+      setSearchStatus("error");
+      setPhase("result");
+      return;
+    }
+
+    setGroups(phase1.groups);
+    setSummary(phase1.summary);
+    setSearchStatus(phase1.status);
+    setPhase("result");
   }
 
   async function submitEmail(e: FormEvent) {
@@ -350,7 +317,7 @@ export function RecoveryLanding({ preview = false }: { preview?: boolean }) {
         {/* TRUST STRIP */}
         <div className="mx-auto max-w-4xl px-4 pb-14 md:px-6">
           <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm font-medium text-[var(--text-muted)]">
-            {["ARTISJUS", "EJI", "GVL", "STIM", "SENA", "The MLC"].map((s) => (
+            {["ARTISJUS", "EJI", "GVL", "STIM", "SENA", "SOZA"].map((s) => (
               <span key={s} className="text-[var(--text-secondary)]">
                 {s}
               </span>
@@ -367,6 +334,9 @@ export function RecoveryLanding({ preview = false }: { preview?: boolean }) {
         <section className="mx-auto max-w-3xl px-4 pb-4 md:px-6">
           <VerdictTeaser
             phase={phase}
+            status={searchStatus}
+            groups={groups}
+            summary={summary}
             resolvedName={resolvedName}
             email={email}
             emailSent={emailSent}
@@ -482,7 +452,7 @@ export function RecoveryLanding({ preview = false }: { preview?: boolean }) {
             title="A magyar listák a fókusz, de nem állunk meg a határnál"
             subtitle="A zenédet máshol is játsszák, és a pénzed ott is keletkezik. Mi ott is megnézzük, ahova te reálisan sosem jutnál el."
           />
-          <div className="mt-10 grid gap-6 md:grid-cols-3">
+          <div className="mt-10 grid gap-6 md:grid-cols-2">
             {SOURCE_GROUPS.map((group) => (
               <div key={group.region}>
                 <div className="flex items-center gap-2">
@@ -588,17 +558,11 @@ function SectionHeading({
   );
 }
 
-function VerdictTeaser({
-  phase,
-  resolvedName,
-  email,
-  emailSent,
-  emailSending,
-  emailError,
-  onEmailChange,
-  onEmailSubmit,
-}: {
+interface VerdictTeaserProps {
   phase: Phase;
+  status: SearchStatus;
+  groups: LandingTeaserGroup[];
+  summary: { totalItems: number; societies: number; countries: number };
   resolvedName: string;
   email: string;
   emailSent: boolean;
@@ -606,7 +570,11 @@ function VerdictTeaser({
   emailError: string | null;
   onEmailChange: (v: string) => void;
   onEmailSubmit: (e: FormEvent) => void;
-}) {
+}
+
+function VerdictTeaser(props: VerdictTeaserProps) {
+  const { phase, status, groups, summary, resolvedName } = props;
+
   if (phase === "loading") {
     return (
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-primary)] p-8 text-center">
@@ -614,8 +582,15 @@ function VerdictTeaser({
         <p className="mt-3 text-sm text-[var(--text-secondary)]">
           Magyar és európai listákat nézem <strong>{resolvedName}</strong> névre…
         </p>
+        <p className="mt-1 text-xs text-[var(--text-muted)]">
+          Az EJI és a külföldi jogkezelők élő lekérdezése akár egy percig is eltarthat.
+        </p>
       </div>
     );
+  }
+
+  if (status !== "found" || groups.length === 0) {
+    return <NoHitTeaser {...props} />;
   }
 
   return (
@@ -642,80 +617,134 @@ function VerdictTeaser({
 
       {/* global summary */}
       <div className="grid grid-cols-3 divide-x divide-[var(--border)] border-b border-[var(--border)]">
-        <SummaryStat value={SAMPLE_SUMMARY.totalItems} label="tétel" />
-        <SummaryStat value={SAMPLE_SUMMARY.societies} label="jogkezelő" />
-        <SummaryStat value={SAMPLE_SUMMARY.countries} label="ország" />
+        <SummaryStat value={summary.totalItems} label="tétel" />
+        <SummaryStat value={summary.societies} label="jogkezelő" />
+        <SummaryStat value={summary.countries} label="ország" />
       </div>
 
       {/* per-society groups */}
       <div className="space-y-4 px-6 py-5">
-        {SAMPLE_GROUPS.map((group) => (
-          <SourceGroup key={group.source} group={group} />
+        {groups.map((group) => (
+          <SourceGroup key={group.key} group={group} />
         ))}
         <p className="text-xs text-[var(--text-secondary)]">
           Jellemzően metaadat / IPI kérdés, amit ki tudunk bogozni és rendezni helyetted.
         </p>
       </div>
 
-      {/* email gate */}
-      <div className="border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--accent-primary)_5%,var(--bg-primary))] px-6 py-5">
-        {emailSent ? (
-          <div className="flex items-center gap-3">
-            <span className="grad-fill flex h-9 w-9 items-center justify-center rounded-full text-white">
-              <CheckCircle2 className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="text-sm font-semibold text-[var(--text-primary)]">
-                Köszönjük! Hamarosan küldjük az összefoglalót.
-              </p>
-              <p className="text-xs text-[var(--text-secondary)]">
-                A(z) {resolvedName} névre vonatkozó teljes listát erre az e-mailre küldjük.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="flex items-center gap-2">
-              <Lock className="h-4 w-4 text-[var(--accent-primary)]" />
-              <p className="text-sm font-semibold text-[var(--text-primary)]">
-                Megmutatjuk a teljes listát, és segítünk hazahozni a pénzed.
-              </p>
-            </div>
-            <form onSubmit={onEmailSubmit} className="mt-3 flex flex-col gap-2 sm:flex-row">
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => onEmailChange(e.target.value)}
-                placeholder="E-mail cím"
-                className="input-bbox h-11 flex-1 px-3"
-                aria-label="E-mail cím"
-              />
-              <button
-                type="submit"
-                disabled={emailSending}
-                className="cta-grad inline-flex h-11 items-center justify-center gap-2 rounded-[10px] px-5 font-semibold text-white transition hover:brightness-105 disabled:opacity-60"
-              >
-                {emailSending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  "Kérem az összefoglalót"
-                )}
-              </button>
-            </form>
-            {emailError && (
-              <p className="mt-2 text-xs font-medium text-[var(--accent-critical)]">{emailError}</p>
-            )}
-            <p className="mt-2 text-xs text-[var(--text-muted)]">
-              Nem spam-elünk. Csak az összefoglalót küldjük, és bármikor leiratkozhatsz. Részletek az{" "}
-              <Link href="/adatvedelem" className="underline hover:text-[var(--text-secondary)]">
-                adatkezelési tájékoztatóban
-              </Link>
-              .
-            </p>
-          </>
-        )}
+      <EmailGate {...props} />
+    </div>
+  );
+}
+
+/** Shown when the public search returns nothing, the engine is offline, or it errors. */
+function NoHitTeaser(props: VerdictTeaserProps) {
+  const { status, resolvedName } = props;
+
+  const copy =
+    status === "unavailable"
+      ? {
+          title: "A nyilvános kereső most nem elérhető",
+          body: "A keresőmotor épp nem fut ezen a környezeten. Add meg az e-mailed, és kézzel nézzük át a magyar és külföldi listákat a nevedre.",
+        }
+      : status === "error"
+        ? {
+            title: "Hiba történt a keresés közben",
+            body: "Valami félrement a lekérdezésnél. Add meg az e-mailed, és kézzel nézünk utána, vagy próbáld újra kicsit később.",
+          }
+        : {
+            title: "Nincs egyértelmű nyilvános találat",
+            body: "A nyilvános listákon most nem találtunk egyértelmű tételt erre a névre. Ez nem jelenti, hogy nincs kint pénzed: sok jogdíj nem nyilvános listán ül. Add meg az e-mailed, és mélyebben utánanézünk.",
+          };
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-primary)]">
+      <div className="border-b border-[var(--border)] px-6 py-5">
+        <div className="flex items-center gap-2">
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--bg-elevated)] text-[var(--text-muted)]">
+            <SearchX className="h-4 w-4" />
+          </span>
+          <span className="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+            {copy.title}
+          </span>
+        </div>
+        <p className="mt-3 text-base font-semibold text-[var(--text-primary)]">
+          <span className="text-[var(--accent-primary)]">{resolvedName}</span>
+        </p>
+        <p className="mt-1 text-sm text-[var(--text-secondary)]">{copy.body}</p>
       </div>
+      <EmailGate {...props} />
+    </div>
+  );
+}
+
+function EmailGate({
+  resolvedName,
+  email,
+  emailSent,
+  emailSending,
+  emailError,
+  onEmailChange,
+  onEmailSubmit,
+}: VerdictTeaserProps) {
+  return (
+    <div className="border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--accent-primary)_5%,var(--bg-primary))] px-6 py-5">
+      {emailSent ? (
+        <div className="flex items-center gap-3">
+          <span className="grad-fill flex h-9 w-9 items-center justify-center rounded-full text-white">
+            <CheckCircle2 className="h-5 w-5" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-[var(--text-primary)]">
+              Köszönjük! Hamarosan jelentkezünk.
+            </p>
+            <p className="text-xs text-[var(--text-secondary)]">
+              A(z) {resolvedName} névre vonatkozó összefoglalót erre az e-mailre küldjük.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center gap-2">
+            <Lock className="h-4 w-4 text-[var(--accent-primary)]" />
+            <p className="text-sm font-semibold text-[var(--text-primary)]">
+              Megmutatjuk a teljes listát, és segítünk hazahozni a pénzed.
+            </p>
+          </div>
+          <form onSubmit={onEmailSubmit} className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => onEmailChange(e.target.value)}
+              placeholder="E-mail cím"
+              className="input-bbox h-11 flex-1 px-3"
+              aria-label="E-mail cím"
+            />
+            <button
+              type="submit"
+              disabled={emailSending}
+              className="cta-grad inline-flex h-11 items-center justify-center gap-2 rounded-[10px] px-5 font-semibold text-white transition hover:brightness-105 disabled:opacity-60"
+            >
+              {emailSending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Kérem az összefoglalót"
+              )}
+            </button>
+          </form>
+          {emailError && (
+            <p className="mt-2 text-xs font-medium text-[var(--accent-critical)]">{emailError}</p>
+          )}
+          <p className="mt-2 text-xs text-[var(--text-muted)]">
+            Nem spam-elünk. Csak az összefoglalót küldjük, és bármikor leiratkozhatsz. Részletek az{" "}
+            <Link href="/adatvedelem" className="underline hover:text-[var(--text-secondary)]">
+              adatkezelési tájékoztatóban
+            </Link>
+            .
+          </p>
+        </>
+      )}
     </div>
   );
 }
@@ -729,10 +758,20 @@ function SummaryStat({ value, label }: { value: number; label: string }) {
   );
 }
 
-function SourceGroup({ group }: { group: SampleGroup }) {
+const GHOST_PLACEHOLDERS: LandingTeaserHit[] = [
+  { title: "Azonosítatlan tétel" },
+  { title: "Azonosítatlan tétel" },
+];
+
+function SourceGroup({ group }: { group: LandingTeaserGroup }) {
   const isFuzzy = group.confidence === "fuzzy";
   const visibleHits = isFuzzy ? [] : group.hits;
   const remaining = group.total - visibleHits.length;
+  const ghostCount = Math.min(2, Math.max(remaining, 0));
+  const ghostHits =
+    visibleHits.length > 0
+      ? group.hits.slice(0, ghostCount)
+      : GHOST_PLACEHOLDERS.slice(0, ghostCount);
 
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4">
@@ -759,14 +798,14 @@ function SourceGroup({ group }: { group: SampleGroup }) {
 
       {/* hits */}
       <div className="mt-3 space-y-1.5">
-        {visibleHits.map((hit) => (
-          <HitRow key={hit.title} hit={hit} />
+        {visibleHits.map((hit, i) => (
+          <HitRow key={`${group.key}-${i}-${hit.title}`} hit={hit} />
         ))}
-        {remaining > 0 && (
+        {remaining > 0 && ghostHits.length > 0 && (
           <div className="relative">
             <div aria-hidden className="space-y-1.5 select-none blur-[5px]">
-              {(isFuzzy ? group.hits : group.hits.slice(0, Math.min(2, remaining))).map((hit) => (
-                <HitRow key={`ghost-${hit.title}`} hit={hit} />
+              {ghostHits.map((hit, i) => (
+                <HitRow key={`ghost-${group.key}-${i}`} hit={hit} />
               ))}
             </div>
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -782,27 +821,23 @@ function SourceGroup({ group }: { group: SampleGroup }) {
   );
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  film: "film",
-  streaming: "streaming",
-  rádió: "rádió",
-  tv: "TV",
-  reklám: "reklám",
-};
-
-function HitRow({ hit }: { hit: SampleHit }) {
+function HitRow({ hit }: { hit: LandingTeaserHit }) {
   return (
     <div className="flex items-center gap-2 text-sm">
       <Music4 className="h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]" />
       <span className="truncate text-[var(--text-secondary)]">{hit.title}</span>
-      <span className="ml-auto flex shrink-0 items-center gap-2">
-        <span className="rounded bg-[var(--bg-primary)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-muted)]">
-          {TYPE_LABELS[hit.type] ?? hit.type}
+      {(hit.type || hit.year) && (
+        <span className="ml-auto flex shrink-0 items-center gap-2">
+          {hit.type ? (
+            <span className="rounded bg-[var(--bg-primary)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-muted)]">
+              {hit.type}
+            </span>
+          ) : null}
+          {hit.year ? (
+            <span className="text-[10px] text-[var(--text-muted)]">{hit.year}</span>
+          ) : null}
         </span>
-        {hit.year ? (
-          <span className="text-[10px] text-[var(--text-muted)]">{hit.year}</span>
-        ) : null}
-      </span>
+      )}
     </div>
   );
 }

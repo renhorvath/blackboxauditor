@@ -67,7 +67,7 @@ export default function Image() {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          {["ARTISJUS", "EJI", "GVL", "STIM", "The MLC"].map((s) => (
+          {["ARTISJUS", "EJI", "GVL", "STIM", "SENA"].map((s) => (
             <div
               key={s}
               style={{
