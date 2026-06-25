@@ -16,6 +16,8 @@ function authHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
     Accept: "application/json",
     "Content-Type": "application/json",
+    // Skip ngrok's free-tier browser interstitial for server-to-server calls.
+    "ngrok-skip-browser-warning": "true",
   };
   const key = queryApiKey();
   if (key) headers.Authorization = `Bearer ${key}`;
