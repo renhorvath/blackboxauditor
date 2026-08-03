@@ -45,6 +45,7 @@ import {
   queryApiBaseUrl,
   shouldUseQueryApi,
 } from "@/lib/query-api-config";
+import { indexDbConfigured } from "@/lib/index-db-config";
 import { isServerlessRuntime } from "@/lib/runtime-env";
 import {
   fetchArtistSourcesFromQueryApi,
@@ -93,8 +94,21 @@ async function loadArtistSources(
   const skipMlc = mlcMode === "skip";
   const mlcOnly = mlcMode === "only";
 
-  if (isServerlessRuntime() && !queryApiBaseUrl()) {
+  if (isServerlessRuntime() && !queryApiBaseUrl() && !indexDbConfigured()) {
     return { payload: emptyPayload(artistName), viaQueryApi: false };
+  }
+
+  // Cloud SQL indexes: prefer over Query API for ARTISJUS/CMO (no tunnel needed).
+  if (indexDbConfigured() && skipMlc) {
+    const fast = await fetchLocalFastSources(artistName);
+    return {
+      payload: {
+        ...fast,
+        mlcUnmatched: null,
+        mlcUnclaimed: null,
+      },
+      viaQueryApi: false,
+    };
   }
 
   if (shouldUseQueryApi()) {
@@ -359,7 +373,7 @@ export async function runArtistAudit(input: {
  */
 export async function runLandingTeaser(artistName: string): Promise<LandingTeaserResult> {
   const name = artistName.trim();
-  const available = !(isServerlessRuntime() && !queryApiBaseUrl());
+  const available = !(isServerlessRuntime() && !queryApiBaseUrl() && !indexDbConfigured());
 
   if (!available) {
     return buildLandingTeaser({

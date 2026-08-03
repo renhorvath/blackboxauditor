@@ -1,5 +1,11 @@
 import { searchArtisjusByArtist, artisjusIndexAvailable } from "@/lib/artisjus-index";
 import { searchCmoByArtist, cmoIndexAvailable } from "@/lib/cmo-index";
+import { indexDbConfigured } from "@/lib/index-db-config";
+import {
+  indexSearchAvailable,
+  searchArtisjusByArtistDb,
+  searchCmoByArtistDb,
+} from "@/lib/index-search-db";
 import {
   catalogAvailable,
   scanMlcArtist,
@@ -37,14 +43,30 @@ function raceMlcScan<T>(promise: Promise<T | null>): Promise<T | null> {
 }
 
 function sourceCapabilities(): ArtistAuditSourcesPayload["capabilities"] {
+  const viaDb = indexSearchAvailable();
   return {
     catalog: catalogAvailable(),
-    artisjusIndex: artisjusIndexAvailable(),
-    cmoIndex: cmoIndexAvailable(),
+    artisjusIndex: viaDb || artisjusIndexAvailable(),
+    cmoIndex: viaDb || cmoIndexAvailable(),
   };
 }
 
 async function fetchArtisjusAndCmo(artistName: string) {
+  if (indexDbConfigured()) {
+    try {
+      const [artisjusMatches, cmoMatches] = await Promise.all([
+        searchArtisjusByArtistDb(artistName, 150),
+        searchCmoByArtistDb(artistName, { limit: 120 }),
+      ]);
+      return { artisjusMatches, cmoMatches };
+    } catch (err) {
+      console.error(
+        "[artist-sources] Cloud SQL index search failed, falling back to local files:",
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+
   const [artisjusMatches, cmoMatches] = await Promise.all([
     artisjusIndexAvailable()
       ? Promise.resolve().then(() => {

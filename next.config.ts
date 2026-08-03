@@ -18,6 +18,7 @@ const nextConfig: NextConfig = {
   env: {
     MLC_PYTHON: defaultMlcPython(),
   },
+  serverExternalPackages: ["pg", "pg-native"],
 };
 
 export default nextConfig;

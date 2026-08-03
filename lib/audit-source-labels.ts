@@ -10,10 +10,10 @@ export interface AuditSourceChip {
 }
 
 export const AUDIT_HERO_TITLE =
-  "Van zenéd, aminek a jogdíja esetleg nem jutott el hozzád?";
+  "Előzetes ellenőrzés nyilvános listákon";
 
 export const AUDIT_HERO_SUBTITLE =
-  "Írd be, milyen néven szerepelsz a kiadványokon és streamingszolgáltatókon. Megnézzük, szerepelsz-e valamelyik kifizetetlen vagy azonosítatlan listán.";
+  "Írd be, milyen néven szerepelsz a kiadványokon. Megnézzük a nyilvános azonosítatlan listákat. Ez nem a teljes vizsgálat, és nem fedi le a magyar film- és reklámjogdíjakat.";
 
 export const AUDIT_FORM_PLACEHOLDER = "Előadóneved a kiadványokon";
 

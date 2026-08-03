@@ -34,6 +34,8 @@
     "etl:isrc-index": ".venv/bin/python3 scripts/etl/build_mlc_isrc_index.py",
     "etl:query": ".venv/bin/python3 scripts/etl/query.py",
     "etl:export-artist": ".venv/bin/python3 scripts/etl/export_artist_mlc_json.py",
+    "cloudsql:load-indexes": "NODE_OPTIONS='--max-old-space-size=8192' npx tsx scripts/cloudsql/load-indexes.mts",
+    "cloudsql:parity": "NODE_OPTIONS='--max-old-space-size=8192' npx tsx scripts/cloudsql/parity-test.mts",
     "db:migrate": "npx tsx scripts/db/migrate.mts",
     "batch:artist-audit": "npx tsx scripts/batch_artist_audit.mjs",
     "recovery:export-cases": "npx tsx scripts/recovery/export_cases.mts"
@@ -44,6 +46,8 @@
     "lucide-react": "^1.14.0",
     "next": "16.2.6",
     "papaparse": "^5.5.3",
+    "pg": "^8.22.0",
+    "pg-copy-streams": "^7.0.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "server-only": "^0.0.1"
@@ -52,12 +56,15 @@
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/papaparse": "^5.5.2",
+    "@types/pg": "^8.20.3",
+    "@types/pg-copy-streams": "^1.2.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
     "tsx": "^4.22.4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vercel": "^58.4.4"
   }
 }

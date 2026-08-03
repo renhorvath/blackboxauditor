@@ -65,6 +65,122 @@ body {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 22%, transparent);
 }
 
+/* Meder — Believe-inspired color-blocking editorial */
+.meder-page {
+  --meder-petrol: #2f5d5a;
+  --meder-ink: #111111;
+  --meder-black: #111111;
+  --meder-white: #ffffff;
+  --meder-sand: #e8e2d5;
+  --meder-gold: #d9a441;
+  --meder-muted: rgba(17, 17, 17, 0.55);
+  font-family: var(--font-meder-sans), ui-sans-serif, system-ui, sans-serif;
+  color: var(--meder-ink);
+  background: var(--meder-white);
+}
+
+.meder-display {
+  font-family: var(--font-meder-display), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: -0.015em;
+  line-height: 1.02;
+}
+
+.meder-label {
+  font-family: var(--font-meder-display), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--meder-muted);
+}
+
+.meder-cta {
+  border-radius: 0;
+  background: var(--meder-black);
+  padding: 0.85rem 1.4rem;
+  font-family: var(--font-meder-display), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--meder-white);
+  transition: opacity 0.15s ease;
+}
+
+.meder-cta:hover {
+  opacity: 0.88;
+}
+
+.meder-cta-light {
+  background: var(--meder-white);
+  color: var(--meder-black);
+}
+
+.meder-cta-light:hover {
+  opacity: 0.92;
+}
+
+.meder-link-plus {
+  font-family: var(--font-meder-display), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-decoration: underline;
+  text-underline-offset: 0.3em;
+  color: inherit;
+  transition: opacity 0.15s ease;
+}
+
+.meder-link-plus:hover {
+  opacity: 0.7;
+}
+
+.meder-input {
+  width: 100%;
+  border-radius: 0;
+  border: 1px solid rgba(17, 17, 17, 0.2);
+  background: var(--meder-white);
+  padding: 0.75rem 0.9rem;
+  font-size: 0.9375rem;
+  color: var(--meder-ink);
+  outline: none;
+}
+
+.meder-input::placeholder {
+  color: rgba(17, 17, 17, 0.38);
+}
+
+.meder-input:focus {
+  border-color: var(--meder-ink);
+}
+
+.meder-input-on-color {
+  width: 100%;
+  border-radius: 0;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: transparent;
+  padding: 0.75rem 0.9rem;
+  font-size: 0.9375rem;
+  color: var(--meder-white);
+  outline: none;
+}
+
+.meder-input-on-color::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.meder-input-on-color:focus {
+  border-color: rgba(255, 255, 255, 0.7);
+}
+
+.meder-input-on-color option {
+  color: #111;
+  background: #fff;
+}
+
 /* Landing: gradient accents (primary -> complementary) */
 .cta-grad {
   background-image: var(--accent-grad);

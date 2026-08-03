@@ -16,9 +16,9 @@ const ibm = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "bbox audit — jogdíj-metadata ellenőrzés",
+  title: "Meder — jogdíj-visszaszerzés és kiadói adminisztráció",
   description:
-    "ISRC-alapú audit credits.fm és MLC jelek szerint — szerző IPI-k, ISWC, share státusz.",
+    "Beragadt film-, reklám- és külföldi jogdíj visszaszerzése a hivatalos jogkezelői csatornákon, majd folyamatos lejelentés-kezelés. Előleg nélkül.",
 };
 
 export default function RootLayout({
