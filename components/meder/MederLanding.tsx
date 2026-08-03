@@ -495,23 +495,32 @@ export function MederLanding() {
           <h2 className="meder-display mt-4 text-3xl md:text-5xl">Mennyibe kerül</h2>
           <div className="mt-12 grid gap-0 border-t border-black/15 md:grid-cols-2">
             <div className="border-b border-black/15 py-8 md:border-r md:border-b-0 md:pr-12 md:py-10">
-              <p className="meder-label">Visszaszerzés</p>
-              <p className="meder-display mt-4 text-6xl text-black md:text-7xl">25%</p>
+              <p className="meder-display text-xl md:text-2xl">Visszaszerzés · 25%</p>
               <p className="mt-4 max-w-sm text-sm leading-relaxed text-black/55">
                 A ténylegesen megérkezett összegből. Nincs előleg. Ha nem érkezik pénz, nem fizetsz.
               </p>
             </div>
             <div className="py-8 md:py-10 md:pl-12">
-              <p className="meder-label">Folyamatos kezelés</p>
+              <p className="meder-display text-xl md:text-2xl">Folyamatos kezelés · 15%</p>
               <p className="mt-4 max-w-sm text-sm leading-relaxed text-black/55">
-                Az általunk gondozott jogdíjfolyam egy részét kérjük. A legjobb eredményünk az, ha egy
-                év múlva nincs mit visszaszerezni.
-              </p>
-              <p className="mt-6 text-xs tracking-wide text-black/40 uppercase">
-                A pontos feltételeket az első beszélgetésen átbeszéljük.
+                A kezelt jogdíjfolyamból. Nincs havidíj, nincs kiadói részesedés a műveidből.
               </p>
             </div>
           </div>
+          <p className="mt-10 max-w-2xl text-sm leading-relaxed text-black/55">
+            Kis tételre nem számlázunk. A legjobb eredményünk az, ha egy év múlva nincs mit
+            visszaszerezni.
+          </p>
+          <p className="mt-8 text-[11px] font-medium tracking-[0.06em] text-black/40 uppercase">
+            Megújuló keret · Felmondás 90 napra · A jogaid nálad maradnak ·{" "}
+            <a
+              href="#kapcsolat"
+              onClick={fillContactName}
+              className="text-black/55 underline underline-offset-4 transition hover:text-black"
+            >
+              Részletek +
+            </a>
+          </p>
         </div>
       </section>
 
