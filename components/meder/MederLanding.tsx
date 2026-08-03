@@ -389,7 +389,7 @@ export function MederLanding() {
           <div className="mt-12 grid gap-0 border-t border-black/15 md:grid-cols-2">
             <div className="border-b border-black/15 py-8 md:border-r md:border-b-0 md:pr-12 md:py-10">
               <p className="meder-label">Visszaszerzés</p>
-              <p className="meder-display mt-4 text-6xl text-[var(--meder-gold)] md:text-7xl">25%</p>
+              <p className="meder-display mt-4 text-6xl text-black md:text-7xl">25%</p>
               <p className="mt-4 max-w-sm text-sm leading-relaxed text-black/55">
                 A ténylegesen megérkezett összegből. Nincs előleg. Ha nem érkezik pénz, nem fizetsz.
               </p>
