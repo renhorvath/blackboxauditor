@@ -19,7 +19,10 @@ import type {
   LandingTeaserResult,
 } from "@/lib/landing-teaser";
 
-const CTA_LABEL = "Kérek egy 20 perces átbeszélést";
+/** Contact / post-check CTA — active, time-boxed, not "kérek egy…". */
+const CTA_LABEL = "Egyeztessünk 20 percben";
+const HERO_PRIMARY_LABEL = "Megnézem, szerepelek-e";
+const HERO_SECONDARY_LABEL = "Inkább egyeztessünk";
 
 const OCCUPATIONS = [
   "Filmzene",
@@ -303,16 +306,16 @@ export function MederLanding() {
             hogy észre sem veszed. Mi összekötjük a szálakat: kimentjük, ami beragadt, és rendben
             tartjuk.
           </p>
-          <div className="mt-10 flex flex-col gap-5 sm:flex-row sm:items-center">
+          <div className="mt-10 flex flex-col items-start gap-4">
+            <a href="#ellenorzes" className="meder-cta meder-cta-light">
+              {HERO_PRIMARY_LABEL}
+            </a>
             <a
               href="#kapcsolat"
               onClick={fillContactName}
-              className="meder-cta meder-cta-light"
+              className="text-sm font-medium text-white/70 underline-offset-4 transition hover:text-white hover:underline"
             >
-              {CTA_LABEL}
-            </a>
-            <a href="#ellenorzes" className="meder-link-plus text-left text-white">
-              Gyors ellenőrzés +
+              {HERO_SECONDARY_LABEL} →
             </a>
           </div>
           <p className="mt-6 text-[11px] font-medium tracking-[0.12em] text-white/45 uppercase">
@@ -455,34 +458,7 @@ export function MederLanding() {
         </div>
       </section>
 
-      {/* 5. Árazás */}
-      <section id="dijazas" className="scroll-mt-16 bg-white">
-        <div className="mx-auto max-w-6xl px-4 py-16 md:px-6 md:py-20">
-          <p className="meder-label">(Árazás)</p>
-          <h2 className="meder-display mt-4 text-3xl md:text-5xl">Mennyibe kerül</h2>
-          <div className="mt-12 grid gap-0 border-t border-black/15 md:grid-cols-2">
-            <div className="border-b border-black/15 py-8 md:border-r md:border-b-0 md:pr-12 md:py-10">
-              <p className="meder-label">Visszaszerzés</p>
-              <p className="meder-display mt-4 text-6xl text-black md:text-7xl">25%</p>
-              <p className="mt-4 max-w-sm text-sm leading-relaxed text-black/55">
-                A ténylegesen megérkezett összegből. Nincs előleg. Ha nem érkezik pénz, nem fizetsz.
-              </p>
-            </div>
-            <div className="py-8 md:py-10 md:pl-12">
-              <p className="meder-label">Folyamatos kezelés</p>
-              <p className="mt-4 max-w-sm text-sm leading-relaxed text-black/55">
-                Az általunk gondozott jogdíjfolyam egy részét kérjük. A legjobb eredményünk az, ha egy
-                év múlva nincs mit visszaszerezni.
-              </p>
-              <p className="mt-6 text-xs tracking-wide text-black/40 uppercase">
-                A pontos feltételeket az első beszélgetésen átbeszéljük.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 6. Mi nem vagyunk — black block */}
+      {/* 5. Mi nem vagyunk — before pricing, reduces price resistance */}
       <section className="bg-[var(--meder-black)] text-white">
         <div className="mx-auto max-w-6xl px-4 py-16 md:px-6 md:py-20">
           <p className="meder-label text-white/45">(Átlátható elvárások)</p>
@@ -508,6 +484,33 @@ export function MederLanding() {
             >
               {CTA_LABEL}
             </a>
+          </div>
+        </div>
+      </section>
+
+      {/* 6. Árazás */}
+      <section id="dijazas" className="scroll-mt-16 bg-white">
+        <div className="mx-auto max-w-6xl px-4 py-16 md:px-6 md:py-20">
+          <p className="meder-label">(Árazás)</p>
+          <h2 className="meder-display mt-4 text-3xl md:text-5xl">Mennyibe kerül</h2>
+          <div className="mt-12 grid gap-0 border-t border-black/15 md:grid-cols-2">
+            <div className="border-b border-black/15 py-8 md:border-r md:border-b-0 md:pr-12 md:py-10">
+              <p className="meder-label">Visszaszerzés</p>
+              <p className="meder-display mt-4 text-6xl text-black md:text-7xl">25%</p>
+              <p className="mt-4 max-w-sm text-sm leading-relaxed text-black/55">
+                A ténylegesen megérkezett összegből. Nincs előleg. Ha nem érkezik pénz, nem fizetsz.
+              </p>
+            </div>
+            <div className="py-8 md:py-10 md:pl-12">
+              <p className="meder-label">Folyamatos kezelés</p>
+              <p className="mt-4 max-w-sm text-sm leading-relaxed text-black/55">
+                Az általunk gondozott jogdíjfolyam egy részét kérjük. A legjobb eredményünk az, ha egy
+                év múlva nincs mit visszaszerezni.
+              </p>
+              <p className="mt-6 text-xs tracking-wide text-black/40 uppercase">
+                A pontos feltételeket az első beszélgetésen átbeszéljük.
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -670,9 +673,6 @@ export function MederLanding() {
           <div className="flex flex-wrap gap-5 text-[11px] font-bold tracking-[0.1em] uppercase text-black/45">
             <Link href="/adatvedelem" className="hover:text-black">
               Adatkezelés
-            </Link>
-            <Link href="/check" className="hover:text-black">
-              Gyors ellenőrzés
             </Link>
           </div>
         </div>
