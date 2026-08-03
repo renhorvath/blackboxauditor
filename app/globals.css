@@ -101,6 +101,9 @@ html:has(.meder-page) {
 }
 
 .meder-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 0;
   background: var(--meder-black);
   padding: 0.85rem 1.4rem;
