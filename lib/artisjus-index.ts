@@ -6,7 +6,7 @@ import type {
   ArtisjusMatchResult,
   ArtisjusWork,
 } from "@/lib/artisjus-types";
-import { scoreArtistNameMatch } from "@/lib/index-tokens";
+import { scoreArtisjusArtistFields } from "@/lib/index-tokens";
 
 export type { ArtisjusArtistMatch, ArtisjusMatchResult, ArtisjusWork } from "@/lib/artisjus-types";
 export { normalizeArtisjusText } from "@/lib/artisjus-normalize";
@@ -83,11 +83,8 @@ function scoreWork(
 
   let artistScore = 0;
   if (artistTokens.length > 0) {
-    // Artist-only (and artist component): penalize extra name tokens (Eyal Golan ≠ Golan)
-    artistScore = Math.max(
-      scoreArtistNameMatch(work.eloadok, artistTokens),
-      scoreArtistNameMatch(work.jogosultak, artistTokens),
-    );
+    // Artist-only (and artist component): eloadok vs jogosultak with bare-surname cap
+    artistScore = scoreArtisjusArtistFields(work, artistTokens).score;
   }
 
   if (titleTokens.length === 0 && artistTokens.length > 0) {
@@ -183,18 +180,19 @@ export function searchArtisjusByArtist(
   const artistTokens = artisjusTokens(artist, 2);
   if (artistTokens.length === 0) return [];
 
-  const threshold =
-    artistTokens.length >= 2 ? 0.55 : artistTokens.length === 1 ? 0.75 : 0.6;
-
   const candidates = candidateIndices(index, [], artistTokens);
   const scored: ArtisjusArtistMatch[] = [];
 
   for (const idx of candidates.slice(0, 3000)) {
     const work = index.works[idx];
     if (!work) continue;
-    const score = scoreWork(work, [], artistTokens);
-    if (score >= threshold) {
-      scored.push({ work, score });
+    const scoredFields = scoreArtisjusArtistFields(work, artistTokens);
+    if (scoredFields.matchKind) {
+      scored.push({
+        work,
+        score: scoredFields.score,
+        matchKind: scoredFields.matchKind,
+      });
     }
   }
 

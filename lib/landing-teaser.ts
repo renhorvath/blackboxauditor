@@ -107,17 +107,21 @@ export function buildLandingTeaser(input: BuildLandingTeaserInput): LandingTease
 
   const groups: LandingTeaserGroup[] = [];
 
-  // ARTISJUS (HU, author) — domestic, high confidence
+  // ARTISJUS (HU) — performer/both = high; rights-only surname credits = fuzzy
   if (input.artisjusMatches.length > 0) {
     const sorted = [...input.artisjusMatches].sort((a, b) => b.score - a.score);
+    const performerish = sorted.filter((m) => m.matchKind !== "rights");
+    const hasPerformer = performerish.length > 0;
     groups.push({
       key: "artisjus",
       source: "ARTISJUS",
       region: "Magyarország",
       flag: flagFor("Magyarország"),
       total: input.artisjusMatches.length,
-      confidence: "high",
-      hits: sorted.slice(0, MAX_HITS).map((m) => ({ title: m.work.mucim })),
+      confidence: hasPerformer ? "high" : "fuzzy",
+      hits: hasPerformer
+        ? performerish.slice(0, MAX_HITS).map((m) => ({ title: m.work.mucim }))
+        : [],
     });
   }
 

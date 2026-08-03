@@ -17,7 +17,12 @@ export interface ArtisjusMatchResult {
   work?: ArtisjusWork;
 }
 
+/** Which ARTISJUS field(s) matched the artist query. */
+export type ArtisjusMatchKind = "performer" | "rights" | "both";
+
 export interface ArtisjusArtistMatch {
   work: ArtisjusWork;
   score: number;
+  /** performer = eloadok, rights = jogosultak only, both = both fields. */
+  matchKind?: ArtisjusMatchKind;
 }

@@ -1,4 +1,5 @@
 /** Shared tokenisation for ARTISJUS / CMO indexes (file + Cloud SQL). */
+import type { ArtisjusMatchKind } from "@/lib/artisjus-types";
 import { normalizeArtisjusText } from "@/lib/artisjus-normalize";
 
 const STOP = new Set([
@@ -84,6 +85,15 @@ function artistNameTokens(value: string): string[] {
   return [...new Set(indexTokens(value, 2).filter((t) => !ARTIST_AFFIXES.has(t)))];
 }
 
+export type ArtistNameMatchOptions = {
+  /**
+   * Cap score for bare single-token segments inside multi-segment credit lists
+   * ("GAINSOURG / GOLAN / GOLD" must not equal band "Golan").
+   * Sole bare fields (only one segment) are not capped.
+   */
+  bareSegmentCap?: number;
+};
+
 /**
  * Score how closely an artist field matches the query tokens.
  * Requires every query token to appear, then penalizes extra name tokens
@@ -92,6 +102,7 @@ function artistNameTokens(value: string): string[] {
 export function scoreArtistNameMatch(
   field: string | null | undefined,
   queryTokens: string[],
+  options?: ArtistNameMatchOptions,
 ): number {
   if (queryTokens.length === 0 || !field?.trim()) return 0;
 
@@ -108,9 +119,47 @@ export function scoreArtistNameMatch(
     const hits = queryTokens.filter((t) => fieldToks.includes(t)).length;
     // All query tokens must be present (no "Heaven"-only hit for "Heaven Street Seven")
     if (hits < queryTokens.length) continue;
-    best = Math.max(best, queryTokens.length / fieldToks.length);
+    let score = queryTokens.length / fieldToks.length;
+    if (
+      options?.bareSegmentCap != null &&
+      parts.length > 1 &&
+      fieldToks.length === 1
+    ) {
+      score = Math.min(score, options.bareSegmentCap);
+    }
+    best = Math.max(best, score);
   }
   return best;
+}
+
+/**
+ * ARTISJUS: score eloadok vs jogosultak separately.
+ * Rights-holder lists get a bare-surname cap so slash-separated credits
+ * ("… / GOLAN / …") do not look like the band "Golan".
+ */
+export function scoreArtisjusArtistFields(
+  work: { eloadok: string; jogosultak: string },
+  queryTokens: string[],
+): {
+  score: number;
+  performerScore: number;
+  rightsScore: number;
+  matchKind: ArtisjusMatchKind | null;
+} {
+  const threshold = artistMatchThreshold(queryTokens.length);
+  const performerScore = scoreArtistNameMatch(work.eloadok, queryTokens);
+  const rightsScore = scoreArtistNameMatch(work.jogosultak, queryTokens, {
+    bareSegmentCap: 0.6,
+  });
+  const score = Math.max(performerScore, rightsScore);
+  const performerOk = performerScore >= threshold;
+  const rightsOk = rightsScore >= threshold;
+  if (!performerOk && !rightsOk) {
+    return { score, performerScore, rightsScore, matchKind: null };
+  }
+  const matchKind: ArtisjusMatchKind =
+    performerOk && rightsOk ? "both" : performerOk ? "performer" : "rights";
+  return { score, performerScore, rightsScore, matchKind };
 }
 
 /** CMO artist score: max over performer / composer (or identification fallback). */

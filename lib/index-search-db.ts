@@ -4,20 +4,13 @@ import { indexQuery } from "@/lib/index-db";
 import { indexDbConfigured } from "@/lib/index-db-config";
 import {
   artistMatchThreshold,
-  scoreArtistNameMatch,
+  scoreArtisjusArtistFields,
   scoreCmoArtistRecord,
   uniqueTokens,
 } from "@/lib/index-tokens";
 
 export function indexSearchAvailable(): boolean {
   return indexDbConfigured();
-}
-
-function scoreArtisjusArtist(work: ArtisjusWork, artistTokens: string[]): number {
-  return Math.max(
-    scoreArtistNameMatch(work.eloadok, artistTokens),
-    scoreArtistNameMatch(work.jogosultak, artistTokens),
-  );
 }
 
 function scoreCmoArtist(record: CmoRecord, artistTokens: string[]): number {
@@ -34,7 +27,6 @@ export async function searchArtisjusByArtistDb(
   const artistTokens = uniqueTokens(artist, 2);
   if (artistTokens.length === 0) return [];
 
-  const threshold = artistMatchThreshold(artistTokens.length);
   const candidateLimit = 1500;
   const minHits =
     artistTokens.length <= 1 ? 1 : Math.max(1, artistTokens.length - 1);
@@ -56,8 +48,14 @@ export async function searchArtisjusByArtistDb(
   const scored: ArtisjusArtistMatch[] = [];
   for (const row of rows) {
     const work = row.record;
-    const score = scoreArtisjusArtist(work, artistTokens);
-    if (score >= threshold) scored.push({ work, score });
+    const scoredFields = scoreArtisjusArtistFields(work, artistTokens);
+    if (scoredFields.matchKind) {
+      scored.push({
+        work,
+        score: scoredFields.score,
+        matchKind: scoredFields.matchKind,
+      });
+    }
   }
 
   scored.sort((a, b) => b.score - a.score || a.work.mucim.localeCompare(b.work.mucim, "hu"));
