@@ -78,6 +78,33 @@ const NOT_US = [
   },
 ] as const;
 
+const PRICING_FAQ = [
+  {
+    title: "Miből számoljátok a 25%-ot?",
+    text: "Abból, ami e nélkül nem érkezett volna meg. Nem a meglévő jogdíjadból veszünk el részt.",
+  },
+  {
+    title: "Miért nem olcsóbb?",
+    text: "Egy jogász előlegre és óradíjra dolgozik akkor is, ha nem jön be semmi. Egy kiadói szerződés tartós részesedést kér magából a műből. Mi csak abból, ami megérkezett, és csak addig, amíg dolgozunk.",
+  },
+  {
+    title: "Mi történik, ha nem csinálok semmit?",
+    text: "Ami a határidőkön belül nem talál gazdára, az nem marad ott. A választás nem 100% és 75% között van, hanem 75% és 0% között.",
+  },
+  {
+    title: "Miért 15 és nem 20 a kezelés?",
+    text: "A 15% azoknak szól, akiknél visszaszerzéssel kezdtük. Önálló kezelési megbízásnál 20%.",
+  },
+  {
+    title: "Ki tudok szállni?",
+    text: "Bármikor, 90 napra, indoklás nélkül. Egy kivétel: a már benyújtott igényekre a beérkezésükig jár a jutalék, mert azt a munkát elvégeztük. Új igényt utána nem nyújtunk be.",
+  },
+  {
+    title: "Van már kiadóm. Akkor is?",
+    text: "Sokszor éppen ezért. Ha két képviselet fedi ugyanazt a művet, a rendszerek megállítják a kifizetést. Szűkített meghatalmazással is tudunk dolgozni, csak azokra a művekre, ahol a meglévő partnered nem jár el.",
+  },
+] as const;
+
 type SearchPhase = "idle" | "loading" | "result";
 type SearchStatus = LandingTeaserResult["status"] | "error";
 
@@ -514,13 +541,23 @@ export function MederLanding() {
           <p className="mt-8 text-[11px] font-medium tracking-[0.06em] text-black/40 uppercase">
             Megújuló keret · Felmondás 90 napra · A jogaid nálad maradnak ·{" "}
             <a
-              href="#kapcsolat"
-              onClick={fillContactName}
+              href="#dijazas-reszletek"
               className="text-black/55 underline underline-offset-4 transition hover:text-black"
             >
               Részletek +
             </a>
           </p>
+          <div id="dijazas-reszletek" className="mt-10 scroll-mt-16 border-t border-black/15">
+            {PRICING_FAQ.map((item) => (
+              <details key={item.title} className="group border-b border-black/15">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-5">
+                  <span className="meder-display text-base md:text-xl">{item.title}</span>
+                  <span className="text-lg text-black/40 transition group-open:rotate-45">+</span>
+                </summary>
+                <p className="pb-5 pr-10 text-sm leading-relaxed text-black/55">{item.text}</p>
+              </details>
+            ))}
+          </div>
         </div>
       </section>
 
