@@ -79,9 +79,11 @@ type SearchStatus = LandingTeaserResult["status"] | "error";
 const EMPTY_SUMMARY = { totalItems: 0, societies: 0, countries: 0 };
 const MAX_GROUPS = 3;
 
-function scrollToId(id: string) {
-  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-}
+const HEADER_NAV = [
+  { href: "#ellenorzes", label: "Ellenőrzés" },
+  { href: "#hogyan", label: "Hogyan dolgozunk" },
+  { href: "#dijazas", label: "Díjazás" },
+] as const;
 
 function MederMotif({
   variant = "white",
@@ -155,9 +157,13 @@ export function MederLanding() {
     }
   }
 
-  function goToContact() {
+  function fillContactName() {
     if (resolvedName && !name.trim()) setName(resolvedName);
-    scrollToId("kapcsolat");
+  }
+
+  function goToContact() {
+    fillContactName();
+    document.getElementById("kapcsolat")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   async function onSubmit(e: FormEvent) {
@@ -197,18 +203,24 @@ export function MederLanding() {
           <Link href="/" className="meder-display text-xl normal-case tracking-tight">
             meder.
           </Link>
-          <div className="flex items-center gap-5">
-            <button
-              type="button"
-              onClick={() => scrollToId("kapcsolat")}
-              className="hidden text-xs font-bold tracking-[0.08em] uppercase text-black/60 hover:text-black sm:inline"
+          <nav className="flex items-center gap-5" aria-label="Oldal navigáció">
+            {HEADER_NAV.map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                className="hidden text-xs font-bold tracking-[0.08em] uppercase text-black/60 hover:text-black md:inline"
+              >
+                {item.label}
+              </a>
+            ))}
+            <a
+              href="#kapcsolat"
+              onClick={fillContactName}
+              className="meder-cta py-2.5"
             >
-              Kapcsolat
-            </button>
-            <button type="button" onClick={() => scrollToId("kapcsolat")} className="meder-cta py-2.5">
               Beszéljünk
-            </button>
-          </div>
+            </a>
+          </nav>
         </div>
       </header>
 
@@ -226,16 +238,16 @@ export function MederLanding() {
             tartjuk.
           </p>
           <div className="mt-10 flex flex-col gap-5 sm:flex-row sm:items-center">
-            <button type="button" onClick={() => scrollToId("kapcsolat")} className="meder-cta meder-cta-light">
-              {CTA_LABEL}
-            </button>
-            <button
-              type="button"
-              onClick={() => scrollToId("ellenorzes")}
-              className="meder-link-plus text-left text-white"
+            <a
+              href="#kapcsolat"
+              onClick={fillContactName}
+              className="meder-cta meder-cta-light"
             >
+              {CTA_LABEL}
+            </a>
+            <a href="#ellenorzes" className="meder-link-plus text-left text-white">
               Gyors ellenőrzés +
-            </button>
+            </a>
           </div>
           <p className="mt-6 text-[11px] font-medium tracking-[0.12em] text-white/45 uppercase">
             Nincs előleg · A jogaid nálad maradnak · Tételes elszámolás
@@ -344,7 +356,7 @@ export function MederLanding() {
       </section>
 
       {/* 4. Split — photo | hogyan dolgozunk */}
-      <section className="grid md:grid-cols-2">
+      <section id="hogyan" className="scroll-mt-16 grid md:grid-cols-2">
         <div className="relative min-h-[320px] bg-[var(--meder-sand)] md:min-h-[520px]">
           <Image
             src="/hero.webp"
@@ -371,18 +383,14 @@ export function MederLanding() {
               </li>
             ))}
           </ul>
-          <button
-            type="button"
-            onClick={() => scrollToId("kapcsolat")}
-            className="meder-link-plus mt-10 self-start text-white"
-          >
+          <a href="#kapcsolat" onClick={fillContactName} className="meder-link-plus mt-10 self-start text-white">
             Beszéljünk +
-          </button>
+          </a>
         </div>
       </section>
 
       {/* 5. Árazás */}
-      <section className="bg-white">
+      <section id="dijazas" className="scroll-mt-16 bg-white">
         <div className="mx-auto max-w-6xl px-4 py-16 md:px-6 md:py-20">
           <p className="meder-label">(Árazás)</p>
           <h2 className="meder-display mt-4 text-3xl md:text-5xl">Mennyibe kerül</h2>
@@ -427,13 +435,13 @@ export function MederLanding() {
               Az igényérvényesítésnek időbeli korlátai vannak. Ami kicsúszik belőlük, az véglegesen
               máshova kerül. Minél korábban kezdjük, annál kevesebb vész el.
             </p>
-            <button
-              type="button"
-              onClick={() => scrollToId("kapcsolat")}
+            <a
+              href="#kapcsolat"
+              onClick={fillContactName}
               className="meder-cta meder-cta-light mt-8"
             >
               {CTA_LABEL}
-            </button>
+            </a>
           </div>
         </div>
       </section>
@@ -608,13 +616,13 @@ export function MederLanding() {
 
       {/* Mobile sticky */}
       <div className="fixed inset-x-0 bottom-0 z-50 border-t border-black/10 bg-white p-3 md:hidden">
-        <button
-          type="button"
-          onClick={() => scrollToId("kapcsolat")}
+        <a
+          href="#kapcsolat"
+          onClick={fillContactName}
           className="meder-cta flex h-11 w-full items-center justify-center"
         >
           {CTA_LABEL}
-        </button>
+        </a>
       </div>
       <div className="h-16 md:hidden" aria-hidden />
     </div>

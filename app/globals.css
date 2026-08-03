@@ -66,6 +66,10 @@ body {
 }
 
 /* Meder — Believe-inspired color-blocking editorial */
+html:has(.meder-page) {
+  scroll-behavior: smooth;
+}
+
 .meder-page {
   --meder-petrol: #2f5d5a;
   --meder-ink: #111111;
