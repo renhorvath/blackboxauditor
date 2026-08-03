@@ -24,7 +24,10 @@ import {
   flattenEjiHits,
   linkEjiHitsToRows,
 } from "@/lib/cmo-web/eji-enrich";
-import { searchEjiByArtist } from "@/lib/cmo-web/eji-search";
+import {
+  filterEjiResultByArtistMatch,
+  searchEjiByArtist,
+} from "@/lib/cmo-web/eji-search";
 import { searchCmoWebByArtist } from "@/lib/cmo-web/search";
 import {
   appendCmoWebHits,
@@ -181,15 +184,17 @@ async function loadEjiResult(
   artistName: string,
   forceRefresh: boolean,
 ): Promise<Awaited<ReturnType<typeof searchEjiByArtist>> | null> {
-  if (shouldUseQueryApi()) {
-    return fetchEjiFromQueryApi(artistName, { forceRefresh }).catch((err) => {
-      if (err instanceof QueryApiError) {
-        console.error("[artist-audit] Query API EJI failed:", err.message);
-      }
-      return null;
-    });
-  }
-  return searchEjiByArtist(artistName, { forceRefresh }).catch(() => null);
+  const raw = shouldUseQueryApi()
+    ? await fetchEjiFromQueryApi(artistName, { forceRefresh }).catch((err) => {
+        if (err instanceof QueryApiError) {
+          console.error("[artist-audit] Query API EJI failed:", err.message);
+        }
+        return null;
+      })
+    : await searchEjiByArtist(artistName, { forceRefresh }).catch(() => null);
+
+  // Query API may still run older scrape code / cache — always re-filter here.
+  return raw ? filterEjiResultByArtistMatch(raw, artistName) : null;
 }
 
 function assembleArtistAuditResult(input: {

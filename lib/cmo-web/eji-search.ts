@@ -43,6 +43,22 @@ export function ejiArtistMatchesQuery(mainArtist: string, query: string): boolea
   return score >= artistMatchThreshold(queryTokens.length);
 }
 
+/** Re-apply strict matching (e.g. after Query API returns older loose results). */
+export function filterEjiResultByArtistMatch(
+  result: EjiSearchResult,
+  query = result.query,
+): EjiSearchResult {
+  return {
+    ...result,
+    trackHits: result.trackHits.filter((hit) =>
+      ejiArtistMatchesQuery(hit.mainArtist, query),
+    ),
+    artistHits: result.artistHits.filter((hit) =>
+      ejiArtistMatchesQuery(hit.name, query),
+    ),
+  };
+}
+
 async function readCache(query: string, maxAgeMs: number): Promise<EjiSearchResult | null> {
   try {
     const file = cachePath(query);
