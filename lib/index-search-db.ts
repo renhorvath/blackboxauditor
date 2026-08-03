@@ -4,7 +4,7 @@ import { indexQuery } from "@/lib/index-db";
 import { indexDbConfigured } from "@/lib/index-db-config";
 import {
   artistMatchThreshold,
-  cmoSearchBlob,
+  cmoArtistScoreBlob,
   indexTokens,
   uniqueTokens,
 } from "@/lib/index-tokens";
@@ -20,7 +20,7 @@ function scoreArtisjusArtist(work: ArtisjusWork, artistTokens: string[]): number
 }
 
 function scoreCmoArtist(record: CmoRecord, artistTokens: string[]): number {
-  const blob = new Set(indexTokens(cmoSearchBlob(record), 1));
+  const blob = new Set(indexTokens(cmoArtistScoreBlob(record), 1));
   if (artistTokens.length === 0) return 0;
   return artistTokens.filter((t) => blob.has(t)).length / artistTokens.length;
 }

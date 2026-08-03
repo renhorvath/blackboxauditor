@@ -42,6 +42,24 @@ export function cmoSearchBlob(record: {
   ].join(" ");
 }
 
+/**
+ * Artist-name matching blob: performer/composer only.
+ * Avoids false hits from titles ("Animanimals (Elefant)") and labels ("Elefant Records").
+ * Falls back to identification when both artist fields are empty (some CMO rows only have that).
+ */
+export function cmoArtistScoreBlob(record: {
+  identification: string;
+  performer?: string | null;
+  composer?: string | null;
+}): string {
+  const artistFields = [record.performer, record.composer]
+    .map((v) => (v ?? "").trim())
+    .filter(Boolean)
+    .join(" ");
+  if (artistFields) return artistFields;
+  return record.identification ?? "";
+}
+
 export function artistMatchThreshold(tokenCount: number): number {
   if (tokenCount >= 2) return 0.55;
   if (tokenCount === 1) return 0.75;

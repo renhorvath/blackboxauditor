@@ -2,6 +2,7 @@ import type { ArtisjusArtistMatch } from "@/lib/artisjus-types";
 import type { CmoArtistMatch, CmoSourceId } from "@/lib/cmo-types";
 import type { CmoWebHit, CmoWebSourceId } from "@/lib/cmo-web/web-types";
 import type { EjiHit } from "@/lib/cmo-web/eji-types";
+import { uniqueTokens } from "@/lib/index-tokens";
 
 /** One hit shown (or blurred) in a source group. */
 export interface LandingTeaserHit {
@@ -139,7 +140,8 @@ export function buildLandingTeaser(input: BuildLandingTeaserInput): LandingTease
     });
   }
 
-  // EU CMO indexes (structured matches) — high confidence
+  // EU CMO indexes — single-token queries are ambiguous abroad (Elefánt≈Elefant label/title noise)
+  const singleTokenQuery = uniqueTokens(resolvedName, 2).length <= 1;
   const cmoBySource = new Map<CmoSourceId, CmoArtistMatch[]>();
   for (const match of input.cmoMatches) {
     const list = cmoBySource.get(match.record.source) ?? [];
@@ -149,14 +151,15 @@ export function buildLandingTeaser(input: BuildLandingTeaserInput): LandingTease
   for (const [sourceId, matches] of cmoBySource) {
     const pres = CMO_PRESENTATION[sourceId];
     const sorted = [...matches].sort((a, b) => b.score - a.score);
+    const foreignSingle = singleTokenQuery && pres.region !== "Magyarország";
     groups.push({
       key: sourceId,
       source: pres.source,
       region: pres.region,
       flag: flagFor(pres.region),
       total: matches.length,
-      confidence: "high",
-      hits: sorted.slice(0, MAX_HITS).map((m) => ({ title: m.record.title })),
+      confidence: foreignSingle ? "fuzzy" : "high",
+      hits: foreignSingle ? [] : sorted.slice(0, MAX_HITS).map((m) => ({ title: m.record.title })),
     });
   }
 
