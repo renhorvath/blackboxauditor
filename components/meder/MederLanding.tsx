@@ -87,16 +87,29 @@ const HEADER_NAV = [
 
 function MederMotif({
   variant = "white",
+  size = "display",
   className = "",
 }: {
   variant?: "white" | "ink";
+  /** display = section ornament; mark = wordmark lockup */
+  size?: "display" | "mark";
   className?: string;
 }) {
   const src =
     variant === "ink" ? "/meder-motif-ink.webp" : "/meder-motif-white.webp";
+  const box =
+    size === "mark"
+      ? "h-6 w-9 shrink-0"
+      : "h-14 w-20 md:h-16 md:w-24";
   return (
-    <div className={`relative h-14 w-20 md:h-16 md:w-24 ${className}`} aria-hidden>
-      <Image src={src} alt="" fill sizes="96px" className="object-contain object-left" />
+    <div className={`relative ${box} ${className}`} aria-hidden>
+      <Image
+        src={src}
+        alt=""
+        fill
+        sizes={size === "mark" ? "36px" : "96px"}
+        className="object-contain object-left"
+      />
     </div>
   );
 }
@@ -200,7 +213,11 @@ export function MederLanding() {
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-black/10 bg-white/95 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 md:px-6">
-          <Link href="/" className="meder-display text-xl normal-case tracking-tight">
+          <Link
+            href="/"
+            className="meder-display inline-flex items-center gap-2 text-xl normal-case tracking-tight"
+          >
+            <MederMotif variant="ink" size="mark" />
             meder.
           </Link>
           <nav className="flex items-center gap-5" aria-label="Oldal navigáció">
@@ -593,7 +610,10 @@ export function MederLanding() {
       <footer className="border-t border-black/10 bg-white">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-10 md:flex-row md:items-end md:justify-between md:px-6">
           <div>
-            <p className="meder-display text-lg normal-case tracking-tight">meder.</p>
+            <p className="meder-display inline-flex items-center gap-2 text-lg normal-case tracking-tight">
+              <MederMotif variant="ink" size="mark" />
+              meder.
+            </p>
             <p className="mt-2 text-xs tracking-wide text-black/45 uppercase">
               hello@meder.hu · Cégadatok hamarosan
             </p>
