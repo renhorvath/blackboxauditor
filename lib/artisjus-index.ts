@@ -6,6 +6,7 @@ import type {
   ArtisjusMatchResult,
   ArtisjusWork,
 } from "@/lib/artisjus-types";
+import { scoreArtistNameMatch } from "@/lib/index-tokens";
 
 export type { ArtisjusArtistMatch, ArtisjusMatchResult, ArtisjusWork } from "@/lib/artisjus-types";
 export { normalizeArtisjusText } from "@/lib/artisjus-normalize";
@@ -73,7 +74,6 @@ function scoreWork(
   artistTokens: string[],
 ): number {
   const titleBlob = new Set(artisjusTokens(`${work.mucim}`, 1));
-  const artistBlob = new Set(artisjusTokens(`${work.eloadok} ${work.jogosultak}`, 1));
 
   let titleScore = 0;
   if (titleTokens.length > 0) {
@@ -83,8 +83,11 @@ function scoreWork(
 
   let artistScore = 0;
   if (artistTokens.length > 0) {
-    const hits = artistTokens.filter((t) => artistBlob.has(t)).length;
-    artistScore = hits / artistTokens.length;
+    // Artist-only (and artist component): penalize extra name tokens (Eyal Golan ≠ Golan)
+    artistScore = Math.max(
+      scoreArtistNameMatch(work.eloadok, artistTokens),
+      scoreArtistNameMatch(work.jogosultak, artistTokens),
+    );
   }
 
   if (titleTokens.length === 0 && artistTokens.length > 0) {

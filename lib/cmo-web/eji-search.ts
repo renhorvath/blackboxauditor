@@ -9,34 +9,38 @@ import {
   EJI_ARTIST_SEARCH_URL,
   EJI_TRACK_SEARCH_URL,
 } from "@/lib/cmo-web/eji-types";
-import { normalizeArtisjusText } from "@/lib/artisjus-normalize";
+import {
+  artistMatchThreshold,
+  scoreArtistNameMatch,
+  uniqueTokens,
+} from "@/lib/index-tokens";
 import { isServerlessRuntime } from "@/lib/runtime-env";
+
+/** Bump when match rules change so stale /tmp caches are not reused. */
+const EJI_CACHE_VERSION = "v2";
 
 const CACHE_DIR = isServerlessRuntime()
   ? path.join("/tmp", "cmo-web-cache", "eji")
   : path.join(process.cwd(), "derived", "cmo-web-cache", "eji");
 
 function cachePath(query: string): string {
-  const hash = createHash("sha256").update(query.toLowerCase()).digest("hex").slice(0, 16);
+  const hash = createHash("sha256")
+    .update(`${EJI_CACHE_VERSION}:${query.toLowerCase()}`)
+    .digest("hex")
+    .slice(0, 16);
   return path.join(CACHE_DIR, `${hash}.json`);
 }
 
-function artistTokens(name: string): string[] {
-  return normalizeArtisjusText(name)
-    .split(/\s+/)
-    .filter((t) => t.length >= 2);
-}
-
-/** Loose match — EJI often returns ALL-CAPS or partial names; whole-word tokens only. */
+/**
+ * Strict artist match — same rules as CMO scoring:
+ * all query tokens must appear, extra name tokens are penalized
+ * ("Eyal Golan" must not match query "Golan").
+ */
 export function ejiArtistMatchesQuery(mainArtist: string, query: string): boolean {
-  const hayTokens = new Set(
-    normalizeArtisjusText(mainArtist)
-      .split(/\s+/)
-      .filter((t) => t.length >= 2),
-  );
-  const queryTokens = artistTokens(query);
+  const queryTokens = uniqueTokens(query, 2);
   if (queryTokens.length === 0) return true;
-  return queryTokens.every((token) => hayTokens.has(token));
+  const score = scoreArtistNameMatch(mainArtist, queryTokens);
+  return score >= artistMatchThreshold(queryTokens.length);
 }
 
 async function readCache(query: string, maxAgeMs: number): Promise<EjiSearchResult | null> {
