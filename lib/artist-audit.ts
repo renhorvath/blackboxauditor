@@ -184,14 +184,26 @@ async function loadEjiResult(
   artistName: string,
   forceRefresh: boolean,
 ): Promise<Awaited<ReturnType<typeof searchEjiByArtist>> | null> {
-  const raw = shouldUseQueryApi()
-    ? await fetchEjiFromQueryApi(artistName, { forceRefresh }).catch((err) => {
-        if (err instanceof QueryApiError) {
-          console.error("[artist-audit] Query API EJI failed:", err.message);
-        }
-        return null;
-      })
-    : await searchEjiByArtist(artistName, { forceRefresh }).catch(() => null);
+  let raw: Awaited<ReturnType<typeof searchEjiByArtist>> | null = null;
+
+  if (shouldUseQueryApi()) {
+    raw = await fetchEjiFromQueryApi(artistName, { forceRefresh }).catch((err) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[artist-audit] Query API EJI failed, falling back to direct scrape:", msg);
+      return null;
+    });
+  }
+
+  // Tunnel down / unset → scrape eji.hu from this runtime (works on Vercel, ~30–40s).
+  if (!raw) {
+    raw = await searchEjiByArtist(artistName, { forceRefresh }).catch((err) => {
+      console.error(
+        "[artist-audit] Direct EJI scrape failed:",
+        err instanceof Error ? err.message : err,
+      );
+      return null;
+    });
+  }
 
   // Query API may still run older scrape code / cache — always re-filter here.
   return raw ? filterEjiResultByArtistMatch(raw, artistName) : null;

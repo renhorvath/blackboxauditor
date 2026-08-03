@@ -722,6 +722,9 @@ function MederVerdict({
         <p className="mt-3 text-sm text-black/55">
           Magyar és európai listákat nézem <strong>{resolvedName}</strong> névre…
         </p>
+        <p className="mt-2 text-xs text-black/40">
+          Néhány forrás (pl. EJI) lassabb lehet — akár 30–40 másodperc. Várj, dolgozunk.
+        </p>
       </div>
     );
   }
