@@ -8,7 +8,7 @@ import type {
   CmoSourceId,
 } from "@/lib/cmo-types";
 import { CMO_SOURCE_IDS } from "@/lib/cmo-types";
-import { artistMatchThreshold, cmoArtistScoreBlob } from "@/lib/index-tokens";
+import { artistMatchThreshold, scoreCmoArtistRecord } from "@/lib/index-tokens";
 
 export type { CmoArtistMatch, CmoRecord, CmoSourceId } from "@/lib/cmo-types";
 
@@ -118,10 +118,7 @@ function candidateIndices(
 }
 
 function scoreRecord(record: CmoRecord, artistTokens: string[]): number {
-  const blob = new Set(cmoTokens(cmoArtistScoreBlob(record), 1));
-  if (artistTokens.length === 0) return 0;
-  const hits = artistTokens.filter((t) => blob.has(t)).length;
-  return hits / artistTokens.length;
+  return scoreCmoArtistRecord(record, artistTokens);
 }
 
 export function searchCmoByArtist(
