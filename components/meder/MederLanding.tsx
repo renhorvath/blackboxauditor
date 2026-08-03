@@ -7,9 +7,11 @@ import {
   CheckCircle2,
   Loader2,
   Lock,
+  Menu,
   Music4,
   Search,
   SearchX,
+  X,
 } from "lucide-react";
 import type {
   LandingTeaserGroup,
@@ -130,6 +132,7 @@ export function MederLanding() {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     document.documentElement.removeAttribute("data-theme");
@@ -174,8 +177,13 @@ export function MederLanding() {
     if (resolvedName && !name.trim()) setName(resolvedName);
   }
 
+  function closeMenu() {
+    setMenuOpen(false);
+  }
+
   function goToContact() {
     fillContactName();
+    closeMenu();
     document.getElementById("kapcsolat")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -216,16 +224,17 @@ export function MederLanding() {
           <Link
             href="/"
             className="meder-display inline-flex items-center gap-2 text-xl normal-case tracking-tight"
+            onClick={closeMenu}
           >
             <MederMotif variant="ink" size="mark" />
             meder.
           </Link>
-          <nav className="flex items-center gap-5" aria-label="Oldal navigáció">
+          <nav className="hidden items-center gap-5 md:flex" aria-label="Oldal navigáció">
             {HEADER_NAV.map((item) => (
               <a
                 key={item.href}
                 href={item.href}
-                className="hidden text-xs font-bold tracking-[0.08em] uppercase text-black/60 hover:text-black md:inline"
+                className="text-xs font-bold tracking-[0.08em] uppercase text-black/60 hover:text-black"
               >
                 {item.label}
               </a>
@@ -238,7 +247,47 @@ export function MederLanding() {
               Beszéljünk
             </a>
           </nav>
+          <button
+            type="button"
+            className="inline-flex h-10 w-10 items-center justify-center text-black md:hidden"
+            aria-expanded={menuOpen}
+            aria-controls="meder-mobile-nav"
+            aria-label={menuOpen ? "Menü bezárása" : "Menü megnyitása"}
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            {menuOpen ? <X className="h-5 w-5" strokeWidth={2} /> : <Menu className="h-5 w-5" strokeWidth={2} />}
+          </button>
         </div>
+        {menuOpen ? (
+          <nav
+            id="meder-mobile-nav"
+            className="border-t border-black/10 bg-white md:hidden"
+            aria-label="Mobil navigáció"
+          >
+            <div className="mx-auto flex max-w-6xl flex-col px-4 py-3">
+              {HEADER_NAV.map((item) => (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  onClick={closeMenu}
+                  className="border-b border-black/10 py-3.5 text-xs font-bold tracking-[0.08em] uppercase text-black/70"
+                >
+                  {item.label}
+                </a>
+              ))}
+              <a
+                href="#kapcsolat"
+                onClick={() => {
+                  fillContactName();
+                  closeMenu();
+                }}
+                className="meder-cta mt-4 mb-2 flex h-11 items-center justify-center"
+              >
+                Beszéljünk
+              </a>
+            </div>
+          </nav>
+        ) : null}
       </header>
 
       {/* 1. Hero — flat petrol block, no photo */}

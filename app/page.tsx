@@ -17,11 +17,11 @@ const mederSans = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Meder — jogdíj-visszaszerzés és kiadói adminisztráció",
+  title: "Meder · jogdíj-visszaszerzés és kiadói adminisztráció",
   description:
     "Beragadt film-, reklám- és külföldi jogdíj visszaszerzése a hivatalos jogkezelői csatornákon, majd folyamatos lejelentés-kezelés. Előleg nélkül.",
   openGraph: {
-    title: "Meder — jogdíj-visszaszerzés és kiadói adminisztráció",
+    title: "Meder · jogdíj-visszaszerzés és kiadói adminisztráció",
     description:
       "Beragadt film-, reklám- és külföldi jogdíj visszaszerzése a hivatalos jogkezelői csatornákon, majd folyamatos lejelentés-kezelés. Előleg nélkül.",
     locale: "hu_HU",
