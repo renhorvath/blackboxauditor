@@ -83,7 +83,7 @@ const TEAM = [
     key: "renato",
     name: "Horváth Renátó",
     imageSrc: "/team-renato.webp",
-    bio: "Több mint 20 éve segítem a zeneipar szereplőit a szerzői jog és a jogkezelés útvesztőiben. A szinkron (sync) engedélyezéstől a jogdíjak pontos levezetéséig olyan megoldásokat építek, amelyek kifizetést, átláthatóságot és jövőálló folyamatot adnak. Különösen fontos számomra az Artistic Futures jogdíjas projektjeivel szerzett tapasztalat: a követeléshez bizonyíték, a kezeléshez pedig precíz keretrendszer kell.",
+    bio: "Több mint 20 éve építek európai szintű kapcsolatokat és megoldásokat a zene, film és kreatív ipar között. A sync licensing és a rights management területén a jogdíjak útját teszem átláthatóvá: licencelés, jogtulajdonosi ellenőrzés és kifizetésre vezető dokumentáció. A Mederben ezt a tudást a jogdíj-recovery felé fordítjuk: a beragadt felhasználásokat oda tereljük vissza, ahol a megfelelő jogkezelőnél, tételesen és kifizetésig végigvihetően rendezhetők.",
     links: [
       { label: "renatohorvath.com", href: "https://renatohorvath.com/" },
       { label: "LinkedIn", href: "https://www.linkedin.com/in/renatohorvath/" },
@@ -93,7 +93,7 @@ const TEAM = [
     key: "zsofia",
     name: "Lehoczki Zsófia",
     imageSrc: "/team-zsofia.webp",
-    bio: "Több mint egy évtizede dolgozom a szerzői jog területén: alkotókat és vállalkozásokat segítek abban, hogyan találják meg a jogi megoldásokat a kulturális és kreatív iparban. Oktatói tevékenységem mindig is meghatározó volt: előadásokat tartottam IP és szerzői jogi témákban joghallgatóknak, kutatóknak, közgazdászoknak és mérnököknek. Ügyvédként is dolgoztam, és a Szerzői Jogi Szakértők Tanácsának tagjaként is közreműködöm. Jelenleg a Bright Copyright Agency alapítója és vezetője vagyok.",
+    bio: "Több mint egy évtizede dolgozom a szerzői jog területén: alkotókat és vállalkozásokat segítek abban, hogyan találják meg a jogi megoldásokat a kulturális és kreatív iparban. Oktatói tevékenységem mindig is meghatározó volt: előadásokat tartottam IP és szerzői jogi témákban joghallgatóknak, kutatóknak, közgazdászoknak és mérnököknek. Ügyvédként is dolgoztam, és a Szerzői Jogi Szakértők Tanácsának tagjaként is közreműködöm. Jelenleg a Copyright Agency alapítója és vezetője vagyok.",
     links: [{ label: "LinkedIn", href: "https://www.linkedin.com/in/lehoczkizsofia/" }],
   },
 ] as const;
@@ -635,6 +635,9 @@ export function MederLanding() {
               </div>
             ))}
           </div>
+          <p className="mt-8 max-w-2xl text-sm leading-relaxed text-black/60 md:text-base">
+            A Meder mögött két nézőpont találkozik: Zsófia a jogi stratégia és a gondolkodás tisztaságát adja, Renátó pedig a sync és a jogdíj-kezelés gyakorlati végrehajtásában biztosítja a pontosságot. Így nem csak “helyesen” dolgoznak, hanem a kifizetésig is eljutnak.
+          </p>
           <p className="mt-12 max-w-2xl text-sm leading-relaxed text-black/60 md:text-base">
             A Meder jogdíj-visszaszerzéssel és kiadói adminisztrációval foglalkozik film- és
             reklámzeneszerzők, előadók és kisebb katalógusok számára. A jogkezelők saját
