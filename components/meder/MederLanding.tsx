@@ -83,7 +83,7 @@ const TEAM = [
     key: "renato",
     name: "Horváth Renátó",
     imageSrc: "/team-renato.webp",
-    bio: "Több mint 20 éve dolgozom a zeneipar szerzői jogi folyamataival, különösen a szinkron (sync) engedélyezés és a jogdíjak útjának rendbetétele során. Az Artistic Futures jogdíjas projektjeiben szerzett tapasztalataim alapján tudom, hogyan lesz a jogból kifizetés. Zsófiával azért csináljuk ezt együtt, mert nála van a jogi „miértek” tisztasága és a kreatív ipar nyelvére fordítás fegyelme, nálam pedig a sync/rights management végrehajtási logikája: együtt alakítjuk át a bonyolult rendszereket kezelhető, bizonyíték-alapú lépésekké a csapatok számára.",
+    bio: "Több mint 20 éve dolgozom a zeneipar szerzői jogi folyamataiban, különösen a szinkron (sync) engedélyezés és a jogdíjak útjának rendbetétele során. Az Artistic Futures jogdíjas projektjeiben szerzett tapasztalataim alapján célom, hogy a jogból mérhető, dokumentált kifizetés legyen, és a folyamat később se esszen szét.",
     links: [
       { label: "renatohorvath.com", href: "https://renatohorvath.com/" },
       { label: "LinkedIn", href: "https://www.linkedin.com/in/renatohorvath/" },
@@ -635,6 +635,9 @@ export function MederLanding() {
               </div>
             ))}
           </div>
+          <p className="mt-8 max-w-2xl text-sm leading-relaxed text-black/60 md:text-base">
+            A Meder mögött két nézőpont találkozik: Zsófia a jogi stratégia és gondolkodás tisztaságát adja, én pedig a sync és jogdíj-kezelés gyakorlati végrehajtásában hozom a pontosságot. Így nem csak “helyesen” járunk el, hanem el is jutunk a kifizetésig.
+          </p>
           <p className="mt-12 max-w-2xl text-sm leading-relaxed text-black/60 md:text-base">
             A Meder jogdíj-visszaszerzéssel és kiadói adminisztrációval foglalkozik film- és
             reklámzeneszerzők, előadók és kisebb katalógusok számára. A jogkezelők saját
