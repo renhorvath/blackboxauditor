@@ -92,7 +92,7 @@ const TEAM = [
   {
     key: "zsofia",
     name: "Lehoczki Zsófia",
-    imageSrc: null as string | null,
+    imageSrc: "/team-zsofia.webp",
     bio: "Több mint egy évtizede dolgozom a szerzői jog területén: alkotókat és vállalkozásokat segítek abban, hogyan találják meg a jogi megoldásokat a kulturális és kreatív iparban. Oktatói tevékenységem mindig is meghatározó volt: előadásokat tartottam IP és szerzői jogi témákban joghallgatóknak, kutatóknak, közgazdászoknak és mérnököknek. Ügyvédként is dolgoztam, és a Szerzői Jogi Szakértők Tanácsának tagjaként is közreműködöm. Jelenleg a Bright Copyright Agency alapítója és vezetője vagyok.",
     links: [{ label: "LinkedIn", href: "https://www.linkedin.com/in/lehoczkizsofia/" }],
   },
