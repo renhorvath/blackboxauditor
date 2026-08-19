@@ -93,7 +93,7 @@ const TEAM = [
     key: "zsofia",
     name: "Lehoczki Zsófia",
     imageSrc: "/team-zsofia.webp",
-    bio: "Több mint egy évtizede dolgozom a szerzői jog területén: alkotókat és vállalkozásokat segítek abban, hogyan találják meg a jogi megoldásokat a kulturális és kreatív iparban. Oktatói tevékenységem mindig is meghatározó volt: előadásokat tartottam IP és szerzői jogi témákban joghallgatóknak, kutatóknak, közgazdászoknak és mérnököknek. Ügyvédként is dolgoztam, és a Szerzői Jogi Szakértők Tanácsának tagjaként is közreműködöm. Jelenleg a Bright Copyright Agency alapítója és vezetője vagyok.",
+    bio: "Több mint egy évtizede dolgozom a szerzői jog területén: alkotókat és vállalkozásokat segítek abban, hogyan találják meg a jogi megoldásokat a kulturális és kreatív iparban. Oktatói tevékenységem mindig is meghatározó volt: előadásokat tartottam IP és szerzői jogi témákban joghallgatóknak, kutatóknak, közgazdászoknak és mérnököknek. Ügyvédként is dolgoztam, és a Szerzői Jogi Szakértők Tanácsának tagjaként is közreműködöm. Jelenleg a Copyright Agency alapítója és vezetője vagyok.",
     links: [{ label: "LinkedIn", href: "https://www.linkedin.com/in/lehoczkizsofia/" }],
   },
 ] as const;
@@ -636,7 +636,7 @@ export function MederLanding() {
             ))}
           </div>
           <p className="mt-8 max-w-2xl text-sm leading-relaxed text-black/60 md:text-base">
-            A Meder mögött két nézőpont találkozik: Zsófia a jogi stratégia és gondolkodás tisztaságát adja, én pedig a sync és jogdíj-kezelés gyakorlati végrehajtásában hozom a pontosságot. Így nem csak “helyesen” járunk el, hanem el is jutunk a kifizetésig.
+            A Meder mögött két nézőpont találkozik: Zsófia a jogi stratégia és a gondolkodás tisztaságát adja, Renátó pedig a sync és a jogdíj-kezelés gyakorlati végrehajtásában biztosítja a pontosságot. Így nem csak “helyesen” dolgoznak, hanem a kifizetésig is eljutnak.
           </p>
           <p className="mt-12 max-w-2xl text-sm leading-relaxed text-black/60 md:text-base">
             A Meder jogdíj-visszaszerzéssel és kiadói adminisztrációval foglalkozik film- és
