@@ -78,6 +78,26 @@ const NOT_US = [
   },
 ] as const;
 
+const TEAM = [
+  {
+    key: "renato",
+    name: "Horváth Renátó",
+    imageSrc: "/team-renato.webp",
+    bio: "Több mint 20 éve segítem a zeneipar szereplőit a szerzői jog és a jogkezelés útvesztőiben. A szinkron (sync) engedélyezéstől a jogdíjak pontos levezetéséig olyan megoldásokat építek, amelyek kifizetést, átláthatóságot és jövőálló folyamatot adnak. Különösen fontos számomra az Artistic Futures jogdíjas projektjeivel szerzett tapasztalat: a követeléshez bizonyíték, a kezeléshez pedig precíz keretrendszer kell.",
+    links: [
+      { label: "renatohorvath.com", href: "https://renatohorvath.com/" },
+      { label: "LinkedIn", href: "https://www.linkedin.com/in/renatohorvath/" },
+    ],
+  },
+  {
+    key: "zsofia",
+    name: "Lehoczki Zsófia",
+    imageSrc: null as string | null,
+    bio: "Több mint egy évtizede dolgozom a szerzői jog területén: alkotókat és vállalkozásokat segítek abban, hogyan találják meg a jogi megoldásokat a kulturális és kreatív iparban. Oktatói tevékenységem mindig is meghatározó volt: előadásokat tartottam IP és szerzői jogi témákban joghallgatóknak, kutatóknak, közgazdászoknak és mérnököknek. Ügyvédként is dolgoztam, és a Szerzői Jogi Szakértők Tanácsának tagjaként is közreműködöm. Jelenleg a Bright Copyright Agency alapítója és vezetője vagyok.",
+    links: [{ label: "LinkedIn", href: "https://www.linkedin.com/in/lehoczkizsofia/" }],
+  },
+] as const;
+
 const PRICING_FAQ = [
   {
     title: "Miből számoljátok a 25%-ot?",
@@ -565,21 +585,52 @@ export function MederLanding() {
       <section className="bg-white">
         <div className="mx-auto max-w-6xl px-4 py-16 md:px-6 md:py-20">
           <p className="meder-label">(Kik vagyunk)</p>
-          <h2 className="meder-display mt-4 text-3xl md:text-5xl">A Meder</h2>
+          <h2 className="mt-4 flex flex-col items-start gap-2 md:flex-row md:items-baseline md:gap-6">
+            <span className="meder-display text-3xl md:text-5xl">Meder</span>
+            <span className="text-sm font-bold tracking-[0.12em] text-black/45 uppercase md:text-xs">
+              Rights Management
+            </span>
+          </h2>
           <div className="mt-10 grid gap-8 sm:grid-cols-2">
-            {[0, 1].map((i) => (
-              <div key={i} className="flex gap-4 border-t border-black/15 pt-6">
-                <div
-                  className="flex h-20 w-20 shrink-0 items-center justify-center bg-[var(--meder-sand)] text-[10px] font-bold tracking-wider text-black/35 uppercase"
-                  aria-hidden
-                >
-                  Fotó
-                </div>
-                <div>
-                  <p className="meder-display text-base">Név</p>
-                  <p className="mt-2 text-sm leading-relaxed text-black/55">
-                    Egy mondat a szerepről és a szakmai háttérről.
-                  </p>
+            {TEAM.map((person) => (
+              <div key={person.key} className="flex gap-4 border-t border-black/15 pt-6">
+                {person.imageSrc ? (
+                  <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-[var(--meder-sand)]">
+                    <Image
+                      src={person.imageSrc}
+                      alt={`${person.name} fotó`}
+                      fill
+                      sizes="80px"
+                      className="object-cover grayscale"
+                      priority={false}
+                    />
+                  </div>
+                ) : (
+                  <div
+                    className="flex h-20 w-20 shrink-0 items-center justify-center bg-[var(--meder-sand)] text-[10px] font-bold tracking-wider text-black/35 uppercase"
+                    aria-hidden
+                  >
+                    Fotó
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="meder-display text-base">{person.name}</p>
+                  <p className="mt-2 text-sm leading-relaxed text-black/55">{person.bio}</p>
+                  {person.links.length ? (
+                    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs font-semibold">
+                      {person.links.map((l) => (
+                        <a
+                          key={l.href}
+                          href={l.href}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-black/55 underline underline-offset-4 transition hover:text-black"
+                        >
+                          {l.label}
+                        </a>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ))}
