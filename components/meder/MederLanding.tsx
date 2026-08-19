@@ -83,7 +83,7 @@ const TEAM = [
     key: "renato",
     name: "Horváth Renátó",
     imageSrc: "/team-renato.webp",
-    bio: "Több mint 20 éve dolgozom a zeneipar szerzői jogi folyamataiban, különösen a szinkron (sync) engedélyezés és a jogdíjak útjának rendbetétele során. Az Artistic Futures jogdíjas projektjeiben szerzett tapasztalataim alapján célom, hogy a jogból mérhető, dokumentált kifizetés legyen, és a folyamat később se esszen szét.",
+    bio: "Több mint 20 éve építek európai szintű kapcsolatokat és megoldásokat a zene, film és kreatív ipar között. A sync licensing és a rights management területén a jogdíjak útját teszem átláthatóvá: licencelés, jogtulajdonosi ellenőrzés és kifizetésre vezető dokumentáció. A Mederben ezt a tudást a jogdíj-recovery felé fordítjuk: a beragadt felhasználásokat oda tereljük vissza, ahol a megfelelő jogkezelőnél, tételesen és kifizetésig végigvihetően rendezhetők.",
     links: [
       { label: "renatohorvath.com", href: "https://renatohorvath.com/" },
       { label: "LinkedIn", href: "https://www.linkedin.com/in/renatohorvath/" },
