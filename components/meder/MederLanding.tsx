@@ -654,12 +654,18 @@ export function MederLanding() {
             ))}
           </div>
           <p className="mt-8 max-w-2xl text-sm leading-relaxed text-black/60 md:text-base">
-            A Meder mögött két nézőpont találkozik: Zsófia a jogi stratégia és a gondolkodás tisztaságát adja, Renátó pedig a sync és a jogdíj-kezelés gyakorlati végrehajtásában biztosítja a pontosságot. Így nem csak “helyesen” dolgoznak, hanem a kifizetésig is eljutnak.
+            A Meder mögött két nézőpont találkozik: Zsófia a jogi stratégia és a gondolkodás
+            tisztaságát adja; Renátó a sync és a jogdíj-kezelés gyakorlatát — és azt a ritka
+            képességet, hogy a hiányzó láncszemeket szoftverrel is megépíti, nem csak kézzel
+            keresi. Így nem csak „helyesen” dolgoznak, hanem a kifizetésig is eljutnak.
           </p>
           <p className="mt-12 max-w-2xl text-sm leading-relaxed text-black/60 md:text-base">
             A Meder jogdíj-visszaszerzéssel és kiadói adminisztrációval foglalkozik film- és
             reklámzeneszerzők, előadók és kisebb katalógusok számára. A jogkezelők saját
-            rendszereiben dolgozunk, meghatalmazás alapján.
+            rendszereiben dolgozunk, meghatalmazás alapján — de a háttérben saját fejlesztésű,
+            ügyfélre szabott eszközökkel: összevetés, azonosítás, nyomkövetés. Nem szoftvert
+            adunk el. Azt használjuk, hogy gyorsabban és pontosabban jussunk el oda, ahova a
+            hagyományos kiadói admin egyedül nem érne el.
           </p>
           <p className="mt-8 max-w-xl font-[family-name:var(--font-meder-sans)] text-xl leading-snug font-medium tracking-tight md:text-2xl">
             A jogdíjnak van egy medre. Mi visszatereljük bele, és benne is tartjuk.
