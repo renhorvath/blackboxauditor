@@ -61,11 +61,14 @@ const CHAIN_BREAKS = [
 const STEPS = [
   { title: "Lelet", text: "Ingyenes átnézés: mi van a listákon, mi hiányzik, mi hozható vissza." },
   {
-    title: "Megállapodás",
-    text: "Zeneműkiadói megbízás és meghatalmazás, ennek alapján járunk el a nevedben. A szerzői jogaid a tieid maradnak, a keret megújuló.",
+    title: "Megbízás",
+    text: "Zeneműkiadói megbízás és meghatalmazás. A szerzői jogaid a tieid maradnak, a keret megújuló.",
   },
-  { title: "Igényérvényesítés", text: "Hiánybejelentések a jogkezelőknél, tételesen dokumentálva." },
-  { title: "Folyamatos kezelés", text: "Hogy a következő felhasználásoknál már ne keletkezzen hiány." },
+  {
+    title: "Felkutatás",
+    text: "Hiánybejelentés a jogkezelőknél, tételesen; filmnél és reklámnál gyakran nyomozással.",
+  },
+  { title: "Karbantartás", text: "Hogy a következő felhasználásoknál már ne keletkezzen hiány." },
 ] as const;
 
 const NOT_US = [
@@ -109,7 +112,7 @@ const PRICING_FAQ = [
   },
   {
     title: "Mi történik, ha nem csinálok semmit?",
-    text: "Ami a határidőkön belül nem talál gazdára, az nem marad ott. A választás nem 100% és 75% között van, hanem 75% és 0% között.",
+    text: "Ami a határidőkön belül nem talál gazdára, az nem marad ott. Minél később kezded, annál több veszhet el végleg.",
   },
   {
     title: "Miért 15 és nem 20 a kezelés?",
@@ -343,15 +346,15 @@ export function MederLanding() {
       {/* 1. Hero — flat petrol block, no photo */}
       <section className="relative overflow-hidden bg-[var(--meder-petrol)] text-white">
         <div className="mx-auto max-w-6xl px-4 pb-16 pt-16 md:px-6 md:pb-24 md:pt-20">
-          <p className="meder-label text-white/55">(Film- és reklámzeneszerzőknek, előadóknak, katalógusoknak)</p>
+          <p className="meder-label text-white/55">
+            (Előadóknak, szerzőknek, katalógusoknak — film és reklám kiemelten)
+          </p>
           <h1 className="meder-display mt-6 max-w-4xl text-[2.4rem] md:text-[4.25rem]">
-            A jogdíj nem érkezik meg magától.
+            Ezt a pénzt már megkerested. Csak elakadt valahol.
           </h1>
           <p className="mt-6 max-w-xl text-base font-normal leading-relaxed text-white/70 md:text-lg">
-            A jogdíjrendszer sok szereplős és bonyolult. A terjesztőtől vagy a filmgyártótól a
-            jogkezelőig hosszú a lánc, és ha egyetlen adat hiányzik, a pénz megáll, sokszor úgy,
-            hogy észre sem veszed. Mi összekötjük a szálakat: kimentjük, ami beragadt, és rendben
-            tartjuk.
+            Ha egy adat hibás, a jogdíj megáll. Mi megtaláljuk, és végigvisszük a kifizetésig —
+            filmnél és reklámnál is, ahol gyakran nyomozni kell.
           </p>
           <div className="mt-10 flex flex-col items-start gap-4">
             <a href="#ellenorzes" className="meder-cta meder-cta-light">
@@ -443,7 +446,18 @@ export function MederLanding() {
         </div>
       </section>
 
-      {/* 3. Hol szakad el — line accordion */}
+      {/* 3. Bizonyíték — egy rövid anekdota */}
+      <section className="border-t border-black/10 bg-[var(--meder-sand)]">
+        <div className="mx-auto max-w-3xl px-4 py-12 md:px-6 md:py-14">
+          <p className="meder-label">(Ilyen apróságokon múlik)</p>
+          <p className="mt-5 text-base leading-relaxed text-black/70 md:text-lg">
+            Egy filmnél elírták az előadó nevét a stáblistán. Ennyi elég volt: a jogdíj évekig
+            elakadt. Senki nem hibázott nagyot. Csak senki nem nézett utána.
+          </p>
+        </div>
+      </section>
+
+      {/* 4. Hol szakad el — line accordion */}
       <section className="border-t border-black/10 bg-white">
         <div className="mx-auto max-w-6xl px-4 py-16 md:px-6 md:py-20">
           <p className="meder-label">(Hol szakad el a lánc)</p>
@@ -451,7 +465,8 @@ export function MederLanding() {
             Hol szokott elakadni a pénz
           </h2>
           <p className="mt-4 max-w-xl text-sm text-black/55 md:text-base">
-            Nem egy hiba van, hanem sokféle. Ezek a leggyakoribbak.
+            Dalmegjelenésnél az adat többnyire utazik. Filmnél és reklámnál gyakran nem: ott fel
+            kell kutatni a felhasználást. Ez nyomozás, nem csak adminisztráció.
           </p>
           <div className="mt-10 border-t border-black/15">
             {CHAIN_BREAKS.map((item) => (
@@ -487,7 +502,7 @@ export function MederLanding() {
         </div>
         <div className="flex flex-col justify-center bg-[var(--meder-black)] px-6 py-14 text-white md:px-12 md:py-20">
           <p className="meder-label text-white/45">(Hogyan dolgozunk)</p>
-          <h2 className="meder-display mt-4 text-3xl md:text-4xl">A lelettől a folyamatos kezelésig</h2>
+          <h2 className="meder-display mt-4 text-3xl md:text-4xl">A lelettől a karbantartásig</h2>
           <ul className="mt-10 space-y-6">
             {STEPS.map((step, i) => (
               <li key={step.title} className="border-t border-white/15 pt-5">
@@ -545,6 +560,9 @@ export function MederLanding() {
               <p className="meder-display text-xl md:text-2xl">Visszaszerzés · 25%</p>
               <p className="mt-4 max-w-sm text-sm leading-relaxed text-black/55">
                 A ténylegesen megérkezett összegből. Nincs előleg. Ha nem érkezik pénz, nem fizetsz.
+              </p>
+              <p className="mt-4 max-w-sm text-sm font-semibold leading-relaxed text-black/70">
+                A választás nem 100% és 75% között van, hanem 75% és 0% között.
               </p>
             </div>
             <div className="py-8 md:py-10 md:pl-12">
