@@ -27,8 +27,9 @@ export default function PrivacyPage() {
         <section>
           <h2 className="font-semibold text-[#1a1c1a]">Cél</h2>
           <p className="mt-2">
-            Kizárólag a megkeresésed megválaszolása, illetve az általad kért ellenőrzés / összefoglaló
-            elküldése. Nem használjuk marketinglistákhoz.
+            A megkeresésed megválaszolása, az általad kért ellenőrzés / összefoglaló elküldése, és
+            az előzetes ellenőrzés működtetése (a beírt előadónév naplózása, ismételt keresés
+            gyorsítása). Nem használjuk marketinglistákhoz.
           </p>
         </section>
         <section>

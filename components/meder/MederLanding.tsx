@@ -72,7 +72,6 @@ const STEPS = [
 ] as const;
 
 const NOT_US = [
-  { lead: "Nem vesszük meg a katalógusodat.", rest: "A jogaid nálad maradnak." },
   { lead: "Nem kötünk hosszú kizárólagos szerződést.", rest: "Megújuló keret, nem örök elköteleződés." },
   { lead: "Nem kerüljük meg a jogkezelőket.", rest: "A saját rendszereikben dolgozunk." },
   {
