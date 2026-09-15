@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
 
 const STORAGE_KEY = "bbox-theme";
@@ -20,7 +21,12 @@ function snapshotIsDark() {
 }
 
 export function SiteHeader() {
+  const pathname = usePathname();
   const dark = useSyncExternalStore(subscribeTheme, snapshotIsDark, () => false);
+
+  if (pathname?.startsWith("/demo") || pathname?.startsWith("/ejidemo")) {
+    return null;
+  }
 
   function toggleTheme() {
     if (dark) {

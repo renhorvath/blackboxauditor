@@ -12,7 +12,8 @@
     "mlc:filter-non-hu": "python3 scripts/mlc/filter_non_hu_hungarian.py",
     "mlc:popular-artists": "python3 scripts/mlc/fetch_hu_popular_artists.py",
     "mlc:summary": "python3 scripts/mlc/summarize_isrc_conflicts.py",
-    "artisjus:build-index": "node scripts/artisjus/build-index.mjs"
+    "artisjus:build-index": "node scripts/artisjus/build-index.mjs",
+    "eji:search": "npx tsx scripts/cmo/search_eji.mts"
   },
   "dependencies": {
     "@tanstack/react-table": "^8.21.3",
@@ -31,6 +32,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
+    "tsx": "^4.22.4",
     "typescript": "^5"
   }
 }
