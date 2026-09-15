@@ -12,11 +12,13 @@ import { enrichIsrcsWithMb, type MbRecordingEnrichment } from "@/lib/eji/musicbr
 import { buildNeighbouringActSearch } from "@/lib/demo/build-neighbouring-act";
 import { searchEjiByArtist } from "@/lib/cmo-web/eji-search";
 import {
+  fetchSpotifyArtistById,
   fetchSpotifyArtistTopTracks,
   hydrateSpotifyAlbumMeta,
   searchSpotifyArtists,
   searchSpotifyTracks,
 } from "@/lib/spotify";
+import { parseSpotifyArtistRef } from "@/lib/spotify-resolve";
 import type { SearchTrackHit } from "@/lib/types";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -399,12 +401,16 @@ export type EjiPocSpotifyCandidate = {
   /** HU ISRC a top trackekből (ha mérve) */
   huIsrcCount: number | null;
   exactName: boolean;
+  /** Link / ID alapján rögzítve */
+  locked?: boolean;
 };
 
 export type EjiPocBundle = {
   query: string;
   submitter: string;
   spotifyArtist: { id: string; name: string } | null;
+  /** Explicit link/ID vagy UI választás — ne írja felül a heurisztika */
+  spotifyArtistLocked: boolean;
   /** Többértelmű név — UI választó */
   spotifyCandidates: EjiPocSpotifyCandidate[];
   spotifyAmbiguous: boolean;
@@ -481,9 +487,47 @@ export async function buildEjiPocBundle(input: {
   enrichMb?: boolean;
   enrichDiscogs?: boolean;
 }): Promise<EjiPocBundle> {
-  const query = input.query.trim();
-  const submitter = (input.submitter || query).trim();
+  const rawQuery = input.query.trim();
   const spotifyWarnings: string[] = [];
+
+  /** Explicit artist: param, query URL/URI, vagy bare ID a queryben */
+  let forcedArtistId =
+    parseSpotifyArtistRef(input.spotifyArtistId || "") ||
+    parseSpotifyArtistRef(rawQuery) ||
+    "";
+
+  let lockedArtist: Awaited<ReturnType<typeof fetchSpotifyArtistById>> = null;
+  if (forcedArtistId) {
+    try {
+      lockedArtist = await fetchSpotifyArtistById(forcedArtistId);
+      if (!lockedArtist) {
+        spotifyWarnings.push("A megadott katalógus-előadó nem található.");
+        forcedArtistId = "";
+      }
+    } catch (e) {
+      spotifyWarnings.push(
+        e instanceof Error
+          ? e.message.replace(/Spotify/gi, "Katalógus")
+          : "Katalógus előadó feloldás hiba",
+      );
+      forcedArtistId = "";
+      lockedArtist = null;
+    }
+  }
+
+  const queryFromLink = Boolean(
+    lockedArtist &&
+      (parseSpotifyArtistRef(rawQuery) === lockedArtist.spotifyId ||
+        !rawQuery ||
+        rawQuery.length < 2),
+  );
+  const query = queryFromLink ? lockedArtist!.name : rawQuery || lockedArtist?.name || "";
+  const submitter = (input.submitter || query).trim();
+  const spotifyArtistLocked = Boolean(lockedArtist);
+
+  if (query.length < 2) {
+    throw new Error("Legalább 2 karakter kell (előadó név vagy katalógus-link).");
+  }
 
   const [eji, neighbouring, artistsResult] = await Promise.all([
     searchEjiByArtist(query),
@@ -509,12 +553,22 @@ export async function buildEjiPocBundle(input: {
       .then((a) => ({ artists: a, error: null as string | null }))
       .catch((e) => ({
         artists: [] as Awaited<ReturnType<typeof searchSpotifyArtists>>,
-        error: e instanceof Error ? e.message.replace(/Spotify/gi, "Katalógus") : "Előadó keresés hiba",
+        error: e instanceof Error
+          ? e.message.replace(/Spotify/gi, "Katalógus")
+          : "Előadó keresés hiba",
       })),
   ]);
 
   let artists = artistsResult.artists;
   if (artistsResult.error) spotifyWarnings.push(artistsResult.error);
+
+  // Rögzített előadó mindig a lista élén
+  if (lockedArtist) {
+    artists = [
+      lockedArtist,
+      ...artists.filter((a) => a.spotifyId !== lockedArtist!.spotifyId),
+    ];
+  }
 
   // ASCII fallback (dzsudlo), ha ékezetes query üres listát ad
   if (!artists.length && /[áéíóöőúüűÁÉÍÓÖŐÚÜŰ]/.test(query)) {
@@ -532,8 +586,8 @@ export async function buildEjiPocBundle(input: {
     }
   }
 
-  // Bővebb lista a választóhoz
-  if (artists.length && artists.length < 8) {
+  // Bővebb lista a választóhoz (locked nélkül is)
+  if (!lockedArtist && artists.length && artists.length < 8) {
     try {
       const more = await searchSpotifyArtists(query, 10);
       const byId = new Map(artists.map((a) => [a.spotifyId, a]));
@@ -547,6 +601,7 @@ export async function buildEjiPocBundle(input: {
   const exactNameArtists = artists.filter((a) => fold(a.name) === fold(query));
   /** Csak név-releváns jelöltek — ne jöjjön Tankcsapda/Quimby „related” zaj. */
   const relevantArtists = artists.filter((a) => {
+    if (lockedArtist && a.spotifyId === lockedArtist.spotifyId) return true;
     const nt = fold(a.name).split(/\s+/).filter(Boolean);
     const qt = fold(query).split(/\s+/).filter(Boolean);
     if (!qt.length) return false;
@@ -554,14 +609,23 @@ export async function buildEjiPocBundle(input: {
     return qt.every((t) => nt.includes(t));
   });
   const candidatePool =
-    relevantArtists.length > 0 ? relevantArtists : exactNameArtists;
+    relevantArtists.length > 0
+      ? relevantArtists
+      : lockedArtist
+        ? [lockedArtist]
+        : exactNameArtists;
   const spotifyAmbiguous =
-    candidatePool.filter((a) => fold(a.name) === fold(query)).length > 1 ||
-    (candidatePool.length > 1 && exactNameArtists.length === 0);
+    !spotifyArtistLocked &&
+    (candidatePool.filter((a) => fold(a.name) === fold(query)).length > 1 ||
+      (candidatePool.length > 1 && exactNameArtists.length === 0));
 
   /** HU ISRC hint a legfontosabb jelöltekre (max 3) */
   const huHintIds = (
-    exactNameArtists.length > 1 ? exactNameArtists : candidatePool
+    lockedArtist
+      ? [lockedArtist]
+      : exactNameArtists.length > 1
+        ? exactNameArtists
+        : candidatePool
   ).slice(0, 3);
   const huHintMap = new Map<string, number>();
   for (const a of huHintIds) {
@@ -588,9 +652,13 @@ export async function buildEjiPocBundle(input: {
         ? (huHintMap.get(a.spotifyId) ?? null)
         : null,
       exactName: fold(a.name) === fold(query),
+      locked: Boolean(lockedArtist && a.spotifyId === lockedArtist.spotifyId),
     }));
 
   function pickArtist(): { id: string; name: string } | null {
+    if (lockedArtist) {
+      return { id: lockedArtist.spotifyId, name: lockedArtist.name };
+    }
     if (input.spotifyArtistId) {
       const forced =
         artists.find((a) => a.spotifyId === input.spotifyArtistId) ||
@@ -947,6 +1015,7 @@ export async function buildEjiPocBundle(input: {
     query,
     submitter,
     spotifyArtist,
+    spotifyArtistLocked,
     spotifyCandidates,
     spotifyAmbiguous,
     lanes: {

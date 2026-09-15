@@ -34,3 +34,13 @@ export function parseSpotifyTrackOrArtist(
 
   return null;
 }
+
+/** Artist URL / URI / bare 22-char Spotify ID. */
+export function parseSpotifyArtistRef(raw: string): string | null {
+  const s = raw.trim();
+  if (!s) return null;
+  const parsed = parseSpotifyTrackOrArtist(s);
+  if (parsed?.kind === "artist") return parsed.id;
+  if (/^[a-zA-Z0-9]{22}$/.test(s)) return s;
+  return null;
+}

@@ -9,10 +9,13 @@ import {
   type EjiAdatlapRow,
 } from "@/lib/eji/adatlap-schema";
 import type { EjiPocBundle } from "@/lib/eji/build-poc-bundle";
+import { parseSpotifyArtistRef } from "@/lib/spotify-resolve";
 
 export function EjiPocDemo() {
   const [query, setQuery] = useState("");
   const [submitter, setSubmitter] = useState("");
+  /** Opcionális: open.spotify.com/artist/…, spotify:artist:…, vagy 22-char ID */
+  const [catalogArtistRef, setCatalogArtistRef] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bundle, setBundle] = useState<EjiPocBundle | null>(null);
@@ -21,23 +24,43 @@ export function EjiPocDemo() {
   const [scope, setScope] = useState<"eji" | "all">("eji");
   const [quality, setQuality] = useState<"all" | "fillable" | "review">("all");
 
+  function resolveArtistId(override?: string | null): string | null {
+    if (override) return override;
+    if (spotifyArtistId) return spotifyArtistId;
+    return (
+      parseSpotifyArtistRef(catalogArtistRef) ||
+      parseSpotifyArtistRef(query) ||
+      null
+    );
+  }
+
   async function run(overrideSpotifyId?: string | null) {
+    const sid = resolveArtistId(overrideSpotifyId);
     const q = query.trim();
-    if (q.length < 2) return;
+    if (q.length < 2 && !sid) return;
     setLoading(true);
     setError(null);
     try {
       const params = new URLSearchParams({
-        q,
+        q: q || sid || "",
         submitter: submitter.trim() || q,
       });
-      const sid = overrideSpotifyId ?? spotifyArtistId;
       if (sid) params.set("spotifyArtistId", sid);
       const res = await fetch(`/api/demo/eji-poc?${params}`);
       const body = (await res.json()) as EjiPocBundle & { error?: string };
       if (!res.ok) throw new Error(body.error || "PoC hiba");
       setBundle(body);
-      if (body.spotifyArtist?.id) setSpotifyArtistId(body.spotifyArtist.id);
+      if (body.spotifyArtist?.id) {
+        setSpotifyArtistId(body.spotifyArtist.id);
+        if (body.spotifyArtistLocked && !catalogArtistRef.trim()) {
+          setCatalogArtistRef(
+            `https://open.spotify.com/artist/${body.spotifyArtist.id}`,
+          );
+        }
+        if ((!q || parseSpotifyArtistRef(q)) && body.spotifyArtist.name) {
+          setQuery(body.spotifyArtist.name);
+        }
+      }
       setScope("eji");
       setQuality("all");
     } catch (e) {
@@ -107,49 +130,98 @@ export function EjiPocDemo() {
           <p className="mt-2 max-w-3xl text-sm text-[#9aabbc] md:text-base">
             Hivatalos hangfelvételi sablon ({EJI_TEMPLATE_VERSION}) mezőire
             előtöltünk, amit kézi ellenőrzés után CSV / Excel formában feltölthetsz.
+            Opcionális katalógus-előadó linkkel rögzítheted, melyik actről van szó.
           </p>
         </header>
 
         <form
-          className="mb-6 flex flex-col gap-3 rounded-2xl border border-[#243041] bg-[#121820] p-4 md:flex-row md:items-end"
+          className="mb-6 flex flex-col gap-3 rounded-2xl border border-[#243041] bg-[#121820] p-4"
           onSubmit={(e) => {
             e.preventDefault();
-            setSpotifyArtistId(null);
-            void run(null);
+            void run(resolveArtistId(null));
           }}
         >
-          <label className="flex-1 text-sm">
-            <span className="mb-1 block text-[#7a8a9a]">Előadó / zenekar</span>
-            <input
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setSpotifyArtistId(null);
-                setBundle(null);
-                setError(null);
-              }}
-              className="w-full rounded-xl border border-[#243041] bg-[#0b0f14] px-3 py-2.5 outline-none focus:border-[#c4a574]"
-              placeholder="Előadó vagy zenekar neve"
-            />
-          </label>
-          <label className="flex-1 text-sm">
-            <span className="mb-1 block text-[#7a8a9a]">
-              Submitter (akit az adatlapra jelölünk)
-            </span>
-            <input
-              value={submitter}
-              onChange={(e) => setSubmitter(e.target.value)}
-              className="w-full rounded-xl border border-[#243041] bg-[#0b0f14] px-3 py-2.5 outline-none focus:border-[#c4a574]"
-              placeholder="Ugyanaz, vagy a bejelentő előadói neve"
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={loading}
-            className="rounded-xl bg-[#c4a574] px-5 py-2.5 text-sm font-semibold text-[#1a1208] disabled:opacity-50"
-          >
-            {loading ? "Összeállítás…" : "Összeállít"}
-          </button>
+          <div className="flex flex-col gap-3 md:flex-row md:items-end">
+            <label className="flex-1 text-sm">
+              <span className="mb-1 block text-[#7a8a9a]">Előadó / zenekar</span>
+              <input
+                value={query}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setQuery(v);
+                  setBundle(null);
+                  setError(null);
+                  const fromName = parseSpotifyArtistRef(v);
+                  if (fromName) {
+                    setCatalogArtistRef(v.trim());
+                    setSpotifyArtistId(fromName);
+                  } else if (!catalogArtistRef.trim()) {
+                    setSpotifyArtistId(null);
+                  }
+                }}
+                className="w-full rounded-xl border border-[#243041] bg-[#0b0f14] px-3 py-2.5 outline-none focus:border-[#c4a574]"
+                placeholder="Név, vagy katalógus előadó-link"
+              />
+            </label>
+            <label className="flex-[1.2] text-sm">
+              <span className="mb-1 block text-[#7a8a9a]">
+                Katalógus előadó (opcionális)
+              </span>
+              <input
+                value={catalogArtistRef}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setCatalogArtistRef(v);
+                  setBundle(null);
+                  setError(null);
+                  setSpotifyArtistId(parseSpotifyArtistRef(v));
+                }}
+                className="w-full rounded-xl border border-[#243041] bg-[#0b0f14] px-3 py-2.5 font-mono text-xs outline-none focus:border-[#c4a574]"
+                placeholder="open.spotify.com/artist/… vagy ID"
+              />
+            </label>
+            <label className="flex-1 text-sm">
+              <span className="mb-1 block text-[#7a8a9a]">
+                Submitter (akit az adatlapra jelölünk)
+              </span>
+              <input
+                value={submitter}
+                onChange={(e) => setSubmitter(e.target.value)}
+                className="w-full rounded-xl border border-[#243041] bg-[#0b0f14] px-3 py-2.5 outline-none focus:border-[#c4a574]"
+                placeholder="Ugyanaz, vagy a bejelentő előadói neve"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={loading}
+              className="rounded-xl bg-[#c4a574] px-5 py-2.5 text-sm font-semibold text-[#1a1208] disabled:opacity-50"
+            >
+              {loading ? "Összeállítás…" : "Összeállít"}
+            </button>
+          </div>
+          {(spotifyArtistId || catalogArtistRef.trim()) && (
+            <p className="font-mono text-[11px] text-[#7a8a9a]">
+              Rögzített katalógus-ID:{" "}
+              <span className="text-[#c4a574]">
+                {spotifyArtistId ||
+                  parseSpotifyArtistRef(catalogArtistRef) ||
+                  "—"}
+              </span>
+              {spotifyArtistId && (
+                <button
+                  type="button"
+                  className="ml-3 text-[#6ea8ff] underline-offset-2 hover:underline"
+                  onClick={() => {
+                    setSpotifyArtistId(null);
+                    setCatalogArtistRef("");
+                    setBundle(null);
+                  }}
+                >
+                  törlés
+                </button>
+              )}
+            </p>
+          )}
         </form>
 
         {error && <p className="mb-4 text-sm text-[#e07a6a]">{error}</p>}
@@ -161,15 +233,19 @@ export function EjiPocDemo() {
 
         {bundle && (
           <>
-            {bundle.spotifyCandidates.length > 1 && (
+            {bundle.spotifyCandidates.length > 0 && (
               <div className="mb-4 rounded-2xl border border-[#243041] bg-[#121820] p-4">
                 <p className="font-mono text-[10px] uppercase tracking-wider text-[#c4a574]">
-                  Előadó-jelölt {bundle.spotifyAmbiguous ? "(több találat)" : ""}
+                  Katalógus előadó
+                  {bundle.spotifyArtistLocked
+                    ? " (rögzítve link/ID alapján)"
+                    : bundle.spotifyAmbiguous
+                      ? " (több találat — válassz)"
+                      : " (választható)"}
                 </p>
-                <p className="mt-1 text-xs text-[#7a8a9a]">
-                  Válaszd ki a helyes actet — újraösszeállít a kiválasztott
-                  diszkográfiával. HU ISRC csak gyenge katalógus-jel (nem
-                  nemzetiség; FR/DE ISRC gyakran DigiTerjesztő).
+                <p className="mt-1 text-xs text-[#9aabbc]">
+                  A hangfelvételi adatlap év/kiadó/ISRC pótlása ehhez az acthez
+                  kötődik. Linkkel vagy kiválasztással rögzítheted.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {bundle.spotifyCandidates.map((c) => {
@@ -181,6 +257,9 @@ export function EjiPocDemo() {
                         disabled={loading}
                         onClick={() => {
                           setSpotifyArtistId(c.id);
+                          setCatalogArtistRef(
+                            `https://open.spotify.com/artist/${c.id}`,
+                          );
                           void run(c.id);
                         }}
                         className={`max-w-xs rounded-xl border px-3 py-2 text-left text-xs ${
@@ -189,7 +268,11 @@ export function EjiPocDemo() {
                             : "border-[#243041] text-[#9aabbc] hover:border-[#c4a574]/60"
                         }`}
                       >
-                        <div className="font-medium text-[#e8eef4]">{c.name}</div>
+                        <div className="font-medium text-[#e8eef4]">
+                          {c.name}
+                          {c.locked ? " · rögzített" : ""}
+                          {active && !c.locked ? " · kiválasztva" : ""}
+                        </div>
                         <div className="mt-0.5 text-[10px] text-[#7a8a9a]">
                           {c.exactName ? "pontos név · " : ""}
                           {c.followers != null

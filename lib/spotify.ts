@@ -138,7 +138,7 @@ export async function fetchSpotifyTrackById(trackId: string): Promise<SearchTrac
 
 export async function fetchSpotifyArtistById(
   artistId: string,
-): Promise<{ id: string; name: string } | null> {
+): Promise<SearchArtistHit | null> {
   const token = await getClientCredentialsToken();
   const res = await fetch(
     `https://api.spotify.com/v1/artists/${encodeURIComponent(artistId)}`,
@@ -148,9 +148,21 @@ export async function fetchSpotifyArtistById(
   if (!res.ok) {
     throw new Error(`Spotify előadó hiba: ${res.status}`);
   }
-  const json = (await res.json()) as { id?: string; name?: string };
+  const json = (await res.json()) as {
+    id?: string;
+    name?: string;
+    followers?: { total?: number };
+    genres?: string[];
+    images?: { url?: string }[];
+  };
   if (!json.id || !json.name) return null;
-  return { id: json.id, name: json.name };
+  return {
+    spotifyId: json.id,
+    name: json.name,
+    followers: json.followers?.total ?? null,
+    genres: json.genres ?? [],
+    imageUrl: json.images?.[0]?.url ?? null,
+  };
 }
 
 export async function fetchSpotifyArtistTopTracks(
@@ -254,11 +266,7 @@ export async function searchSpotifyTracks(query: string, limit = 12): Promise<Se
         id: string;
         name: string;
         artists?: { name?: string }[];
-        album?: {
-          id?: string;
-          name?: string;
-          release_date?: string;
-        };
+        album?: { name?: string };
         external_ids?: { isrc?: string };
       }>;
     };
@@ -278,41 +286,6 @@ export type ArtistDiscographyResult = {
 };
 
 /** Paginate Spotify artist albums + album tracks; hydrate ISRC via /tracks?ids= */
-export function spotifyApiAvailable(): boolean {
-  return Boolean(
-    process.env.SPOTIFY_CLIENT_ID?.trim() && process.env.SPOTIFY_CLIENT_SECRET?.trim(),
-  );
-}
-
-export function buildSpotifyIsrcMap(tracks: SearchTrackHit[]): Map<string, SearchTrackHit> {
-  const out = new Map<string, SearchTrackHit>();
-  for (const track of tracks) {
-    const isrc = track.isrc?.trim();
-    if (!isrc) continue;
-    const key = isrc.toUpperCase().replace(/-/g, "");
-    if (!out.has(key)) out.set(key, track);
-  }
-  return out;
-}
-
-export async function resolveSpotifyArtistIdByName(artistName: string): Promise<string | null> {
-  const query = artistName.trim();
-  if (!query || !spotifyApiAvailable()) return null;
-  const hits = await searchSpotifyArtists(query, 8);
-  return hits[0]?.spotifyId ?? null;
-}
-
-export async function fetchSpotifyArtistIsrcMap(
-  artistId: string,
-): Promise<{ map: Map<string, SearchTrackHit>; trackCount: number }> {
-  const discography = await fetchArtistDiscographyHits(artistId);
-  const withIsrc = discography.tracks.filter((t) => t.isrc?.trim());
-  return {
-    map: buildSpotifyIsrcMap(withIsrc),
-    trackCount: withIsrc.length,
-  };
-}
-
 export async function fetchArtistDiscographyHits(artistId: string): Promise<ArtistDiscographyResult> {
   const token = await getClientCredentialsToken();
   const market = (process.env.SPOTIFY_DISCOGRAPHY_MARKET ?? "US").trim() || "US";
