@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       mode: "artist",
       tracks,
-      artistId: parsed.id,
+      artistId: artist?.spotifyId ?? parsed.id,
       artistName: artist?.name ?? null,
       error: null,
     });

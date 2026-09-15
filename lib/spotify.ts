@@ -138,7 +138,7 @@ export async function fetchSpotifyTrackById(trackId: string): Promise<SearchTrac
 
 export async function fetchSpotifyArtistById(
   artistId: string,
-): Promise<{ id: string; name: string } | null> {
+): Promise<SearchArtistHit | null> {
   const token = await getClientCredentialsToken();
   const res = await fetch(
     `https://api.spotify.com/v1/artists/${encodeURIComponent(artistId)}`,
@@ -148,9 +148,21 @@ export async function fetchSpotifyArtistById(
   if (!res.ok) {
     throw new Error(`Spotify előadó hiba: ${res.status}`);
   }
-  const json = (await res.json()) as { id?: string; name?: string };
+  const json = (await res.json()) as {
+    id?: string;
+    name?: string;
+    followers?: { total?: number };
+    genres?: string[];
+    images?: { url?: string }[];
+  };
   if (!json.id || !json.name) return null;
-  return { id: json.id, name: json.name };
+  return {
+    spotifyId: json.id,
+    name: json.name,
+    followers: json.followers?.total ?? null,
+    genres: json.genres ?? [],
+    imageUrl: json.images?.[0]?.url ?? null,
+  };
 }
 
 export async function fetchSpotifyArtistTopTracks(
