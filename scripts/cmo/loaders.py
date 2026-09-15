@@ -4,15 +4,29 @@ from __future__ import annotations
 
 import csv
 import re
+import sys
 import unicodedata
 from pathlib import Path
 
 import openpyxl
 
+# UCMR PDF→CSV can emit multi-MB cells; default csv limit (~128 KiB) breaks.
+csv.field_size_limit(min(sys.maxsize, 20_000_000))
+
+# Cap text fields so poison PDF rows cannot explode tokenIndex / JSON / COPY.
+FIELD_CAP = 500
+POISON_LOG_THRESHOLD = 10_000
+
 STOP = {
     "the", "and", "feat", "ft", "featuring", "a", "an", "az", "egy", "es", "is",
     "of", "in", "on", "de", "la", "le", "les", "el", "y", "vs", "mix", "remix",
 }
+
+
+def _cap_field(value: str, *, cap: int = FIELD_CAP) -> str:
+    if len(value) <= cap:
+        return value
+    return value[:cap].rstrip()
 
 
 def normalize_text(value: str | None) -> str:
@@ -275,36 +289,49 @@ def load_flexible_xlsx(
 def load_csv_file(path: Path, *, source: str) -> list[dict]:
     records: list[dict] = []
     seen: set[str] = set()
+    poison_logged = 0
     with path.open(encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
         if not reader.fieldnames:
             return records
-        fields = [h.strip().lower() for h in reader.fieldnames]
         for row_num, row in enumerate(reader, start=2):
-            norm = {k.strip().lower(): (v or "").strip() for k, v in row.items() if k}
-            title = next((norm[k] for k in norm if "title" in k or "mucim" in k or "titl" in k), "")
-            performer = next(
-                (norm[k] for k in norm if any(x in k for x in ("artist", "performer", "interpret", "eload", "ansambel"))),
+            raw = {k.strip().lower(): (v or "").strip() for k, v in row.items() if k}
+            title_raw = next((raw[k] for k in raw if "title" in k or "mucim" in k or "titl" in k), "")
+            performer_raw = next(
+                (raw[k] for k in raw if any(x in k for x in ("artist", "performer", "interpret", "eload", "ansambel"))),
                 "",
             )
-            composer = next(
-                (norm[k] for k in norm if any(x in k for x in ("author", "autor", "composer", "szerző", "szerzo"))),
+            composer_raw = next(
+                (raw[k] for k in raw if any(x in k for x in ("author", "autor", "composer", "szerző", "szerzo"))),
                 "",
             )
-            ident = build_identification(performer=performer, composer=composer)
+            max_raw = max(len(title_raw), len(performer_raw), len(composer_raw), 0)
+            if max_raw > POISON_LOG_THRESHOLD and poison_logged < 20:
+                print(
+                    f"WARNING: {path.name}:{row_num} id={raw.get('id', '')!r} "
+                    f"capped field len={max_raw}",
+                    file=sys.stderr,
+                )
+                poison_logged += 1
+
+            title = _cap_field(title_raw)
+            performer = _cap_field(performer_raw)
+            composer = _cap_field(composer_raw)
+            ident = _cap_field(build_identification(performer=performer, composer=composer))
             if not title and not ident:
                 continue
-            rec_id = next((norm[k] for k in norm if k in ("id", "ssz", "work_id")), "") or f"{path.stem}:{row_num}"
+            rec_id = next((raw[k] for k in raw if k in ("id", "ssz", "work_id")), "") or f"{path.stem}:{row_num}"
             if rec_id in seen:
                 continue
             seen.add(rec_id)
-            isrc = next((norm[k].upper() for k in norm if "isrc" in k and norm[k]), None)
+            isrc = next((raw[k].upper() for k in raw if "isrc" in k and raw[k]), None)
+            remark_raw = next((raw[k] for k in raw if k == "remark"), "")
             rec: dict = {
                 "id": rec_id,
                 "source": source,
                 "title": title or "(névtelen)",
                 "identification": ident,
-                "remark": None,
+                "remark": _cap_field(remark_raw) or None,
             }
             if performer:
                 rec["performer"] = performer
@@ -313,6 +340,12 @@ def load_csv_file(path: Path, *, source: str) -> list[dict]:
             if isrc:
                 rec["isrc"] = isrc
             records.append(rec)
+    if poison_logged:
+        print(
+            f"WARNING: {path.name}: logged {poison_logged} poison field(s) "
+            f"(threshold {POISON_LOG_THRESHOLD}+; all fields capped at {FIELD_CAP})",
+            file=sys.stderr,
+        )
     return records
 
 

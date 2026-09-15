@@ -35,6 +35,7 @@
     "etl:query": ".venv/bin/python3 scripts/etl/query.py",
     "etl:export-artist": ".venv/bin/python3 scripts/etl/export_artist_mlc_json.py",
     "cloudsql:load-indexes": "NODE_OPTIONS='--max-old-space-size=8192' npx tsx scripts/cloudsql/load-indexes.mts",
+    "cloudsql:load-ucmr": "npx tsx scripts/cloudsql/load-ucmr.mts",
     "cloudsql:parity": "NODE_OPTIONS='--max-old-space-size=8192' npx tsx scripts/cloudsql/parity-test.mts",
     "db:migrate": "npx tsx scripts/db/migrate.mts",
     "batch:artist-audit": "npx tsx scripts/batch_artist_audit.mjs",

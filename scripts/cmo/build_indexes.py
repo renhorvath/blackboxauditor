@@ -19,6 +19,7 @@ from source_specs import BULK_SPECS, gvl_data_present, resolve_files  # noqa: E4
 PROJECT_ROOT = CMO_DIR.parents[1]
 OUT_PATH = PROJECT_ROOT / "data" / "cmo-index.json"
 GVL_OUT_PATH = PROJECT_ROOT / "data" / "cmo-gvl-index.json"
+UCMR_OUT_PATH = PROJECT_ROOT / "data" / "cmo-ucmr-index.json"
 RAW = PROJECT_ROOT / "raw" / "cmo"
 
 LOADERS: dict[str, tuple] = {
@@ -72,13 +73,27 @@ def main() -> None:
 
     sources: dict = {}
     gvl_source: dict | None = None
+    ucmr_source: dict | None = None
     skipped: list[str] = []
+    write_ucmr_json = "--ucmr-json" in sys.argv
 
     for spec in BULK_SPECS:
         if spec.id == "de-gvl":
             if not gvl_data_present(RAW):
                 skipped.append(f"{spec.id} (optional, no data in de-gvl/)")
                 continue
+        if spec.id == "ro-ucmr-ada" and not write_ucmr_json:
+            # Prefer: npm run cloudsql:load-ucmr (CSV→COPY). JSON is optional (~300MB+).
+            files = resolve_files(RAW, spec)
+            if files:
+                skipped.append(
+                    f"{spec.id} (use npm run cloudsql:load-ucmr; pass --ucmr-json to emit {UCMR_OUT_PATH.name})"
+                )
+            elif spec.optional:
+                skipped.append(f"{spec.id} (optional, no files)")
+            else:
+                skipped.append(f"{spec.id} (no files in {spec.dir_name}/)")
+            continue
         files = resolve_files(RAW, spec)
         if not files and spec.id not in ("at-akm", "at-aume", "nl-sena", "de-gvl"):
             if spec.optional:
@@ -91,6 +106,8 @@ def main() -> None:
             loaded = loader()
             if spec.id == "de-gvl":
                 gvl_source = loaded
+            elif spec.id == "ro-ucmr-ada":
+                ucmr_source = loaded
             else:
                 sources[spec.id] = loaded
         except FileNotFoundError:
@@ -110,6 +127,7 @@ def main() -> None:
     OUT_PATH.write_text(json.dumps(payload), encoding="utf-8")
     total = sum(s["recordCount"] for s in sources.values())
     gvl_count = gvl_source["recordCount"] if gvl_source else 0
+    ucmr_count = ucmr_source["recordCount"] if ucmr_source else 0
     print(f"Wrote {OUT_PATH} ({total:,} records across {len(sources)} sources)")
     for sid, meta in sources.items():
         print(f"  {sid}: {meta['recordCount']:,} ({meta['organization']})")
@@ -123,6 +141,16 @@ def main() -> None:
         GVL_OUT_PATH.write_text(json.dumps(gvl_payload), encoding="utf-8")
         print(f"Wrote {GVL_OUT_PATH} ({gvl_count:,} records — de-gvl)")
         total += gvl_count
+
+    if ucmr_source:
+        ucmr_payload = {
+            "version": 2,
+            "builtAt": built_at,
+            "sources": {"ro-ucmr-ada": ucmr_source},
+        }
+        UCMR_OUT_PATH.write_text(json.dumps(ucmr_payload), encoding="utf-8")
+        print(f"Wrote {UCMR_OUT_PATH} ({ucmr_count:,} records — ro-ucmr-ada)")
+        total += ucmr_count
 
     if skipped:
         print("Skipped:", ", ".join(skipped))
