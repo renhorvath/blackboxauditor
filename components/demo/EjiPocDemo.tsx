@@ -125,6 +125,8 @@ export function EjiPocDemo() {
               onChange={(e) => {
                 setQuery(e.target.value);
                 setSpotifyArtistId(null);
+                setBundle(null);
+                setError(null);
               }}
               className="w-full rounded-xl border border-[#243041] bg-[#0b0f14] px-3 py-2.5 outline-none focus:border-[#c4a574]"
               placeholder="Előadó vagy zenekar neve"
@@ -166,7 +168,8 @@ export function EjiPocDemo() {
                 </p>
                 <p className="mt-1 text-xs text-[#7a8a9a]">
                   Válaszd ki a helyes actet — újraösszeállít a kiválasztott
-                  diszkográfiával. HU ISRC = magyar katalógus jel.
+                  diszkográfiával. HU ISRC csak gyenge katalógus-jel (nem
+                  nemzetiség; FR/DE ISRC gyakran DigiTerjesztő).
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {bundle.spotifyCandidates.map((c) => {
@@ -463,13 +466,39 @@ function formatSources(sources: string[]): string {
   return [...new Set(sources.map((s) => map[s] || s))].join("+");
 }
 
+function rowStatus(row: EjiAdatlapRow): {
+  label: string;
+  className: string;
+} {
+  const missing = row._meta.missingRequired;
+  const rolesEmpty =
+    !row.submitterRole &&
+    !row.contribInstrumental &&
+    !row.contribVocal &&
+    !row.contribConductor;
+  if (missing.length === 0 && !rolesEmpty) {
+    return { label: "kitölthető", className: "text-[#3dcea0]" };
+  }
+  if (missing.length === 0 && rolesEmpty) {
+    return {
+      label: "szerep kézi",
+      className: "text-[#6ea8ff]",
+    };
+  }
+  return {
+    label: `hiány: ${missing.join(",")}`,
+    className: "text-[#e0b45c]",
+  };
+}
+
 function Row({ row }: { row: EjiAdatlapRow }) {
-  const ok = row._meta.missingRequired.length === 0;
+  const status = rowStatus(row);
   const fromEji = row._meta.sources.includes("eji");
+  const prov = row._meta.provenance;
   return (
     <tr className="border-t border-[#243041]/80 align-top hover:bg-[#1a222d]/60">
       <td className="px-2 py-2">
-        <div className="mb-1">
+        <div className="mb-1 flex flex-wrap gap-1">
           <span
             className={
               fromEji
@@ -479,10 +508,13 @@ function Row({ row }: { row: EjiAdatlapRow }) {
           >
             {fromEji ? "EJI" : "extra"}
           </span>
+          {prov && (
+            <span className="rounded bg-[#243041] px-1.5 py-0.5 font-mono text-[10px] text-[#7a8a9a]">
+              {prov}
+            </span>
+          )}
         </div>
-        <span className={ok ? "text-[#3dcea0]" : "text-[#e0b45c]"}>
-          {ok ? "OK" : row._meta.missingRequired.join(",")}
-        </span>
+        <span className={status.className}>{status.label}</span>
         {row._meta.notes[0] && (
           <div className="mt-1 max-w-[140px] text-[10px] text-[#7a8a9a]">
             {row._meta.notes[0]}

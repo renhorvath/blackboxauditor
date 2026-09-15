@@ -53,6 +53,8 @@ export type EjiAdatlapRow = Record<EjiAdatlapColumnKey, string> & {
     laneHint: "A" | "B" | "C" | null;
     artistCredits?: string[];
     isClassicalSuspect?: boolean;
+    /** eji = jogosultkutatás találat; catalog = csak katalógus; assumed = egyéb */
+    provenance?: "eji" | "catalog" | "assumed";
   };
 };
 
@@ -65,6 +67,6 @@ export const EJI_CLASSICAL_RULES = [
 
 export const EJI_MULTI_PERFORMER_RULES = [
   "Ha Ön szólista vagy zenekari tag: jelölje. Stúdiózenész / session: egyiket se.",
-  "Több előadó a főmezőben vesszővel / „feat.” — MusicBrainz/Discogs credit segít.",
+  "Több előadó a főmezőben vesszővel / „feat.” — a credit lista segít.",
   "Remix: a megjelenési főelőadó a sablon 3. oszlopa; a submitter szerepe külön.",
 ] as const;
