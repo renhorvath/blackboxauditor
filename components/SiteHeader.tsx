@@ -7,7 +7,7 @@ import { useSyncExternalStore } from "react";
 const STORAGE_KEY = "bbox-theme";
 
 /** Marketing / public pages: no bbox tool chrome. */
-const HIDE_ON = new Set(["/", "/adatvedelem"]);
+const HIDE_ON = new Set(["/", "/adatvedelem", "/ejidemo"]);
 
 function subscribeTheme(callback: () => void) {
   if (typeof window === "undefined") return () => {};

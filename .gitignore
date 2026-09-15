@@ -78,3 +78,12 @@ __pycache__/
 
 # ARTISJUS search index (generated — npm run artisjus:build-index)
 /data/artisjus-index.json
+
+# EJI PoC sablonok
+!/data/eji/
+!/data/eji/templates/
+!/data/eji/templates/**
+!/data/eji/templates/*.xlsx
+!/data/eji/templates/*.xls
+!/data/eji/templates/*.pdf
+!/data/eji/templates/*.md

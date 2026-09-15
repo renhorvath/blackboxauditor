@@ -47,9 +47,20 @@ type SpotifyTrackApi = {
   id: string;
   name: string;
   artists?: { name?: string }[];
-  album?: { name?: string };
+  album?: {
+    id?: string;
+    name?: string;
+    release_date?: string;
+    release_date_precision?: string;
+  };
   external_ids?: { isrc?: string };
 };
+
+function yearFromReleaseDate(d: string | undefined): string | null {
+  if (!d) return null;
+  const y = d.slice(0, 4);
+  return /^\d{4}$/.test(y) ? y : null;
+}
 
 function mapTrackItem(t: SpotifyTrackApi): SearchTrackHit {
   return {
@@ -58,7 +69,57 @@ function mapTrackItem(t: SpotifyTrackApi): SearchTrackHit {
     artists: (t.artists ?? []).map((a) => a.name ?? "").filter(Boolean),
     album: t.album?.name ?? null,
     isrc: t.external_ids?.isrc ?? null,
+    releaseYear: yearFromReleaseDate(t.album?.release_date),
+    albumId: t.album?.id ?? null,
+    label: null,
   };
+}
+
+/** Batch-hydrate album label (+ confirm release year) via GET /v1/albums. */
+export async function hydrateSpotifyAlbumMeta(
+  tracks: SearchTrackHit[],
+): Promise<SearchTrackHit[]> {
+  const albumIds = [
+    ...new Set(tracks.map((t) => t.albumId).filter((id): id is string => Boolean(id))),
+  ];
+  if (albumIds.length === 0) return tracks;
+
+  const token = await getClientCredentialsToken();
+  const meta = new Map<string, { label: string | null; releaseYear: string | null }>();
+
+  for (let i = 0; i < albumIds.length; i += 20) {
+    const chunk = albumIds.slice(i, i + 20);
+    const res = await fetch(
+      `https://api.spotify.com/v1/albums?ids=${chunk.map(encodeURIComponent).join(",")}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    if (!res.ok) continue;
+    const body = (await res.json()) as {
+      albums?: ({
+        id?: string;
+        label?: string;
+        release_date?: string;
+      } | null)[];
+    };
+    for (const a of body.albums ?? []) {
+      if (!a?.id) continue;
+      meta.set(a.id, {
+        label: a.label ?? null,
+        releaseYear: yearFromReleaseDate(a.release_date),
+      });
+    }
+  }
+
+  return tracks.map((t) => {
+    if (!t.albumId) return t;
+    const m = meta.get(t.albumId);
+    if (!m) return t;
+    return {
+      ...t,
+      label: m.label ?? t.label ?? null,
+      releaseYear: m.releaseYear ?? t.releaseYear ?? null,
+    };
+  });
 }
 
 export async function fetchSpotifyTrackById(trackId: string): Promise<SearchTrackHit | null> {
@@ -193,7 +254,11 @@ export async function searchSpotifyTracks(query: string, limit = 12): Promise<Se
         id: string;
         name: string;
         artists?: { name?: string }[];
-        album?: { name?: string };
+        album?: {
+          id?: string;
+          name?: string;
+          release_date?: string;
+        };
         external_ids?: { isrc?: string };
       }>;
     };

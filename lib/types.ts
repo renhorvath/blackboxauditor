@@ -165,6 +165,11 @@ export interface SearchTrackHit {
   artists: string[];
   album: string | null;
   isrc: string | null;
+  /** YYYY from Spotify album.release_date when available */
+  releaseYear?: string | null;
+  albumId?: string | null;
+  /** From Spotify album object when hydrated */
+  label?: string | null;
 }
 
 export interface SearchArtistHit {
