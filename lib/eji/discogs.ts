@@ -11,6 +11,8 @@ export type DiscogsEnrichment = {
   releaseYear: string | null;
   artistCredits: string[];
   extraArtists: string[];
+  /** Composer / Written-By szerepek a Discogs extraartists-ből */
+  composers: string[];
 };
 
 const UA = "EastasteEjiPoc/0.1 +https://eastaste.com";
@@ -125,6 +127,14 @@ async function fetchRelease(id: number): Promise<DiscogsEnrichment | null> {
   const extraArtists = (json.extraartists || [])
     .map((a) => (a.name || "").replace(/\s*\(\d+\)\s*$/, "").trim())
     .filter(Boolean);
+  const composers = [
+    ...new Set(
+      (json.extraartists || [])
+        .filter((a) => /composer|written-?by|music by/i.test(a.role || ""))
+        .map((a) => (a.name || "").replace(/\s*\(\d+\)\s*$/, "").trim())
+        .filter(Boolean),
+    ),
+  ];
 
   return {
     releaseId: json.id,
@@ -133,6 +143,7 @@ async function fetchRelease(id: number): Promise<DiscogsEnrichment | null> {
     releaseYear: yearStr(json.year),
     artistCredits,
     extraArtists,
+    composers,
   };
 }
 
@@ -193,6 +204,7 @@ export async function enrichTrackWithDiscogs(opts: {
       releaseYear: searchYear,
       artistCredits: [],
       extraArtists: [],
+      composers: [],
     };
   }
 
@@ -205,6 +217,7 @@ export async function enrichTrackWithDiscogs(opts: {
       releaseYear: searchYear,
       artistCredits: [],
       extraArtists: [],
+      composers: [],
     };
   }
   return {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   EJI_ADATLAP_COLUMNS,
   EJI_CLASSICAL_RULES,
@@ -8,21 +8,46 @@ import {
   EJI_TEMPLATE_VERSION,
   type EjiAdatlapRow,
 } from "@/lib/eji/adatlap-schema";
-import type { EjiPocBundle } from "@/lib/eji/build-poc-bundle";
+import type {
+  EjiPocBundle,
+  EjiSubmitterRoleHint,
+} from "@/lib/eji/build-poc-bundle";
 import { parseSpotifyArtistRef } from "@/lib/spotify-resolve";
+
+type TypeaheadArtist = {
+  id: string;
+  name: string;
+  followers: number | null;
+  genres: string[];
+  locked?: boolean;
+};
+
+const ROLE_OPTIONS: { value: EjiSubmitterRoleHint; label: string }[] = [
+  { value: "", label: "— nem töltöm (kézi)" },
+  { value: "szolista", label: "Szólista" },
+  { value: "zenekari_tag", label: "Zenekari tag" },
+  { value: "hangszeres", label: "Hangszeres zenész" },
+  { value: "enekes", label: "Énekes" },
+  { value: "karmester", label: "Karmester / karvezető" },
+  { value: "session", label: "Session / stúdió (üres szerep)" },
+];
 
 export function EjiPocDemo() {
   const [query, setQuery] = useState("");
   const [submitter, setSubmitter] = useState("");
-  /** Opcionális: open.spotify.com/artist/…, spotify:artist:…, vagy 22-char ID */
+  const [aliases, setAliases] = useState("");
+  const [roleHint, setRoleHint] = useState<EjiSubmitterRoleHint>("");
   const [catalogArtistRef, setCatalogArtistRef] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bundle, setBundle] = useState<EjiPocBundle | null>(null);
   const [spotifyArtistId, setSpotifyArtistId] = useState<string | null>(null);
-  /** EJI találatok vs teljes összeállítás (EJI + Spotify extra) */
   const [scope, setScope] = useState<"eji" | "all">("eji");
   const [quality, setQuality] = useState<"all" | "fillable" | "review">("all");
+  const [typeahead, setTypeahead] = useState<TypeaheadArtist[]>([]);
+  const [typeaheadOpen, setTypeaheadOpen] = useState(false);
+  const [typeaheadLoading, setTypeaheadLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function resolveArtistId(override?: string | null): string | null {
     if (override) return override;
@@ -34,18 +59,51 @@ export function EjiPocDemo() {
     );
   }
 
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const q = query.trim();
+    if (q.length < 2 || parseSpotifyArtistRef(q)) {
+      setTypeahead([]);
+      return;
+    }
+    debounceRef.current = setTimeout(async () => {
+      setTypeaheadLoading(true);
+      try {
+        const res = await fetch(
+          `/api/demo/spotify-artist-search?q=${encodeURIComponent(q)}`,
+        );
+        const body = (await res.json()) as {
+          artists?: TypeaheadArtist[];
+          error?: string;
+        };
+        setTypeahead(body.artists || []);
+        setTypeaheadOpen(true);
+      } catch {
+        setTypeahead([]);
+      } finally {
+        setTypeaheadLoading(false);
+      }
+    }, 350);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [query]);
+
   async function run(overrideSpotifyId?: string | null) {
     const sid = resolveArtistId(overrideSpotifyId);
     const q = query.trim();
     if (q.length < 2 && !sid) return;
     setLoading(true);
     setError(null);
+    setTypeaheadOpen(false);
     try {
       const params = new URLSearchParams({
         q: q || sid || "",
         submitter: submitter.trim() || q,
       });
       if (sid) params.set("spotifyArtistId", sid);
+      if (aliases.trim()) params.set("aliases", aliases.trim());
+      if (roleHint) params.set("roleHint", roleHint);
       const res = await fetch(`/api/demo/eji-poc?${params}`);
       const body = (await res.json()) as EjiPocBundle & { error?: string };
       if (!res.ok) throw new Error(body.error || "PoC hiba");
@@ -68,6 +126,14 @@ export function EjiPocDemo() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function pickTypeahead(a: TypeaheadArtist) {
+    setQuery(a.name);
+    setSpotifyArtistId(a.id);
+    setCatalogArtistRef(`https://open.spotify.com/artist/${a.id}`);
+    setTypeaheadOpen(false);
+    setBundle(null);
   }
 
   const scopedRows = useMemo(() => {
@@ -117,6 +183,43 @@ export function EjiPocDemo() {
     URL.revokeObjectURL(url);
   }
 
+  async function downloadXlsx() {
+    if (!bundle || rows.length === 0) return;
+    setError(null);
+    try {
+      const res = await fetch("/api/demo/eji-xlsx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows, query: bundle.query }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error || "xlsx hiba");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const tag = scope === "eji" ? "eji" : "osszes";
+      a.download = `eji-adatlap-${tag}-${bundle.query.replace(/\s+/g, "_")}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "xlsx hiba");
+    }
+  }
+
+  const pickerCandidates: TypeaheadArtist[] =
+    bundle && bundle.spotifyCandidates.length
+      ? bundle.spotifyCandidates.map((c) => ({
+          id: c.id,
+          name: c.name,
+          followers: c.followers,
+          genres: c.genres,
+          locked: c.locked,
+        }))
+      : typeahead;
+
   return (
     <div className="poc-root min-h-screen bg-[#0b0f14] text-[#e8eef4]">
       <div className="mx-auto max-w-7xl px-5 py-8">
@@ -129,8 +232,8 @@ export function EjiPocDemo() {
           </h1>
           <p className="mt-2 max-w-3xl text-sm text-[#9aabbc] md:text-base">
             Hivatalos hangfelvételi sablon ({EJI_TEMPLATE_VERSION}) mezőire
-            előtöltünk, amit kézi ellenőrzés után CSV / Excel formában feltölthetsz.
-            Opcionális katalógus-előadó linkkel rögzítheted, melyik actről van szó.
+            előtöltünk. Gépelés közben katalógus-jelöltek; opcionális artist
+            link; aliasok az EJI névsorrendhez; Excel export.
           </p>
         </header>
 
@@ -142,7 +245,7 @@ export function EjiPocDemo() {
           }}
         >
           <div className="flex flex-col gap-3 md:flex-row md:items-end">
-            <label className="flex-1 text-sm">
+            <label className="relative flex-1 text-sm">
               <span className="mb-1 block text-[#7a8a9a]">Előadó / zenekar</span>
               <input
                 value={query}
@@ -155,17 +258,45 @@ export function EjiPocDemo() {
                   if (fromName) {
                     setCatalogArtistRef(v.trim());
                     setSpotifyArtistId(fromName);
+                    setTypeaheadOpen(false);
                   } else if (!catalogArtistRef.trim()) {
                     setSpotifyArtistId(null);
                   }
                 }}
+                onFocus={() => typeahead.length && setTypeaheadOpen(true)}
                 className="w-full rounded-xl border border-[#243041] bg-[#0b0f14] px-3 py-2.5 outline-none focus:border-[#c4a574]"
-                placeholder="Név, vagy katalógus előadó-link"
+                placeholder="Név — gépelésre keres, vagy artist link"
+                autoComplete="off"
               />
+              {typeaheadOpen && (typeahead.length > 0 || typeaheadLoading) && (
+                <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-[#243041] bg-[#0b0f14] shadow-xl">
+                  {typeaheadLoading && (
+                    <p className="px-3 py-2 font-mono text-[10px] text-[#7a8a9a]">
+                      Keresés…
+                    </p>
+                  )}
+                  {typeahead.map((a) => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      className="block w-full border-b border-[#243041]/60 px-3 py-2 text-left text-xs hover:bg-[#1a222d]"
+                      onClick={() => pickTypeahead(a)}
+                    >
+                      <div className="font-medium text-[#e8eef4]">{a.name}</div>
+                      <div className="text-[10px] text-[#7a8a9a]">
+                        {a.followers != null
+                          ? `${a.followers.toLocaleString("hu-HU")} köv.`
+                          : "—"}
+                        {a.genres[0] ? ` · ${a.genres[0]}` : ""}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </label>
-            <label className="flex-[1.2] text-sm">
+            <label className="flex-[1.1] text-sm">
               <span className="mb-1 block text-[#7a8a9a]">
-                Katalógus előadó (opcionális)
+                Katalógus előadó link (opcionális)
               </span>
               <input
                 value={catalogArtistRef}
@@ -173,23 +304,50 @@ export function EjiPocDemo() {
                   const v = e.target.value;
                   setCatalogArtistRef(v);
                   setBundle(null);
-                  setError(null);
                   setSpotifyArtistId(parseSpotifyArtistRef(v));
                 }}
                 className="w-full rounded-xl border border-[#243041] bg-[#0b0f14] px-3 py-2.5 font-mono text-xs outline-none focus:border-[#c4a574]"
                 placeholder="open.spotify.com/artist/… vagy ID"
               />
             </label>
+          </div>
+
+          <div className="flex flex-col gap-3 md:flex-row md:items-end">
             <label className="flex-1 text-sm">
               <span className="mb-1 block text-[#7a8a9a]">
-                Submitter (akit az adatlapra jelölünk)
+                Alias / névváltozat (EJI)
               </span>
+              <input
+                value={aliases}
+                onChange={(e) => setAliases(e.target.value)}
+                className="w-full rounded-xl border border-[#243041] bg-[#0b0f14] px-3 py-2.5 outline-none focus:border-[#c4a574]"
+                placeholder="pl. Bogányi Gergely — sorrend automatikusan is cserélődik"
+              />
+            </label>
+            <label className="flex-1 text-sm">
+              <span className="mb-1 block text-[#7a8a9a]">Submitter</span>
               <input
                 value={submitter}
                 onChange={(e) => setSubmitter(e.target.value)}
                 className="w-full rounded-xl border border-[#243041] bg-[#0b0f14] px-3 py-2.5 outline-none focus:border-[#c4a574]"
-                placeholder="Ugyanaz, vagy a bejelentő előadói neve"
+                placeholder="Bejelentő előadói neve"
               />
+            </label>
+            <label className="w-full text-sm md:w-56">
+              <span className="mb-1 block text-[#7a8a9a]">Szerep-tipp</span>
+              <select
+                value={roleHint}
+                onChange={(e) =>
+                  setRoleHint(e.target.value as EjiSubmitterRoleHint)
+                }
+                className="w-full rounded-xl border border-[#243041] bg-[#0b0f14] px-3 py-2.5 outline-none focus:border-[#c4a574]"
+              >
+                {ROLE_OPTIONS.map((o) => (
+                  <option key={o.value || "none"} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
             </label>
             <button
               type="submit"
@@ -199,6 +357,7 @@ export function EjiPocDemo() {
               {loading ? "Összeállítás…" : "Összeállít"}
             </button>
           </div>
+
           {(spotifyArtistId || catalogArtistRef.trim()) && (
             <p className="font-mono text-[11px] text-[#7a8a9a]">
               Rögzített katalógus-ID:{" "}
@@ -231,65 +390,61 @@ export function EjiPocDemo() {
           </p>
         )}
 
+        {pickerCandidates.length > 0 && (
+          <div className="mb-4 rounded-2xl border border-[#243041] bg-[#121820] p-4">
+            <p className="font-mono text-[10px] uppercase tracking-wider text-[#c4a574]">
+              Katalógus előadó
+              {bundle?.spotifyArtistLocked
+                ? " (rögzítve)"
+                : bundle
+                  ? " (válaszd ki / erősítsd meg)"
+                  : " (gépelés — válassz a pontos acthez)"}
+            </p>
+            <p className="mt-1 text-xs text-[#9aabbc]">
+              Itt rögzíted, melyik actről szól az adatlap év/kiadó/ISRC pótlása.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {pickerCandidates.map((c) => {
+                const active = (spotifyArtistId || bundle?.spotifyArtist?.id) === c.id;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    disabled={loading}
+                    onClick={() => {
+                      setSpotifyArtistId(c.id);
+                      setCatalogArtistRef(
+                        `https://open.spotify.com/artist/${c.id}`,
+                      );
+                      setQuery(c.name);
+                      setTypeaheadOpen(false);
+                      void run(c.id);
+                    }}
+                    className={`max-w-xs rounded-xl border px-3 py-2 text-left text-xs ${
+                      active
+                        ? "border-[#c4a574] bg-[#c4a574]/15 text-[#e8eef4]"
+                        : "border-[#243041] text-[#9aabbc] hover:border-[#c4a574]/60"
+                    }`}
+                  >
+                    <div className="font-medium text-[#e8eef4]">
+                      {c.name}
+                      {active ? " · kiválasztva" : ""}
+                    </div>
+                    <div className="mt-0.5 text-[10px] text-[#7a8a9a]">
+                      {c.followers != null
+                        ? `${c.followers.toLocaleString("hu-HU")} köv.`
+                        : "—"}
+                      {c.genres[0] ? ` · ${c.genres[0]}` : ""}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {bundle && (
           <>
-            {bundle.spotifyCandidates.length > 0 && (
-              <div className="mb-4 rounded-2xl border border-[#243041] bg-[#121820] p-4">
-                <p className="font-mono text-[10px] uppercase tracking-wider text-[#c4a574]">
-                  Katalógus előadó
-                  {bundle.spotifyArtistLocked
-                    ? " (rögzítve link/ID alapján)"
-                    : bundle.spotifyAmbiguous
-                      ? " (több találat — válassz)"
-                      : " (választható)"}
-                </p>
-                <p className="mt-1 text-xs text-[#9aabbc]">
-                  A hangfelvételi adatlap év/kiadó/ISRC pótlása ehhez az acthez
-                  kötődik. Linkkel vagy kiválasztással rögzítheted.
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {bundle.spotifyCandidates.map((c) => {
-                    const active = bundle.spotifyArtist?.id === c.id;
-                    return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        disabled={loading}
-                        onClick={() => {
-                          setSpotifyArtistId(c.id);
-                          setCatalogArtistRef(
-                            `https://open.spotify.com/artist/${c.id}`,
-                          );
-                          void run(c.id);
-                        }}
-                        className={`max-w-xs rounded-xl border px-3 py-2 text-left text-xs ${
-                          active
-                            ? "border-[#c4a574] bg-[#c4a574]/15 text-[#e8eef4]"
-                            : "border-[#243041] text-[#9aabbc] hover:border-[#c4a574]/60"
-                        }`}
-                      >
-                        <div className="font-medium text-[#e8eef4]">
-                          {c.name}
-                          {c.locked ? " · rögzített" : ""}
-                          {active && !c.locked ? " · kiválasztva" : ""}
-                        </div>
-                        <div className="mt-0.5 text-[10px] text-[#7a8a9a]">
-                          {c.exactName ? "pontos név · " : ""}
-                          {c.followers != null
-                            ? `${c.followers.toLocaleString("hu-HU")} köv.`
-                            : "—"}
-                          {c.huIsrcCount != null
-                            ? ` · HU ISRC ${c.huIsrcCount}`
-                            : ""}
-                          {c.genres[0] ? ` · ${c.genres[0]}` : ""}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
             {bundle.stats.spotifyWarning && (
               <p className="mb-4 rounded-xl border border-[#e07a6a]/40 bg-[#e07a6a]/10 px-4 py-3 text-sm text-[#e07a6a]">
                 Katalógus hiányos — az EJI soroknál az év/kiadó pótlás gyengébb
@@ -342,7 +497,7 @@ export function EjiPocDemo() {
                 code="C"
                 title={bundle.lanes.C.label}
                 items={bundle.lanes.C.items}
-                empty="Külföldi act EJI-találatai / HU act artist-tab periodjai."
+                empty="Külföldi act EJI találatai itt (HU actnél üres — C = külföldi @ EJI)."
               />
             </section>
 
@@ -383,6 +538,13 @@ export function EjiPocDemo() {
                     className="rounded-lg bg-[#3dcea0] px-3 py-1.5 text-xs font-semibold text-[#062016]"
                   >
                     CSV (aktuális nézet · {rows.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void downloadXlsx()}
+                    className="rounded-lg bg-[#c4a574] px-3 py-1.5 text-xs font-semibold text-[#1a1208]"
+                  >
+                    Excel .xlsx ({rows.length})
                   </button>
                 </div>
               </div>

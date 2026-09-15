@@ -11,6 +11,7 @@ export type MbRecordingEnrichment = {
   creditCount: number;
   hasConductor: boolean;
   conductorNames: string[];
+  composerNames: string[];
   isClassicalSuspect: boolean;
   releaseYear: string | null;
   label: string | null;
@@ -31,7 +32,7 @@ export async function fetchMbByIsrc(
 
   const url =
     `https://musicbrainz.org/ws/2/isrc/${encodeURIComponent(clean)}` +
-    `?fmt=json&inc=artist-credits+releases+labels`;
+    `?fmt=json&inc=artist-credits+releases+labels+artist-rels`;
 
   const res = await fetch(url, {
     headers: { "User-Agent": UA, Accept: "application/json" },
@@ -80,10 +81,17 @@ function parseMbIsrcResponse(json: unknown): MbRecordingEnrichment | null {
     .filter(Boolean);
 
   const conductors: string[] = [];
+  const composers: string[] = [];
   for (const rel of rec.relations ?? []) {
     const t = (rel.type || "").toLowerCase();
     if (t.includes("conductor") && rel.artist?.name) {
       conductors.push(rel.artist.name);
+    }
+    if (
+      (t.includes("composer") || t === "writer") &&
+      rel.artist?.name
+    ) {
+      composers.push(rel.artist.name);
     }
   }
 
@@ -108,6 +116,7 @@ function parseMbIsrcResponse(json: unknown): MbRecordingEnrichment | null {
   const titleBlob = `${rec.title || ""} ${credits.join(" ")}`.toLowerCase();
   const isClassicalSuspect =
     Boolean(conductors.length) ||
+    Boolean(composers.length) ||
     /\b(symphony|concerto|sonata|quartet|op\.|rv\s*\d|bwv|verseny|szimfón)/i.test(
       titleBlob,
     ) ||
@@ -120,6 +129,7 @@ function parseMbIsrcResponse(json: unknown): MbRecordingEnrichment | null {
     creditCount: credits.length,
     hasConductor: conductors.length > 0,
     conductorNames: conductors,
+    composerNames: [...new Set(composers)],
     isClassicalSuspect,
     releaseYear,
     label,
