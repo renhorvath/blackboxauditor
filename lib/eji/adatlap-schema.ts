@@ -53,6 +53,8 @@ export type EjiAdatlapRow = Record<EjiAdatlapColumnKey, string> & {
     laneHint: "A" | "B" | "C" | null;
     artistCredits?: string[];
     isClassicalSuspect?: boolean;
+    /** eji = jogosultkutatás találat; catalog = csak katalógus; assumed = egyéb */
+    provenance?: "eji" | "catalog" | "assumed";
   };
 };
 
