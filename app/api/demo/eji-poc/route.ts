@@ -1,9 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { buildEjiPocBundle } from "@/lib/eji/build-poc-bundle";
+import {
+  buildEjiPocBundle,
+  type EjiSubmitterRoleHint,
+} from "@/lib/eji/build-poc-bundle";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
+
+const ROLE_HINTS = new Set<EjiSubmitterRoleHint>([
+  "",
+  "szolista",
+  "zenekari_tag",
+  "hangszeres",
+  "enekes",
+  "karmester",
+  "session",
+]);
 
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q")?.trim() ?? "";
@@ -12,8 +25,14 @@ export async function GET(req: NextRequest) {
     req.nextUrl.searchParams.get("spotifyArtistId")?.trim() ||
     req.nextUrl.searchParams.get("spotifyUrl")?.trim() ||
     "";
+  const aliasesRaw = req.nextUrl.searchParams.get("aliases")?.trim() ?? "";
+  const aliases = aliasesRaw
+    ? aliasesRaw.split(/[;,]/).map((s) => s.trim()).filter(Boolean)
+    : [];
+  const roleParam = (req.nextUrl.searchParams.get("roleHint")?.trim() ||
+    "") as EjiSubmitterRoleHint;
+  const roleHint = ROLE_HINTS.has(roleParam) ? roleParam : "";
   const enrichDiscogs = req.nextUrl.searchParams.get("discogs") !== "0";
-  // mb=0 → kényszerített kikapcsolás; egyébként a bundle dönt (hiányzó mező / classical)
   const enrichMb = req.nextUrl.searchParams.get("mb") !== "0";
 
   if (q.length < 2 && !spotifyArtistId) {
@@ -28,6 +47,8 @@ export async function GET(req: NextRequest) {
       query: q || spotifyArtistId,
       submitter: submitter || undefined,
       spotifyArtistId: spotifyArtistId || undefined,
+      aliases,
+      roleHint,
       enrichMb,
       enrichDiscogs,
     });

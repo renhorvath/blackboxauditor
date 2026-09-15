@@ -9,8 +9,10 @@ import {
   type DiscogsEnrichment,
 } from "@/lib/eji/discogs";
 import { enrichIsrcsWithMb, type MbRecordingEnrichment } from "@/lib/eji/musicbrainz";
+import { expandArtistNameVariants } from "@/lib/eji/artist-variants";
 import { buildNeighbouringActSearch } from "@/lib/demo/build-neighbouring-act";
 import { searchEjiByArtist } from "@/lib/cmo-web/eji-search";
+import type { EjiSearchResult } from "@/lib/cmo-web/eji-types";
 import {
   fetchSpotifyArtistById,
   fetchSpotifyArtistTopTracks,
@@ -279,13 +281,50 @@ function recomputeRowFill(r: EjiAdatlapRow) {
   }
 }
 
-function roleForSubmitter(
-  _submitter: string,
-  _mainArtist: string,
-  _credits: string[],
+export type EjiSubmitterRoleHint =
+  | ""
+  | "szolista"
+  | "zenekari_tag"
+  | "hangszeres"
+  | "enekes"
+  | "karmester"
+  | "session";
+
+function roleFromHint(
+  hint: EjiSubmitterRoleHint | undefined,
 ): { role: string; instrumental: string; vocal: string; conductor: string } {
-  // Soha ne állítsunk szerepet / contrib X-et — az EJI nyilatkozat mező, emberi kitöltés.
-  return { role: "", instrumental: "", vocal: "", conductor: "" };
+  switch (hint) {
+    case "szolista":
+      return { role: "szólista", instrumental: "", vocal: "", conductor: "" };
+    case "zenekari_tag":
+      return {
+        role: "zenekari tag",
+        instrumental: "",
+        vocal: "",
+        conductor: "",
+      };
+    case "hangszeres":
+      return { role: "", instrumental: "X", vocal: "", conductor: "" };
+    case "enekes":
+      return { role: "", instrumental: "", vocal: "X", conductor: "" };
+    case "karmester":
+      return { role: "szólista", instrumental: "", vocal: "", conductor: "X" };
+    case "session":
+    case "":
+    default:
+      return { role: "", instrumental: "", vocal: "", conductor: "" };
+  }
+}
+
+function withComposerPrefix(title: string, composers: string[]): string {
+  const t = title.trim();
+  if (!t || !composers.length) return t;
+  const c = composers[0].trim();
+  if (!c) return t;
+  const foldT = fold(t);
+  const foldC = fold(c);
+  if (foldT.startsWith(foldC) || foldT.includes(`${foldC}:`)) return t;
+  return `${c}: ${t}`;
 }
 
 function buildRow(opts: {
@@ -303,6 +342,7 @@ function buildRow(opts: {
   sources: string[];
   laneHint: "A" | "B" | "C" | null;
   notes?: string[];
+  roleHint?: EjiSubmitterRoleHint;
 }): EjiAdatlapRow {
   const dgCredits = [
     ...(opts.discogs?.artistCredits ?? []),
@@ -312,14 +352,33 @@ function buildRow(opts: {
     ? opts.mb.artistCredits
     : dgCredits.length
       ? [...new Set(dgCredits)]
-      : opts.mainArtist.split(/,| feat\.? | ft\.? | & /i).map((s) => s.trim()).filter(Boolean);
+      : opts.mainArtist
+          .split(/,| feat\.? | ft\.? | & /i)
+          .map((s) => s.trim())
+          .filter(Boolean);
 
   const mainArtist =
     opts.mb?.isClassicalSuspect && opts.mb.conductorNames.length
       ? [...new Set([...credits, ...opts.mb.conductorNames])].join(", ")
       : opts.mainArtist || credits.join(", ");
 
-  const roles = roleForSubmitter(opts.submitter, mainArtist, credits);
+  const composers = [
+    ...new Set([
+      ...(opts.mb?.composerNames ?? []),
+      ...(opts.discogs?.composers ?? []),
+    ]),
+  ];
+  const classical =
+    Boolean(opts.mb?.isClassicalSuspect) ||
+    composers.length > 0 ||
+    looksClassical(opts.title, mainArtist);
+
+  let title = opts.title;
+  if (classical && composers.length) {
+    title = withComposerPrefix(title, composers);
+  }
+
+  const roles = roleFromHint(opts.roleHint);
   const conductor = roles.conductor;
   const submitterRole = roles.role;
   const instrumental = roles.instrumental;
@@ -327,7 +386,6 @@ function buildRow(opts: {
   let bandCount = credits.length > 1 ? String(credits.length) : "";
 
   if (opts.mb?.isClassicalSuspect) {
-    // Csak jelzés — szerepet nem töltünk
     if (opts.mb.creditCount >= 5) {
       bandCount = String(Math.max(opts.mb.creditCount, 10));
     }
@@ -337,21 +395,31 @@ function buildRow(opts: {
   const year = opts.year || opts.mb?.releaseYear || opts.discogs?.releaseYear || "";
   const isrc = opts.isrc || "";
 
-  // Sablon kötelezők — szerep/contrib NEM (azokat emberi nyilatkozat)
   const missingRequired: string[] = [];
-  if (!opts.title.trim()) missingRequired.push("title");
+  if (!title.trim()) missingRequired.push("title");
   if (!mainArtist.trim()) missingRequired.push("mainArtist");
   if (!label.trim()) missingRequired.push("label");
   if (!year.trim()) missingRequired.push("releaseYear");
 
   const notes = [...(opts.notes || [])];
-  if (opts.mb?.isClassicalSuspect) {
-    notes.push("Komolyzene-gyanú: tételenként külön sor kell (EJI PDF).");
+  if (classical) {
+    notes.push(
+      composers.length
+        ? "Komolyzene: szerző a cím elején (EJI)."
+        : "Komolyzene-gyanú: ellenőrizd, hogy a szerző a cím elején van-e.",
+    );
+    notes.push("Komolyzene: tételenként külön sor kell (EJI PDF).");
   }
   if (credits.length > 2) {
-    notes.push(`Több előadó (${credits.length}): ellenőrizd a főmezőt és a szerepet.`);
+    notes.push(
+      `Több előadó (${credits.length}): ellenőrizd a főmezőt és a szerepet.`,
+    );
   }
-  notes.push("Szerep / közreműködés: kézi kitöltés (nem előállított).");
+  if (opts.roleHint && opts.roleHint !== "session") {
+    notes.push("Szerep: előzetes tipp a választott nyilatkozat alapján — ellenőrizd.");
+  } else {
+    notes.push("Szerep / közreműködés: kézi kitöltés (vagy válassz tippet felül).");
+  }
 
   const provenance: "eji" | "catalog" | "assumed" = opts.sources.includes("eji")
     ? "eji"
@@ -364,7 +432,7 @@ function buildRow(opts: {
   else if ((isrc || label) && mainArtist) fillConfidence = "medium";
 
   return {
-    title: opts.title,
+    title,
     album: opts.album,
     mainArtist,
     submitterRole,
@@ -387,7 +455,7 @@ function buildRow(opts: {
       notes,
       laneHint: opts.laneHint,
       artistCredits: credits,
-      isClassicalSuspect: opts.mb?.isClassicalSuspect,
+      isClassicalSuspect: classical,
       provenance,
     },
   };
@@ -484,11 +552,15 @@ export async function buildEjiPocBundle(input: {
   query: string;
   submitter?: string;
   spotifyArtistId?: string;
+  /** Vessző/pontosvessző: Gergely Bogányi; aliasok */
+  aliases?: string[];
+  roleHint?: EjiSubmitterRoleHint;
   enrichMb?: boolean;
   enrichDiscogs?: boolean;
 }): Promise<EjiPocBundle> {
   const rawQuery = input.query.trim();
   const spotifyWarnings: string[] = [];
+  const roleHint = input.roleHint || "";
 
   /** Explicit artist: param, query URL/URI, vagy bare ID a queryben */
   let forcedArtistId =
@@ -521,16 +593,51 @@ export async function buildEjiPocBundle(input: {
         !rawQuery ||
         rawQuery.length < 2),
   );
-  const query = queryFromLink ? lockedArtist!.name : rawQuery || lockedArtist?.name || "";
+  const query = queryFromLink
+    ? lockedArtist!.name
+    : rawQuery || lockedArtist?.name || "";
   const submitter = (input.submitter || query).trim();
   const spotifyArtistLocked = Boolean(lockedArtist);
+  const queryVariants = expandArtistNameVariants(query, input.aliases || []).slice(
+    0,
+    4,
+  );
 
   if (query.length < 2) {
     throw new Error("Legalább 2 karakter kell (előadó név vagy katalógus-link).");
   }
 
+  async function mergeEjiSearches(variants: string[]): Promise<EjiSearchResult> {
+    const parts = await Promise.all(
+      variants.map((v) =>
+        searchEjiByArtist(v).catch(
+          (): EjiSearchResult => ({
+            query: v,
+            trackHits: [],
+            artistHits: [],
+            fetchedAt: new Date().toISOString(),
+            fromCache: false,
+          }),
+        ),
+      ),
+    );
+    const trackById = new Map<string, EjiSearchResult["trackHits"][number]>();
+    const artistById = new Map<string, EjiSearchResult["artistHits"][number]>();
+    for (const p of parts) {
+      for (const t of p.trackHits) trackById.set(t.id, t);
+      for (const a of p.artistHits) artistById.set(a.refId || a.name, a);
+    }
+    return {
+      query: variants[0] || query,
+      trackHits: [...trackById.values()],
+      artistHits: [...artistById.values()],
+      fetchedAt: new Date().toISOString(),
+      fromCache: parts.some((p) => p.fromCache),
+    };
+  }
+
   const [eji, neighbouring, artistsResult] = await Promise.all([
-    searchEjiByArtist(query),
+    mergeEjiSearches(queryVariants),
     buildNeighbouringActSearch(query).catch(() => ({
       id: "adhoc",
       name: query,
@@ -801,6 +908,7 @@ export async function buildEjiPocBundle(input: {
           ...(prior && !sp ? ["pilot-sablon"] : []),
         ],
         laneHint: isHuLane ? "A" : "C",
+        roleHint,
         notes: sp
           ? [
               `Katalógus: ${sp.title}`,
@@ -834,6 +942,7 @@ export async function buildEjiPocBundle(input: {
         spotifyId: t.spotifyId,
         sources: ["spotify"],
         laneHint: isHuLane ? "A" : "C",
+        roleHint,
         notes: [
           "Csak katalógus — EJI-ben még nincs / nem egyezett",
           ...(t.releaseYear ? [`Év: ${t.releaseYear}`] : []),
@@ -936,6 +1045,14 @@ export async function buildEjiPocBundle(input: {
           r._meta.notes.push("Komolyzene-gyanú — ellenőrizd a tételeket");
           touched = true;
         }
+        if (mb.composerNames?.length) {
+          const next = withComposerPrefix(r.title, mb.composerNames);
+          if (next !== r.title) {
+            r.title = next;
+            r._meta.notes.push("Szerző a cím elején (MB).");
+            touched = true;
+          }
+        }
         if (touched) {
           r._meta.musicbrainzRecordingId = mb.recordingId;
           if (!r._meta.sources.includes("musicbrainz")) {
@@ -966,24 +1083,15 @@ export async function buildEjiPocBundle(input: {
     }));
 
   type LaneItem = { title: string; detail: string };
-  let laneCItems: LaneItem[] = [];
-  let laneCLabel: string;
-  if (!isHuLane) {
-    laneCLabel =
-      "Külföldi @ EJI (függő / jogosultkutatás — ugyanaz a mechanika, mint a magyar függő)";
-    laneCItems = eji.trackHits.slice(0, 25).map((h) => ({
-      title: decodeHtml(h.title),
-      detail: `EJI id ${h.id} · ${decodeHtml(h.mainArtist)}`,
-    }));
-  } else {
-    // HU act: a C kártya az EJI előadó-tab felosztási periodjait mutatja — NEM külföldi.
-    laneCLabel =
-      "EJI előadó-tab / felosztási időszak (rádiós ismétlés stb. — nem külföldi act)";
-    laneCItems = eji.artistHits.map((a) => ({
-      title: a.name,
-      detail: a.distributionPeriod || "előadó-tab / felosztási period",
-    }));
-  }
+  /** C = külföldi előadó EJI jogosultkutatás / függő — NEM HU artist-tab. */
+  const laneCLabel =
+    "Külföldi @ EJI (függő / jogosultkutatás — ugyanaz a mechanika, mint a magyar függő)";
+  const laneCItems: LaneItem[] = !isHuLane
+    ? eji.trackHits.slice(0, 25).map((h) => ({
+        title: decodeHtml(h.title),
+        detail: `EJI id ${h.id} · ${decodeHtml(h.mainArtist)}`,
+      }))
+    : [];
 
   const laneB = {
     label: "Magyar @ külföldi neighbouring UP (repatriáció)",
