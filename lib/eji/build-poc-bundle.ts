@@ -941,7 +941,8 @@ export async function buildEjiPocBundle(input: {
         isrc,
         spotifyId: t.spotifyId,
         sources: ["spotify"],
-        laneHint: isHuLane ? "A" : "C",
+        // Nem A/C sáv: nincs EJI találat — csak adatlap-extra
+        laneHint: null,
         roleHint,
         notes: [
           "Csak katalógus — EJI-ben még nincs / nem egyezett",
@@ -1075,7 +1076,9 @@ export async function buildEjiPocBundle(input: {
   }
 
   const laneAItems = rows
-    .filter((r) => r._meta.laneHint === "A")
+    .filter(
+      (r) => r._meta.laneHint === "A" && r._meta.sources.includes("eji"),
+    )
     .slice(0, 30)
     .map((r) => ({
       title: r.title,
