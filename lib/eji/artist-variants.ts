@@ -12,7 +12,7 @@ function fold(s: string): string {
 
 /**
  * Bővíti a keresőneveket: aliasok + 2–3 tagú nevek sorrendcseréje
- * (Gergely Bogányi ↔ Bogányi Gergely).
+ * (keresztnév–vezetéknév ↔ vezetéknév–keresztnév).
  */
 export function expandArtistNameVariants(
   primary: string,

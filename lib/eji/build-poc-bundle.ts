@@ -552,7 +552,7 @@ export async function buildEjiPocBundle(input: {
   query: string;
   submitter?: string;
   spotifyArtistId?: string;
-  /** Vessző/pontosvessző: Gergely Bogányi; aliasok */
+  /** Vessző/pontosvessző: aliasok / másik névsorrend */
   aliases?: string[];
   roleHint?: EjiSubmitterRoleHint;
   enrichMb?: boolean;

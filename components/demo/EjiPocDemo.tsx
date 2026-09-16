@@ -37,7 +37,6 @@ export function EjiPocDemo() {
   const [submitter, setSubmitter] = useState("");
   const [aliases, setAliases] = useState("");
   const [roleHint, setRoleHint] = useState<EjiSubmitterRoleHint>("");
-  const [catalogArtistRef, setCatalogArtistRef] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bundle, setBundle] = useState<EjiPocBundle | null>(null);
@@ -52,11 +51,7 @@ export function EjiPocDemo() {
   function resolveArtistId(override?: string | null): string | null {
     if (override) return override;
     if (spotifyArtistId) return spotifyArtistId;
-    return (
-      parseSpotifyArtistRef(catalogArtistRef) ||
-      parseSpotifyArtistRef(query) ||
-      null
-    );
+    return parseSpotifyArtistRef(query) || null;
   }
 
   useEffect(() => {
@@ -110,11 +105,6 @@ export function EjiPocDemo() {
       setBundle(body);
       if (body.spotifyArtist?.id) {
         setSpotifyArtistId(body.spotifyArtist.id);
-        if (body.spotifyArtistLocked && !catalogArtistRef.trim()) {
-          setCatalogArtistRef(
-            `https://open.spotify.com/artist/${body.spotifyArtist.id}`,
-          );
-        }
         if ((!q || parseSpotifyArtistRef(q)) && body.spotifyArtist.name) {
           setQuery(body.spotifyArtist.name);
         }
@@ -131,7 +121,6 @@ export function EjiPocDemo() {
   function pickTypeahead(a: TypeaheadArtist) {
     setQuery(a.name);
     setSpotifyArtistId(a.id);
-    setCatalogArtistRef(`https://open.spotify.com/artist/${a.id}`);
     setTypeaheadOpen(false);
     setBundle(null);
   }
@@ -232,8 +221,8 @@ export function EjiPocDemo() {
           </h1>
           <p className="mt-2 max-w-3xl text-sm text-[#9aabbc] md:text-base">
             Hivatalos hangfelvételi sablon ({EJI_TEMPLATE_VERSION}) mezőire
-            előtöltünk. Gépelés közben katalógus-jelöltek; opcionális artist
-            link; aliasok az EJI névsorrendhez; Excel export.
+            előtöltünk. Előadó neve vagy katalógus artist-link egy mezőben;
+            gépelésre jelöltek; alias az EJI névváltozathoz; Excel export.
           </p>
         </header>
 
@@ -245,8 +234,10 @@ export function EjiPocDemo() {
           }}
         >
           <div className="flex flex-col gap-3 md:flex-row md:items-end">
-            <label className="relative flex-1 text-sm">
-              <span className="mb-1 block text-[#7a8a9a]">Előadó / zenekar</span>
+            <label className="relative flex-[1.4] text-sm">
+              <span className="mb-1 block text-[#7a8a9a]">
+                Előadó / zenekar (név vagy katalógus-link)
+              </span>
               <input
                 value={query}
                 onChange={(e) => {
@@ -254,18 +245,17 @@ export function EjiPocDemo() {
                   setQuery(v);
                   setBundle(null);
                   setError(null);
-                  const fromName = parseSpotifyArtistRef(v);
-                  if (fromName) {
-                    setCatalogArtistRef(v.trim());
-                    setSpotifyArtistId(fromName);
+                  const fromLink = parseSpotifyArtistRef(v);
+                  if (fromLink) {
+                    setSpotifyArtistId(fromLink);
                     setTypeaheadOpen(false);
-                  } else if (!catalogArtistRef.trim()) {
+                  } else {
                     setSpotifyArtistId(null);
                   }
                 }}
                 onFocus={() => typeahead.length && setTypeaheadOpen(true)}
                 className="w-full rounded-xl border border-[#243041] bg-[#0b0f14] px-3 py-2.5 outline-none focus:border-[#c4a574]"
-                placeholder="Név — gépelésre keres, vagy artist link"
+                placeholder="Előadónév, vagy open.spotify.com/artist/…"
                 autoComplete="off"
               />
               {typeaheadOpen && (typeahead.length > 0 || typeaheadLoading) && (
@@ -294,22 +284,6 @@ export function EjiPocDemo() {
                 </div>
               )}
             </label>
-            <label className="flex-[1.1] text-sm">
-              <span className="mb-1 block text-[#7a8a9a]">
-                Katalógus előadó link (opcionális)
-              </span>
-              <input
-                value={catalogArtistRef}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setCatalogArtistRef(v);
-                  setBundle(null);
-                  setSpotifyArtistId(parseSpotifyArtistRef(v));
-                }}
-                className="w-full rounded-xl border border-[#243041] bg-[#0b0f14] px-3 py-2.5 font-mono text-xs outline-none focus:border-[#c4a574]"
-                placeholder="open.spotify.com/artist/… vagy ID"
-              />
-            </label>
           </div>
 
           <div className="flex flex-col gap-3 md:flex-row md:items-end">
@@ -321,7 +295,7 @@ export function EjiPocDemo() {
                 value={aliases}
                 onChange={(e) => setAliases(e.target.value)}
                 className="w-full rounded-xl border border-[#243041] bg-[#0b0f14] px-3 py-2.5 outline-none focus:border-[#c4a574]"
-                placeholder="pl. Bogányi Gergely — sorrend automatikusan is cserélődik"
+                placeholder="Másik névsorrend vagy írásmód; a sorrendcsere automatikus is"
               />
             </label>
             <label className="flex-1 text-sm">
@@ -358,27 +332,20 @@ export function EjiPocDemo() {
             </button>
           </div>
 
-          {(spotifyArtistId || catalogArtistRef.trim()) && (
+          {spotifyArtistId && (
             <p className="font-mono text-[11px] text-[#7a8a9a]">
-              Rögzített katalógus-ID:{" "}
-              <span className="text-[#c4a574]">
-                {spotifyArtistId ||
-                  parseSpotifyArtistRef(catalogArtistRef) ||
-                  "—"}
-              </span>
-              {spotifyArtistId && (
-                <button
-                  type="button"
-                  className="ml-3 text-[#6ea8ff] underline-offset-2 hover:underline"
-                  onClick={() => {
-                    setSpotifyArtistId(null);
-                    setCatalogArtistRef("");
-                    setBundle(null);
-                  }}
-                >
-                  törlés
-                </button>
-              )}
+              Katalógus rögzítve:{" "}
+              <span className="text-[#c4a574]">{spotifyArtistId}</span>
+              <button
+                type="button"
+                className="ml-3 text-[#6ea8ff] underline-offset-2 hover:underline"
+                onClick={() => {
+                  setSpotifyArtistId(null);
+                  setBundle(null);
+                }}
+              >
+                törlés
+              </button>
             </p>
           )}
         </form>
@@ -413,9 +380,6 @@ export function EjiPocDemo() {
                     disabled={loading}
                     onClick={() => {
                       setSpotifyArtistId(c.id);
-                      setCatalogArtistRef(
-                        `https://open.spotify.com/artist/${c.id}`,
-                      );
                       setQuery(c.name);
                       setTypeaheadOpen(false);
                       void run(c.id);
