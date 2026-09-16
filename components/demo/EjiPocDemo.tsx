@@ -47,6 +47,16 @@ export function EjiPocDemo() {
   const [typeaheadOpen, setTypeaheadOpen] = useState(false);
   const [typeaheadLoading, setTypeaheadLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const typeaheadSeq = useRef(0);
+  /** true = ne nyíljon typeahead (összeállítás / kiválasztás után) */
+  const suppressTypeahead = useRef(false);
+
+  function closeTypeahead() {
+    setTypeaheadOpen(false);
+    setTypeahead([]);
+    setTypeaheadLoading(false);
+  }
 
   function resolveArtistId(override?: string | null): string | null {
     if (override) return override;
@@ -57,10 +67,23 @@ export function EjiPocDemo() {
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const q = query.trim();
-    if (q.length < 2 || parseSpotifyArtistRef(q)) {
-      setTypeahead([]);
+    if (suppressTypeahead.current || q.length < 2 || parseSpotifyArtistRef(q)) {
+      if (suppressTypeahead.current || parseSpotifyArtistRef(q)) {
+        closeTypeahead();
+      }
       return;
     }
+    // Ha már rögzített act ugyanerre a névre: ne nyissuk újra a listát
+    if (
+      spotifyArtistId &&
+      bundle?.spotifyArtist?.id === spotifyArtistId &&
+      bundle.spotifyArtist.name.trim().toLowerCase() === q.toLowerCase()
+    ) {
+      closeTypeahead();
+      return;
+    }
+
+    const seq = ++typeaheadSeq.current;
     debounceRef.current = setTimeout(async () => {
       setTypeaheadLoading(true);
       try {
@@ -71,26 +94,33 @@ export function EjiPocDemo() {
           artists?: TypeaheadArtist[];
           error?: string;
         };
+        if (seq !== typeaheadSeq.current || suppressTypeahead.current) return;
         setTypeahead(body.artists || []);
-        setTypeaheadOpen(true);
+        // Csak ha a mező fókuszban van
+        if (document.activeElement === inputRef.current) {
+          setTypeaheadOpen(true);
+        }
       } catch {
-        setTypeahead([]);
+        if (seq === typeaheadSeq.current) setTypeahead([]);
       } finally {
-        setTypeaheadLoading(false);
+        if (seq === typeaheadSeq.current) setTypeaheadLoading(false);
       }
     }, 350);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query]);
+  }, [query, spotifyArtistId, bundle?.spotifyArtist?.id, bundle?.spotifyArtist?.name]);
 
   async function run(overrideSpotifyId?: string | null) {
     const sid = resolveArtistId(overrideSpotifyId);
     const q = query.trim();
     if (q.length < 2 && !sid) return;
+    suppressTypeahead.current = true;
+    typeaheadSeq.current += 1;
+    closeTypeahead();
+    inputRef.current?.blur();
     setLoading(true);
     setError(null);
-    setTypeaheadOpen(false);
     try {
       const params = new URLSearchParams({
         q: q || sid || "",
@@ -111,6 +141,7 @@ export function EjiPocDemo() {
       }
       setScope("eji");
       setQuality("all");
+      closeTypeahead();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Hiba");
     } finally {
@@ -119,10 +150,13 @@ export function EjiPocDemo() {
   }
 
   function pickTypeahead(a: TypeaheadArtist) {
+    suppressTypeahead.current = true;
+    typeaheadSeq.current += 1;
     setQuery(a.name);
     setSpotifyArtistId(a.id);
-    setTypeaheadOpen(false);
+    closeTypeahead();
     setBundle(null);
+    inputRef.current?.blur();
   }
 
   const scopedRows = useMemo(() => {
@@ -198,16 +232,15 @@ export function EjiPocDemo() {
     }
   }
 
-  const pickerCandidates: TypeaheadArtist[] =
-    bundle && bundle.spotifyCandidates.length
-      ? bundle.spotifyCandidates.map((c) => ({
-          id: c.id,
-          name: c.name,
-          followers: c.followers,
-          genres: c.genres,
-          locked: c.locked,
-        }))
-      : typeahead;
+  const pickerCandidates: TypeaheadArtist[] = bundle
+    ? bundle.spotifyCandidates.map((c) => ({
+        id: c.id,
+        name: c.name,
+        followers: c.followers,
+        genres: c.genres,
+        locked: c.locked,
+      }))
+    : [];
 
   return (
     <div className="poc-root min-h-screen bg-[#0b0f14] text-[#e8eef4]">
@@ -239,21 +272,40 @@ export function EjiPocDemo() {
                 Előadó / zenekar (név vagy katalógus-link)
               </span>
               <input
+                ref={inputRef}
                 value={query}
                 onChange={(e) => {
                   const v = e.target.value;
+                  suppressTypeahead.current = false;
                   setQuery(v);
                   setBundle(null);
                   setError(null);
                   const fromLink = parseSpotifyArtistRef(v);
                   if (fromLink) {
                     setSpotifyArtistId(fromLink);
-                    setTypeaheadOpen(false);
+                    closeTypeahead();
                   } else {
                     setSpotifyArtistId(null);
                   }
                 }}
-                onFocus={() => typeahead.length && setTypeaheadOpen(true)}
+                onFocus={() => {
+                  suppressTypeahead.current = false;
+                  if (typeahead.length) setTypeaheadOpen(true);
+                }}
+                onBlur={() => {
+                  // kattintás a listára: rövid késleltetés
+                  window.setTimeout(() => {
+                    if (document.activeElement !== inputRef.current) {
+                      setTypeaheadOpen(false);
+                    }
+                  }, 180);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    closeTypeahead();
+                    inputRef.current?.blur();
+                  }
+                }}
                 className="w-full rounded-xl border border-[#243041] bg-[#0b0f14] px-3 py-2.5 outline-none focus:border-[#c4a574]"
                 placeholder="Előadónév, vagy open.spotify.com/artist/…"
                 autoComplete="off"
@@ -446,7 +498,7 @@ export function EjiPocDemo() {
                 code="A"
                 title={bundle.lanes.A.label}
                 items={bundle.lanes.A.items}
-                empty="HU act EJI adatlap-jelöltjei itt jelennek meg."
+                empty="Nincs EJI felvétel-találat — a katalógus extra lent külön nézetben van, nem ide tartozik."
               />
               <LaneCard
                 code="B"
