@@ -60,7 +60,7 @@ export type EjiAdatlapRow = Record<EjiAdatlapColumnKey, string> & {
 
 export const EJI_CLASSICAL_RULES = [
   "Komolyzene: a mű egészét és a tételeket külön-külön is fel kell tüntetni.",
-  "A felvétel címének elején a szerző neve álljon (pl. Wolfgang Amadeus Mozart: …), akkor is, ha az albumon szerepel.",
+  "A felvétel címének elején a szerző neve álljon (pl. Szerző neve: mű címe), akkor is, ha az albumon szerepel.",
   "Szólista + zenekar + karmester neve mind menjen a „együttes/szólista” mezőbe.",
   "A karmester a felvétel szólistája (szólista jelölés + karmester/karvezető X).",
   "Zenekar tagjainak száma = együttes létszám (pl. 50).",
