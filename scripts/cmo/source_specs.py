@@ -55,6 +55,9 @@ BULK_SPECS: tuple[CmoBulkSpec, ...] = (
     CmoBulkSpec("hu-mahasz", "MAHASZ", "HU", "neighbouring", "hu-mahasz", ("tracks.csv",), optional=True),
     CmoBulkSpec("de-gema", "GEMA", "DE", "musical_work", "de-gema", ("*.xlsx",), optional=True),
     CmoBulkSpec(
+        "hu-artisjus-fuggo", "ARTISJUS", "HU", "musical_work", "hu-artisjus-fuggo", ("*.xlsx",), optional=True
+    ),
+    CmoBulkSpec(
         "de-gvl",
         "GVL",
         "DE",

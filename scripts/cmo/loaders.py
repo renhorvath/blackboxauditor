@@ -519,6 +519,58 @@ def load_mahasz(dir_path: Path) -> dict:
     )
 
 
+def load_artisjus_fuggo(dir_path: Path) -> dict:
+    """Artisjus függő (pending) works lists: sheets hazai / nemzetközi, cols Műkód · Műcím · Szerzők · Előadók."""
+    paths = sorted(dir_path.glob("*.xlsx"))
+    if not paths:
+        raise FileNotFoundError(dir_path)
+    records: list[dict] = []
+    seen: set[str] = set()
+    for path in paths:
+        wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+        for ws in wb.worksheets:
+            rows_iter = ws.iter_rows(values_only=True)
+            header = [normalize_text(header_label(c)) for c in (next(rows_iter, None) or ())]
+            if "mukod" not in header or "mucim" not in header:
+                continue
+            i_id, i_title = header.index("mukod"), header.index("mucim")
+            i_comp = header.index("szerzok") if "szerzok" in header else None
+            i_perf = header.index("eloadok") if "eloadok" in header else None
+            for row in rows_iter:
+                if not row or row[i_id] in (None, ""):
+                    continue
+                work_id = str(row[i_id]).strip()
+                if work_id in seen:
+                    continue
+                title = _cap_field(str(row[i_title] or "").strip())
+                composer = _cap_field(clean_name(str(row[i_comp] or "").strip())) if i_comp is not None else ""
+                performer = _cap_field(clean_name(str(row[i_perf] or "").strip())) if i_perf is not None else ""
+                if not title and not (composer or performer):
+                    continue
+                seen.add(work_id)
+                rec: dict = {
+                    "id": f"artisjus-fuggo:{work_id}",
+                    "source": "hu-artisjus-fuggo",
+                    "title": title or "(névtelen)",
+                    "identification": build_identification(performer=performer, composer=composer),
+                    "remark": None,
+                    "sheet": ws.title,
+                }
+                if performer:
+                    rec["performer"] = performer
+                if composer:
+                    rec["composer"] = composer
+                records.append(rec)
+        wb.close()
+    return pack_source(
+        source="hu-artisjus-fuggo",
+        organization="ARTISJUS",
+        country="HU",
+        rights_type="musical_work",
+        records=records,
+    )
+
+
 GEMA_PUBLISHER_ROLES = {"V", "SV", "OV"}
 
 

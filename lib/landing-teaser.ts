@@ -68,6 +68,7 @@ const CMO_PRESENTATION: Record<CmoSourceId, { source: string; region: string }> 
   "de-gvl": { source: "GVL", region: "Németország" },
   "hu-mahasz": { source: "MAHASZ", region: "Magyarország" },
   "de-gema": { source: "GEMA", region: "Németország" },
+  "hu-artisjus-fuggo": { source: "ARTISJUS · függő", region: "Magyarország" },
 };
 
 const CMO_WEB_PRESENTATION: Record<CmoWebSourceId, { source: string; region: string }> = {

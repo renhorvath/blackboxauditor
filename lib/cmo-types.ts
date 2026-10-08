@@ -14,6 +14,7 @@ export const CMO_SOURCE_IDS = [
   "de-gvl",
   "hu-mahasz",
   "de-gema",
+  "hu-artisjus-fuggo",
 ] as const;
 
 export type CmoSourceId = (typeof CMO_SOURCE_IDS)[number];
@@ -84,6 +85,7 @@ export const CMO_SOURCE_LABELS: Record<CmoSourceId, string> = {
   "de-gvl": "GVL (DE)",
   "hu-mahasz": "MAHASZ (HU)",
   "de-gema": "GEMA (DE)",
+  "hu-artisjus-fuggo": "ARTISJUS függő (HU)",
 };
 
 export const CMO_CHIP_LABELS: Record<CmoSourceId, string> = {
@@ -102,6 +104,7 @@ export const CMO_CHIP_LABELS: Record<CmoSourceId, string> = {
   "de-gvl": "Németország · GVL",
   "hu-mahasz": "Magyarország · MAHASZ",
   "de-gema": "Németország · GEMA",
+  "hu-artisjus-fuggo": "Magyarország · ARTISJUS függő",
 };
 
 export const CMO_ISRC_PREFIX = "cmo:";

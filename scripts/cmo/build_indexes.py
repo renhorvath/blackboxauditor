@@ -15,6 +15,7 @@ if str(CMO_DIR) not in sys.path:
 from gvl_loaders import load_gvl  # noqa: E402
 from loaders import (  # noqa: E402
     load_akm_aume,
+    load_artisjus_fuggo,
     load_dir_csv,
     load_dir_xlsx,
     load_gema,
@@ -68,6 +69,9 @@ LOADERS: dict[str, tuple] = {
     )),
     "hu-mahasz": ("MAHASZ", "HU", "neighbouring", lambda: load_mahasz(RAW / "hu-mahasz")),
     "de-gema": ("GEMA", "DE", "musical_work", lambda: load_gema(RAW / "de-gema")),
+    "hu-artisjus-fuggo": ("ARTISJUS", "HU", "musical_work", lambda: load_artisjus_fuggo(
+        RAW / "hu-artisjus-fuggo"
+    )),
     "de-gvl": ("GVL", "DE", "neighbouring", lambda: load_gvl(
         RAW / "de-gvl",
         derived_dir=PROJECT_ROOT / "derived" / "cmo" / "de-gvl",

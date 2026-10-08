@@ -20,6 +20,7 @@ const CMO_PLAYBOOK_ID: Record<
   "fi-gramex": "fi.gramex.unidentified_work",
   "hu-mahasz": "hu.mahasz.jogosultkutatas",
   "de-gema": "de.gema.unidentified_work",
+  "hu-artisjus-fuggo": "hu.artisjus.unidentified_work",
 };
 
 function parseCmoSourceFromBlockId(blockId: string): CmoSourceId | null {
