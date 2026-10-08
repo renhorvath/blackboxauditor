@@ -138,20 +138,27 @@ export function buildLandingTeaser(input: BuildLandingTeaserInput): LandingTease
 
   const groups: LandingTeaserGroup[] = [];
 
-  // ARTISJUS (HU) — performer/both = high; rights-only surname credits = fuzzy
-  if (input.artisjusMatches.length > 0) {
+  // ARTISJUS (HU) — main index + függő works missing from it (loaded pre-deduplicated by Műkód)
+  // shown as one group. Performer/both = high; rights-only surname credits = fuzzy.
+  const fuggoMatches = input.cmoMatches
+    .filter((m) => m.record.source === "hu-artisjus-fuggo")
+    .sort((a, b) => b.score - a.score);
+  if (input.artisjusMatches.length > 0 || fuggoMatches.length > 0) {
     const sorted = [...input.artisjusMatches].sort((a, b) => b.score - a.score);
     const performerish = sorted.filter((m) => m.matchKind !== "rights");
-    const hasPerformer = performerish.length > 0;
+    const hasPerformer = performerish.length > 0 || fuggoMatches.length > 0;
     groups.push({
       key: "artisjus",
       source: "ARTISJUS",
       region: "Magyarország",
       flag: flagFor("Magyarország"),
-      total: input.artisjusMatches.length,
+      total: input.artisjusMatches.length + fuggoMatches.length,
       confidence: hasPerformer ? "high" : "fuzzy",
       hits: hasPerformer
-        ? pickHits(performerish.map((m) => ({ title: m.work.mucim })))
+        ? pickHits([
+            ...performerish.map((m) => ({ title: m.work.mucim })),
+            ...fuggoMatches.map((m) => ({ title: m.record.title })),
+          ])
         : [],
     });
   }
@@ -179,6 +186,7 @@ export function buildLandingTeaser(input: BuildLandingTeaserInput): LandingTease
   const singleTokenQuery = uniqueTokens(resolvedName, 2).length <= 1;
   const cmoBySource = new Map<CmoSourceId, CmoArtistMatch[]>();
   for (const match of input.cmoMatches) {
+    if (match.record.source === "hu-artisjus-fuggo") continue;
     const list = cmoBySource.get(match.record.source) ?? [];
     list.push(match);
     cmoBySource.set(match.record.source, list);

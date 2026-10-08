@@ -525,7 +525,9 @@ def load_artisjus_fuggo(dir_path: Path) -> dict:
     if not paths:
         raise FileNotFoundError(dir_path)
     records: list[dict] = []
-    seen: set[str] = set()
+    # exclude_mukod.txt: Műkód values already in the main Artisjus index (meder.artisjus_works).
+    exclude_path = dir_path / "exclude_mukod.txt"
+    seen: set[str] = set(exclude_path.read_text().split()) if exclude_path.is_file() else set()
     for path in paths:
         wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
         for ws in wb.worksheets:

@@ -1,9 +1,34 @@
 import { dbConfigured, getDb } from "@/lib/db";
+import { indexQuery } from "@/lib/index-db";
+import { indexDbConfigured } from "@/lib/index-db-config";
 import type { LandingTeaserResult } from "@/lib/landing-teaser";
 
 /** Bump when the teaser payload shape changes so stale rows are not reused. */
 const CACHE_VERSION = "v2";
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const INDEX_STAMP_TTL_MS = 5 * 60 * 1000;
+
+let indexStamp: { checkedAt: number; loadedAtMs: number | null } | null = null;
+
+/** Latest Cloud SQL index load — cached results fetched before it are stale. */
+async function latestIndexLoadMs(): Promise<number | null> {
+  if (indexStamp && Date.now() - indexStamp.checkedAt < INDEX_STAMP_TTL_MS) {
+    return indexStamp.loadedAtMs;
+  }
+  let loadedAtMs = indexStamp?.loadedAtMs ?? null;
+  if (indexDbConfigured()) {
+    try {
+      const rows = await indexQuery<{ ms: string | null }>(
+        "SELECT (extract(epoch FROM max(loaded_at)) * 1000)::bigint::text AS ms FROM meder.index_meta",
+      );
+      loadedAtMs = rows[0]?.ms ? Number(rows[0].ms) : null;
+    } catch {
+      /* keep previous stamp */
+    }
+  }
+  indexStamp = { checkedAt: Date.now(), loadedAtMs };
+  return loadedAtMs;
+}
 
 export type LandingSearchStatus = LandingTeaserResult["status"] | "error";
 
@@ -82,7 +107,10 @@ export async function readLandingSearchCache(
   if (!(await ready())) return null;
   const sql = getDb();
   const key = landingCacheKey(queryNorm);
-  const cutoff = new Date(Date.now() - CACHE_TTL_MS).toISOString();
+  const indexLoadedAtMs = await latestIndexLoadMs();
+  const cutoff = new Date(
+    Math.max(Date.now() - CACHE_TTL_MS, indexLoadedAtMs ?? 0),
+  ).toISOString();
   const rows = (await sql`
     SELECT result
     FROM landing_search_cache

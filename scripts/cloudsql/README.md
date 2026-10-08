@@ -49,7 +49,7 @@ npm run cloudsql:load-indexes -- --partial                         # forrásonk�
 npm run cloudsql:load-indexes -- --drop ee-eau                     # forrás törlése
 ```
 
-Új forrás-id (`index_meta`-ban még nincs) csak `--allow-new-source`-szal megy be, és **csak azután, hogy az azt ismerő kód élesben van**: a landing kereső minden `index_meta` forrást címkéhez köt. Adatváltozás után emeld a `CACHE_VERSION`-t a `lib/landing-search-db.ts`-ben (7 napos találat-cache).
+Új forrás-id (`index_meta`-ban még nincs) csak `--allow-new-source`-szal megy be, és **csak azután, hogy az azt ismerő kód élesben van**: a landing kereső minden `index_meta` forrást címkéhez köt. A landing találat-cache (7 nap) magától érvénytelenedik, ha bármelyik forrás `index_meta.loaded_at`-ja frissebb (≤5 perc késéssel); `CACHE_VERSION` csak payload-formátum váltásnál kell.
 
 ## Schema
 
