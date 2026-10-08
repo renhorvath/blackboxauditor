@@ -2,7 +2,7 @@ import { dbConfigured, getDb } from "@/lib/db";
 import type { LandingTeaserResult } from "@/lib/landing-teaser";
 
 /** Bump when the teaser payload shape changes so stale rows are not reused. */
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type LandingSearchStatus = LandingTeaserResult["status"] | "error";
