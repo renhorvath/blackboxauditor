@@ -138,10 +138,15 @@ export function buildLandingTeaser(input: BuildLandingTeaserInput): LandingTease
 
   const groups: LandingTeaserGroup[] = [];
 
-  // ARTISJUS (HU) — main index + függő works missing from it (loaded pre-deduplicated by Műkód)
-  // shown as one group. Performer/both = high; rights-only surname credits = fuzzy.
+  // ARTISJUS (HU) — main index + függő list as one group, deduplicated by Műkód.
+  // Performer/both = high; rights-only surname credits = fuzzy.
+  const mainMukods = new Set(input.artisjusMatches.map((m) => m.work.mukod));
   const fuggoMatches = input.cmoMatches
-    .filter((m) => m.record.source === "hu-artisjus-fuggo")
+    .filter(
+      (m) =>
+        m.record.source === "hu-artisjus-fuggo" &&
+        !mainMukods.has(m.record.id.slice(m.record.id.indexOf(":") + 1)),
+    )
     .sort((a, b) => b.score - a.score);
   if (input.artisjusMatches.length > 0 || fuggoMatches.length > 0) {
     const sorted = [...input.artisjusMatches].sort((a, b) => b.score - a.score);
