@@ -65,127 +65,185 @@ body {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 22%, transparent);
 }
 
-/* Meder — Believe-inspired color-blocking editorial */
+/* Meder — BMAT-style typographic editorial + river motif */
 html:has(.meder-page) {
   scroll-behavior: smooth;
 }
 
 .meder-page {
-  --meder-petrol: #2f5d5a;
-  --meder-ink: #111111;
-  --meder-black: #111111;
+  --meder-paper: #f4f2ec;
   --meder-white: #ffffff;
-  --meder-sand: #e8e2d5;
-  --meder-gold: #d9a441;
-  --meder-muted: rgba(17, 17, 17, 0.55);
-  font-family: var(--font-meder-sans), ui-sans-serif, system-ui, sans-serif;
+  --meder-ink: #0f1b2d;
+  --meder-ink-soft: rgba(15, 27, 45, 0.62);
+  --meder-ink-faint: rgba(15, 27, 45, 0.38);
+  --meder-line: rgba(15, 27, 45, 0.14);
+  --meder-river: #2f8f7a;
+  --meder-river-deep: #1f6b5a;
+  --meder-river-light: #d6ebe3;
+  --meder-river-glow: #8fd8c1;
+  font-family: var(--font-meder), ui-sans-serif, system-ui, sans-serif;
   color: var(--meder-ink);
-  background: var(--meder-white);
+  background: var(--meder-paper);
+  -webkit-font-smoothing: antialiased;
 }
 
-.meder-display {
-  font-family: var(--font-meder-display), ui-sans-serif, system-ui, sans-serif;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: -0.015em;
-  line-height: 1.02;
+.meder-h1 {
+  font-size: clamp(2.6rem, 7.2vw, 6.6rem);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 0.96;
+  text-wrap: balance;
+}
+
+.meder-h2 {
+  font-size: clamp(2rem, 4.8vw, 4.2rem);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  text-wrap: balance;
+}
+
+.meder-h3 {
+  font-size: clamp(1.15rem, 1.8vw, 1.5rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.meder-statement {
+  font-size: clamp(1.6rem, 3.6vw, 3.1rem);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.12;
 }
 
 .meder-label {
-  font-family: var(--font-meder-display), ui-sans-serif, system-ui, sans-serif;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--meder-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--meder-ink-soft);
 }
 
 .meder-cta {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0;
-  background: var(--meder-black);
-  padding: 0.85rem 1.4rem;
-  font-family: var(--font-meder-display), ui-sans-serif, system-ui, sans-serif;
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--meder-white);
-  transition: opacity 0.15s ease;
+  gap: 0.5rem;
+  border-radius: 999px;
+  background: var(--meder-ink);
+  padding: 0.85rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--meder-paper);
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
 .meder-cta:hover {
-  opacity: 0.88;
+  background: var(--meder-river-deep);
 }
 
 .meder-cta-light {
-  background: var(--meder-white);
-  color: var(--meder-black);
+  background: var(--meder-paper);
+  color: var(--meder-ink);
 }
 
 .meder-cta-light:hover {
-  opacity: 0.92;
+  background: var(--meder-river-glow);
 }
 
-.meder-link-plus {
-  font-family: var(--font-meder-display), ui-sans-serif, system-ui, sans-serif;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+.meder-link {
+  font-weight: 600;
   text-decoration: underline;
+  text-decoration-thickness: 1px;
   text-underline-offset: 0.3em;
-  color: inherit;
-  transition: opacity 0.15s ease;
+  transition: color 0.15s ease;
 }
 
-.meder-link-plus:hover {
-  opacity: 0.7;
+.meder-link:hover {
+  color: var(--meder-river);
+}
+
+.meder-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--meder-line);
+  padding: 0.2rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.meder-motif {
+  background-color: currentColor;
+  -webkit-mask: url("/meder-motif-ink.webp") center / contain no-repeat;
+  mask: url("/meder-motif-ink.webp") center / contain no-repeat;
+}
+
+.meder-reveal-word {
+  color: var(--meder-reveal-off, var(--meder-ink-faint));
+  transition: color 0.35s ease;
+}
+
+.meder-reveal-word.is-on {
+  color: var(--meder-reveal-on, var(--meder-ink));
 }
 
 .meder-input {
   width: 100%;
-  border-radius: 0;
-  border: 1px solid rgba(17, 17, 17, 0.2);
+  border-radius: 0.75rem;
+  border: 1px solid var(--meder-line);
   background: var(--meder-white);
-  padding: 0.75rem 0.9rem;
-  font-size: 0.9375rem;
+  padding: 0.8rem 1rem;
+  font-size: 1rem;
   color: var(--meder-ink);
   outline: none;
+  transition: border-color 0.15s ease;
 }
 
 .meder-input::placeholder {
-  color: rgba(17, 17, 17, 0.38);
+  color: var(--meder-ink-faint);
 }
 
 .meder-input:focus {
-  border-color: var(--meder-ink);
+  border-color: var(--meder-river);
 }
 
 .meder-input-on-color {
   width: 100%;
-  border-radius: 0;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  background: transparent;
-  padding: 0.75rem 0.9rem;
-  font-size: 0.9375rem;
-  color: var(--meder-white);
+  border-radius: 0.75rem;
+  border: 1px solid rgba(244, 242, 236, 0.25);
+  background: rgba(244, 242, 236, 0.04);
+  padding: 0.8rem 1rem;
+  font-size: 1rem;
+  color: var(--meder-paper);
   outline: none;
 }
 
 .meder-input-on-color::placeholder {
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(244, 242, 236, 0.4);
 }
 
 .meder-input-on-color:focus {
-  border-color: rgba(255, 255, 255, 0.7);
+  border-color: var(--meder-river-glow);
 }
 
 .meder-input-on-color option {
-  color: #111;
+  color: #0f1b2d;
   background: #fff;
+}
+
+.meder-details summary::-webkit-details-marker {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .meder-reveal-word {
+    transition: none;
+  }
 }
 
 /* Landing: gradient accents (primary -> complementary) */

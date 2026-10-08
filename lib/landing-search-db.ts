@@ -4,7 +4,7 @@ import { indexDbConfigured } from "@/lib/index-db-config";
 import type { LandingTeaserResult } from "@/lib/landing-teaser";
 
 /** Bump when the teaser payload shape changes so stale rows are not reused. */
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v4";
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const INDEX_STAMP_TTL_MS = 5 * 60 * 1000;
 
@@ -97,7 +97,8 @@ function isLandingTeaserResult(value: unknown): value is LandingTeaserResult {
     (v.status === "found" || v.status === "none" || v.status === "unavailable") &&
     typeof v.resolvedName === "string" &&
     Array.isArray(v.groups) &&
-    typeof v.summary?.totalItems === "number"
+    typeof v.summary?.totalItems === "number" &&
+    Array.isArray(v.summary?.rights)
   );
 }
 

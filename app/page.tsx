@@ -1,29 +1,24 @@
 import type { Metadata } from "next";
-import { Archivo, Manrope } from "next/font/google";
+import { Inter_Tight } from "next/font/google";
 import { MederLanding } from "@/components/meder/MederLanding";
 
-const mederDisplay = Archivo({
-  subsets: ["latin", "latin-ext"],
-  weight: ["700", "800", "900"],
-  variable: "--font-meder-display",
-  display: "swap",
-});
-
-const mederSans = Manrope({
+const mederFont = Inter_Tight({
   subsets: ["latin", "latin-ext"],
   weight: ["400", "500", "600", "700"],
-  variable: "--font-meder-sans",
+  variable: "--font-meder",
   display: "swap",
 });
 
+const TITLE = "Meder · szerzői és előadói jogdíjak visszaszerzése";
+const DESCRIPTION =
+  "Elakadt szerzői és előadói jogdíjak felkutatása és visszaszerzése itthon és külföldön, film- és reklámfelhasználásnál is. Előleg nélkül, a jogaid nálad maradnak.";
+
 export const metadata: Metadata = {
-  title: "Meder · jogdíj-visszaszerzés és kiadói adminisztráció",
-  description:
-    "Beragadt film-, reklám- és külföldi jogdíj visszaszerzése a hivatalos jogkezelői csatornákon, majd folyamatos lejelentés-kezelés. Előleg nélkül.",
+  title: TITLE,
+  description: DESCRIPTION,
   openGraph: {
-    title: "Meder · jogdíj-visszaszerzés és kiadói adminisztráció",
-    description:
-      "Beragadt film-, reklám- és külföldi jogdíj visszaszerzése a hivatalos jogkezelői csatornákon, majd folyamatos lejelentés-kezelés. Előleg nélkül.",
+    title: TITLE,
+    description: DESCRIPTION,
     locale: "hu_HU",
     type: "website",
   },
@@ -31,7 +26,7 @@ export const metadata: Metadata = {
 
 export default function HomePage() {
   return (
-    <div className={`${mederDisplay.variable} ${mederSans.variable}`}>
+    <div className={mederFont.variable}>
       <MederLanding />
     </div>
   );

@@ -2,105 +2,158 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
 import {
-  CheckCircle2,
-  Loader2,
-  Lock,
-  Menu,
-  Music4,
-  Search,
-  SearchX,
-  X,
-} from "lucide-react";
-import type {
-  LandingTeaserGroup,
-  LandingTeaserHit,
-  LandingTeaserResult,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+  type ReactNode,
+} from "react";
+import { ArrowRight, Loader2, Lock, Menu, Music4, Plus, Search, SearchX, X } from "lucide-react";
+import {
+  RIGHT_LABEL,
+  type LandingRightType,
+  type LandingTeaserGroup,
+  type LandingTeaserHit,
+  type LandingTeaserResult,
 } from "@/lib/landing-teaser";
 
-/** Contact / post-check CTA — active, time-boxed, not "kérek egy…". */
 const CTA_LABEL = "Egyeztessünk 20 percben";
-const HERO_PRIMARY_LABEL = "Megnézem, szerepelek-e";
-const HERO_SECONDARY_LABEL = "Inkább egyeztessünk";
 
-const OCCUPATIONS = [
-  "Filmzene",
-  "Reklámzene",
-  "Mindkettő",
-  "Előadó",
-  "Katalógus, kiadó",
-  "Egyéb",
+const HEADER_NAV = [
+  { href: "#ellenorzes", label: "Ellenőrzés" },
+  { href: "#kiknek", label: "Kiknek" },
+  { href: "#hogyan", label: "Hogyan dolgozunk" },
+  { href: "#dijazas", label: "Díjazás" },
+  { href: "#rolunk", label: "Rólunk" },
 ] as const;
 
-const TRUST_LOGOS = ["ARTISJUS", "EJI", "GVL", "STIM", "SENA", "SOZA"] as const;
+const HERO_STATS = [
+  { value: "15+", label: "jogkezelő" },
+  { value: "10+", label: "ország" },
+  { value: "3M+", label: "figyelt tétel" },
+] as const;
 
 const CHAIN_BREAKS = [
   {
-    title: "A zenefelállítás",
-    text: "Ha a gyártó hiányosan vagy egyáltalán nem adja le, a felhasználás után nincs mihez kötni a kifizetést.",
+    title: "A zene átlépi a határt, az adat nem.",
+    text: "Külföldön más címmel, ékezet nélkül vagy hiányos szerzői adattal jelentik le a dalt. A helyi jogkezelő nem tudja, kié.",
   },
   {
-    title: "A reklám más néven fut",
-    text: "Márka és kampány szerint tartják nyilván, nem szerző szerint. A legtöbb reklámzeneszerző soha nem jelzi, mert nem tudja, hogy kellene.",
+    title: "Ott hallgatnak, ahol nem is gondolnád.",
+    text: "Az algoritmus a saját niche-edben más országokban is tol, a határon túli magyar rádiók játszanak. Ezekről a felhasználásokról sokszor maga az alkotó sem tud.",
   },
   {
-    title: "A disztribúciónál elvész a műazonosító",
-    text: "Csak a felvétel azonosítója utazik tovább, a szerzeményé nem. A kettőt utólag kell összekötni.",
+    title: "Film és reklám: a legnehezebb terep.",
+    text: "Ha a gyártó hiányosan adja le a zenefelállítást, vagy a reklám a márka és a kampány nevén fut, a felhasználás után nincs mihez kötni a kifizetést.",
   },
   {
-    title: "Külföldön más a cím",
-    text: "Ha nincs meg a kapcsolat a címváltozatok között, a külföldi felhasználás nem talál haza.",
+    title: "A fellépésekről nem megy lejelentés.",
+    text: "A saját dalaidat játszod itthon és turnén, de ha a műsorlista nem jut el a jogkezelőhöz, szerzői jogdíj sem keletkezik.",
   },
   {
-    title: "Két képviselet ugyanarra a műre",
+    title: "Elvész az azonosító.",
+    text: "A disztribúciónál csak a felvétel azonosítója utazik tovább, a szerzeményé nem. A kettőt utólag kell összekötni.",
+  },
+  {
+    title: "Két képviselet ugyanarra a műre.",
     text: "Ütközésnél a rendszerek megállítják a kifizetést. Nem hiányzik az adat, csak ütközik.",
   },
 ] as const;
 
+const AUDIENCES: { label: string; title: string; text: string; note?: string }[] = [
+  {
+    label: "Szerzőknek és előadóknak",
+    title: "Ha írod, ha játszod, ha mindkettő.",
+    text: "A szerzői és az előadói jogdíj két külön úton jár, két külön rendszerben. Mi egyszerre nézzük mindkettőt, itthon és külföldön, hogy egyik se maradjon el a másik miatt.",
+  },
+  {
+    label: "Film és reklám",
+    title: "Ahol a legtöbb pénz akad el.",
+    text: "Filmnél és reklámnál a felhasználást gyakran fel kell kutatni: ki gyártotta, milyen néven jelentette le, hol és hányszor sugározták. Mindkét területen nagy tapasztalatunk van, és a reklamációt végigvisszük a kifizetésig.",
+    note: "A reklámfelhasználás azonosításához a gyártói megrendelés vagy a produkciós szerződés kell.",
+  },
+  {
+    label: "Zenekaroknak és turnézóknak",
+    title: "Minden fellépés lejelentve.",
+    text: "Ha a saját dalaitokat játsszátok, minden koncert után szerzői jogdíj jár, itthon és külföldön is, ha a műsorlista eljut a helyi jogkezelőhöz. A lejelentést automatizáljuk, hogy egy turnéállomás se maradjon ki.",
+  },
+  {
+    label: "Kiadóknak, labeleknek, menedzsmenteknek",
+    title: "A 360 fokos munka mellé.",
+    text: "Egy kiadó vagy label ma sokszor menedzsmentként dolgozik: kiadás, marketing, koncert, sync. A jogdíjak behajtása ehhez képest külön szakma. Átvesszük a teljes rosterre, vagy csak azokra a művekre, ahol nálatok elakadt, és a fellépés-lejelentést is vihetjük. A meglévő kiadói szerződéseitekhez nem nyúlunk.",
+  },
+];
+
+const WHY_US = [
+  {
+    title: "Regisztrált kiadóként, meghatalmazással.",
+    text: "Zeneműkiadóként a szerzői, meghatalmazottként a szomszédos jogi jogkezelőknél járunk el. A reklamációt a saját rendszereikben adjuk be, nem kívülről kérjük.",
+  },
+  {
+    title: "Saját eszközök.",
+    text: "Saját fejlesztésű összevetés, azonosítás és nyomkövetés. Amit kézzel hetekig keresnénk, azt órák alatt végignézzük.",
+  },
+  {
+    title: "Rálátás a hiányzó adatra.",
+    text: "Évtizedek a zene, a film és a reklám között: tudjuk, ki gyárt, ki jelent le, és hol érdemes keresni.",
+  },
+  {
+    title: "A zene nem áll meg a határon. Mi sem.",
+    text: "Több mint 3 millió tételt figyelünk 15+ jogkezelőnél, 10+ országban, szerzői és szomszédos oldalon.",
+  },
+] as const;
+
 const STEPS = [
-  { title: "Lelet", text: "Ingyenes átnézés: mi van a listákon, mi hiányzik, mi hozható vissza." },
+  {
+    title: "Lelet",
+    text: "Ingyenes bevezető beszélgetés és átnézés: mi van a listákon, mi hiányzik, mi hozható vissza.",
+  },
   {
     title: "Megbízás",
-    text: "Zeneműkiadói megbízás és meghatalmazás. A szerzői jogaid a tieid maradnak, a keret megújuló.",
+    text: "Zeneműkiadói megbízás és meghatalmazás. A jogaid a tieid maradnak, a keret megújuló.",
   },
   {
     title: "Felkutatás",
-    text: "Hiánybejelentés a jogkezelőknél, tételesen; filmnél és reklámnál gyakran nyomozással.",
+    text: "Reklamáció a jogkezelőknél, tételesen, itthon és külföldön. Filmnél és reklámnál gyakran nyomozással.",
   },
-  { title: "Karbantartás", text: "Hogy a következő felhasználásoknál már ne keletkezzen hiány." },
+  {
+    title: "Karbantartás",
+    text: "Regisztráció, lejelentés, fellépések: hogy a következő felhasználásnál már ne keletkezzen hiány.",
+  },
 ] as const;
 
 const NOT_US = [
   { lead: "Nem kötünk hosszú kizárólagos szerződést.", rest: "Megújuló keret, nem örök elköteleződés." },
+  { lead: "Nem lépünk a kiadód helyébe.", rest: "Mellette dolgozunk, ott, ahol a behajtás elakadt." },
   { lead: "Nem kerüljük meg a jogkezelőket.", rest: "A saját rendszereikben dolgozunk." },
-  {
-    lead: "Nem adunk el szoftvert.",
-    rest: "A munkát mi végezzük el, saját fejlesztésű eszközökkel, gyorsabban és pontosabban, mint a hagyományos kiadói adminisztráció.",
-  },
+  { lead: "Nem adunk el szoftvert.", rest: "A munkát mi végezzük el, saját eszközökkel." },
 ] as const;
 
-const TEAM = [
+const PRICES = [
   {
-    key: "renato",
-    name: "Horváth Renátó",
-    imageSrc: "/team-renato.webp",
-    bio: "Több mint 20 éve építek európai szintű kapcsolatokat és megoldásokat a zene, film és kreatív ipar között. A sync licensing és a rights management területén a jogdíjak útját teszem átláthatóvá: licencelés, jogtulajdonosi ellenőrzés és kifizetésre vezető dokumentáció. A Mederben ezt a tudást a jogdíj-recovery felé fordítjuk: a beragadt felhasználásokat oda tereljük vissza, ahol a megfelelő jogkezelőnél, tételesen és kifizetésig végigvihetően rendezhetők.",
-    links: [
-      { label: "renatohorvath.com", href: "https://renatohorvath.com/" },
-      { label: "LinkedIn", href: "https://www.linkedin.com/in/renatohorvath/" },
-    ],
+    name: "Bevezető beszélgetés",
+    value: "0 Ft",
+    text: "Húsz perc, és kiderül, van-e mit keresni nálad.",
   },
   {
-    key: "zsofia",
-    name: "Lehoczki Zsófia",
-    imageSrc: "/team-zsofia.webp",
-    bio: "Több mint egy évtizede dolgozom a szerzői jog területén: alkotókat és vállalkozásokat segítek abban, hogyan találják meg a jogi megoldásokat a kulturális és kreatív iparban. Oktatói tevékenységem mindig is meghatározó volt: előadásokat tartottam IP és szerzői jogi témákban joghallgatóknak, kutatóknak, közgazdászoknak és mérnököknek. Ügyvédként is dolgoztam, és a Szerzői Jogi Szakértők Tanácsának tagjaként is közreműködöm. Jelenleg a Copyright Agency alapítója és vezetője vagyok.",
-    links: [{ label: "LinkedIn", href: "https://www.linkedin.com/in/lehoczkizsofia/" }],
+    name: "Visszaszerzés",
+    value: "25%",
+    text: "A ténylegesen megérkezett összegből. Nincs előleg. Ha nem érkezik pénz, nem fizetsz.",
+  },
+  {
+    name: "Folyamatos kezelés",
+    value: "15%",
+    text: "A kezelt jogdíjfolyamból. Nincs havidíj, nincs kiadói részesedés a műveidből.",
   },
 ] as const;
 
 const PRICING_FAQ = [
+  {
+    title: "Szerző és előadó is vagyok. Két megbízás kell?",
+    text: "Nem kell két helyre fordulnod: egy megbízásban kezeljük mindkét oldalt. A jogkezelők felé a szerzői és a szomszédos jogi oldalra külön meghatalmazás kell, ezeket mi készítjük elő.",
+  },
   {
     title: "Miből számoljátok a 25%-ot?",
     text: "Abból, ami e nélkül nem érkezett volna meg. Nem a meglévő jogdíjadból veszünk el részt.",
@@ -127,43 +180,183 @@ const PRICING_FAQ = [
   },
 ] as const;
 
-type SearchPhase = "idle" | "loading" | "result";
-type SearchStatus = LandingTeaserResult["status"] | "error";
+const TEAM: {
+  key: string;
+  name: string;
+  imageSrc: string | null;
+  bio: string;
+  links: { label: string; href: string }[];
+}[] = [
+  {
+    key: "renato",
+    name: "Horváth Renátó",
+    imageSrc: "/team-renato.webp",
+    bio: "Több mint 20 éve építek európai szintű kapcsolatokat és megoldásokat a zene, film és kreatív ipar között. A sync licensing és a rights management területén a jogdíjak útját teszem átláthatóvá: licencelés, jogtulajdonosi ellenőrzés és kifizetésre vezető dokumentáció. A Mederben ezt a tudást a jogdíj-recovery felé fordítjuk: a beragadt felhasználásokat oda tereljük vissza, ahol a megfelelő jogkezelőnél, tételesen és kifizetésig végigvihetően rendezhetők.",
+    links: [
+      { label: "renatohorvath.com", href: "https://renatohorvath.com/" },
+      { label: "LinkedIn", href: "https://www.linkedin.com/in/renatohorvath/" },
+    ],
+  },
+  {
+    key: "zsofia",
+    name: "Lehoczki Zsófia",
+    imageSrc: "/team-zsofia.webp",
+    bio: "Több mint egy évtizede dolgozom a szerzői jog területén: alkotókat és vállalkozásokat segítek abban, hogyan találják meg a jogi megoldásokat a kulturális és kreatív iparban. Oktatói tevékenységem mindig is meghatározó volt: előadásokat tartottam IP és szerzői jogi témákban joghallgatóknak, kutatóknak, közgazdászoknak és mérnököknek. Ügyvédként is dolgoztam, és a Szerzői Jogi Szakértők Tanácsának tagjaként is közreműködöm. Jelenleg a Copyright Agency alapítója és vezetője vagyok.",
+    links: [{ label: "LinkedIn", href: "https://www.linkedin.com/in/lehoczkizsofia/" }],
+  },
+  {
+    key: "tamas",
+    name: "Szabó Tamás",
+    imageSrc: "/team-tamas.webp",
+    bio: "Zeneműkiadói adminisztrációval foglalkozom: szerződések, műregisztráció, elszámolás. A Central Publishingnél látom, mennyi munkával jár egy katalógus karbantartása, és hol csúszik ki belőle a pénz. A Mederben ezt a gyakorlatot viszem a behajtásba és a folyamatos kezelésbe.",
+    links: [],
+  },
+];
 
-const EMPTY_SUMMARY = { totalItems: 0, societies: 0, countries: 0 };
-const MAX_GROUPS = 3;
-
-const HEADER_NAV = [
-  { href: "#ellenorzes", label: "Ellenőrzés" },
-  { href: "#hogyan", label: "Hogyan dolgozunk" },
-  { href: "#dijazas", label: "Díjazás" },
+const OCCUPATIONS = [
+  "Szerző",
+  "Előadó",
+  "Szerző és előadó",
+  "Zenekar",
+  "Film- vagy reklámzene",
+  "Kiadó, label, menedzsment",
+  "Egyéb",
 ] as const;
 
-function MederMotif({
-  variant = "white",
-  size = "display",
+type SearchPhase = "idle" | "loading" | "result";
+type SearchStatus = LandingTeaserResult["status"] | "error";
+type Summary = LandingTeaserResult["summary"];
+
+const EMPTY_SUMMARY: Summary = { totalItems: 0, societies: 0, countries: 0, rights: [] };
+const MAX_GROUPS = 4;
+
+const RIGHT_SHORT: Record<LandingRightType, string> = {
+  author: "szerzői",
+  neighbouring: "szomszédos",
+};
+
+const SECTION = "mx-auto max-w-7xl px-5 md:px-8";
+
+function RiverMotif({ className = "" }: { className?: string }) {
+  return <span aria-hidden className={`meder-motif inline-block aspect-[800/665] ${className}`} />;
+}
+
+/** Words light up as the paragraph scrolls through the viewport (BMAT-style). */
+function RevealText({
+  text,
   className = "",
+  dark = false,
 }: {
-  variant?: "white" | "ink";
-  /** display = section ornament; mark = wordmark lockup */
-  size?: "display" | "mark";
+  text: string;
   className?: string;
+  dark?: boolean;
 }) {
-  const src =
-    variant === "ink" ? "/meder-motif-ink.webp" : "/meder-motif-white.webp";
-  const box =
-    size === "mark"
-      ? "h-6 w-9 shrink-0"
-      : "h-14 w-20 md:h-16 md:w-24";
+  const ref = useRef<HTMLParagraphElement>(null);
+  const words = text.split(" ");
+  const [lit, setLit] = useState(0);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const rect = el.getBoundingClientRect();
+      const vh = window.innerHeight;
+      const progress = reduced ? 1 : (vh * 0.85 - rect.top) / (rect.height + vh * 0.35);
+      setLit(Math.round(Math.max(0, Math.min(1, progress)) * words.length));
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    onScroll();
+    if (reduced) return () => cancelAnimationFrame(frame);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [words.length]);
+
+  const tone = dark
+    ? ({
+        "--meder-reveal-off": "rgba(244, 242, 236, 0.22)",
+        "--meder-reveal-on": "var(--meder-paper)",
+      } as CSSProperties)
+    : undefined;
+
   return (
-    <div className={`relative ${box} ${className}`} aria-hidden>
-      <Image
-        src={src}
-        alt=""
-        fill
-        sizes={size === "mark" ? "36px" : "96px"}
-        className="object-contain object-left"
-      />
+    <p ref={ref} className={className} style={tone}>
+      {words.map((word, i) => (
+        <span key={i} className={`meder-reveal-word${i < lit ? " is-on" : ""}`}>
+          {word}
+          {i < words.length - 1 ? " " : ""}
+        </span>
+      ))}
+    </p>
+  );
+}
+
+function Accordion({
+  items,
+  dark = false,
+  numbered = false,
+}: {
+  items: readonly { title: string; text: string }[];
+  dark?: boolean;
+  numbered?: boolean;
+}) {
+  const line = dark ? "border-white/15" : "border-[var(--meder-line)]";
+  return (
+    <div className={`border-t ${line}`}>
+      {items.map((item, i) => (
+        <details key={item.title} className={`meder-details group border-b ${line}`}>
+          <summary className="flex cursor-pointer list-none items-start gap-5 py-6">
+            {numbered ? (
+              <span className={`pt-1 text-sm tabular-nums ${dark ? "text-white/40" : "text-[var(--meder-ink-faint)]"}`}>
+                {String(i + 1).padStart(2, "0")}
+              </span>
+            ) : null}
+            <span className="meder-h3 flex-1">{item.title}</span>
+            <Plus
+              className={`mt-1 h-5 w-5 shrink-0 transition group-open:rotate-45 ${dark ? "text-white/50" : "text-[var(--meder-ink-faint)]"}`}
+              strokeWidth={1.75}
+            />
+          </summary>
+          <p
+            className={`pb-6 pr-10 text-base leading-relaxed ${numbered ? "pl-10" : ""} ${dark ? "text-white/65" : "text-[var(--meder-ink-soft)]"}`}
+          >
+            {item.text}
+          </p>
+        </details>
+      ))}
+    </div>
+  );
+}
+
+function SectionHead({
+  label,
+  title,
+  dark = false,
+  children,
+}: {
+  label: string;
+  title: string;
+  dark?: boolean;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="max-w-3xl">
+      <p className={`meder-label ${dark ? "text-white/55" : ""}`}>{label}</p>
+      <h2 className="meder-h2 mt-5">{title}</h2>
+      {children ? (
+        <div className={`mt-6 text-lg leading-relaxed ${dark ? "text-white/65" : "text-[var(--meder-ink-soft)]"}`}>
+          {children}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -173,7 +366,7 @@ export function MederLanding() {
   const [searchPhase, setSearchPhase] = useState<SearchPhase>("idle");
   const [resolvedName, setResolvedName] = useState("");
   const [groups, setGroups] = useState<LandingTeaserGroup[]>([]);
-  const [summary, setSummary] = useState(EMPTY_SUMMARY);
+  const [summary, setSummary] = useState<Summary>(EMPTY_SUMMARY);
   const [searchStatus, setSearchStatus] = useState<SearchStatus>("none");
 
   const [name, setName] = useState("");
@@ -271,58 +464,54 @@ export function MederLanding() {
   return (
     <div className="meder-page">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-black/10 bg-white/95 backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 md:px-6">
+      <header className="sticky top-0 z-40 border-b border-[var(--meder-line)] bg-[var(--meder-paper)]/90 backdrop-blur-md">
+        <div className={`${SECTION} flex h-16 items-center justify-between`}>
           <Link
             href="/"
-            className="meder-display inline-flex items-center gap-2 text-xl normal-case tracking-tight"
+            className="inline-flex items-center gap-2 text-2xl font-semibold tracking-[-0.04em]"
             onClick={closeMenu}
           >
-            <MederMotif variant="ink" size="mark" />
+            <RiverMotif className="h-6 text-[var(--meder-river)]" />
             meder.
           </Link>
-          <nav className="hidden items-center gap-5 md:flex" aria-label="Oldal navigáció">
+          <nav className="hidden items-center gap-7 lg:flex" aria-label="Oldal navigáció">
             {HEADER_NAV.map((item) => (
               <a
                 key={item.href}
                 href={item.href}
-                className="text-xs font-bold tracking-[0.08em] uppercase text-black/60 hover:text-black"
+                className="text-sm font-medium text-[var(--meder-ink-soft)] transition hover:text-[var(--meder-ink)]"
               >
                 {item.label}
               </a>
             ))}
-            <a
-              href="#kapcsolat"
-              onClick={fillContactName}
-              className="meder-cta py-2.5"
-            >
+            <a href="#kapcsolat" onClick={fillContactName} className="meder-cta py-2.5 text-sm">
               Beszéljünk
             </a>
           </nav>
           <button
             type="button"
-            className="inline-flex h-10 w-10 items-center justify-center text-black md:hidden"
+            className="inline-flex h-10 w-10 items-center justify-center lg:hidden"
             aria-expanded={menuOpen}
             aria-controls="meder-mobile-nav"
             aria-label={menuOpen ? "Menü bezárása" : "Menü megnyitása"}
             onClick={() => setMenuOpen((open) => !open)}
           >
-            {menuOpen ? <X className="h-5 w-5" strokeWidth={2} /> : <Menu className="h-5 w-5" strokeWidth={2} />}
+            {menuOpen ? <X className="h-5 w-5" strokeWidth={1.75} /> : <Menu className="h-5 w-5" strokeWidth={1.75} />}
           </button>
         </div>
         {menuOpen ? (
           <nav
             id="meder-mobile-nav"
-            className="border-t border-black/10 bg-white md:hidden"
+            className="border-t border-[var(--meder-line)] bg-[var(--meder-paper)] lg:hidden"
             aria-label="Mobil navigáció"
           >
-            <div className="mx-auto flex max-w-6xl flex-col px-4 py-3">
+            <div className={`${SECTION} flex flex-col py-3`}>
               {HEADER_NAV.map((item) => (
                 <a
                   key={item.href}
                   href={item.href}
                   onClick={closeMenu}
-                  className="border-b border-black/10 py-3.5 text-xs font-bold tracking-[0.08em] uppercase text-black/70"
+                  className="border-b border-[var(--meder-line)] py-4 text-lg font-medium"
                 >
                   {item.label}
                 </a>
@@ -333,7 +522,7 @@ export function MederLanding() {
                   fillContactName();
                   closeMenu();
                 }}
-                className="meder-cta mt-4 mb-2 flex h-11 items-center justify-center"
+                className="meder-cta mt-5 mb-3 h-12"
               >
                 Beszéljünk
               </a>
@@ -342,80 +531,83 @@ export function MederLanding() {
         ) : null}
       </header>
 
-      {/* 1. Hero — flat petrol block, no photo */}
-      <section className="relative overflow-hidden bg-[var(--meder-petrol)] text-white">
-        <div className="mx-auto max-w-6xl px-4 pb-16 pt-16 md:px-6 md:pb-24 md:pt-20">
-          <p className="meder-label text-white/55">
-            (Előadóknak, szerzőknek, katalógusoknak — film és reklám kiemelten)
-          </p>
-          <h1 className="meder-display mt-6 max-w-4xl text-[2.4rem] md:text-[4.25rem]">
-            Ezt a pénzt már megkerested. Csak elakadt valahol.
+      {/* 1. Hero */}
+      <section className="relative overflow-hidden">
+        <RiverMotif className="pointer-events-none absolute -right-[12%] top-6 w-[78vw] max-w-[820px] text-[var(--meder-river-light)] md:-right-[4%] md:top-0 md:w-[54vw]" />
+        <div className={`${SECTION} relative pt-16 pb-14 md:pt-28 md:pb-20`}>
+          <p className="meder-label">(Szerzőknek, előadóknak, kiadóknak)</p>
+          <h1 className="meder-h1 mt-6 max-w-5xl">
+            Ezt a pénzt már megkerested.{" "}
+            <span className="text-[var(--meder-river)]">Csak elakadt valahol.</span>
           </h1>
-          <p className="mt-6 max-w-xl text-base font-normal leading-relaxed text-white/70 md:text-lg">
-            Ha egy adat hibás, a jogdíj megáll. Mi megtaláljuk, és végigvisszük a kifizetésig —
-            filmnél és reklámnál is, ahol gyakran nyomozni kell.
-          </p>
-          <div className="mt-10 flex flex-col items-start gap-4">
-            <a href="#ellenorzes" className="meder-cta meder-cta-light">
-              {HERO_PRIMARY_LABEL}
-            </a>
-            <a
-              href="#kapcsolat"
-              onClick={fillContactName}
-              className="text-sm font-medium text-white/70 underline-offset-4 transition hover:text-white hover:underline"
-            >
-              {HERO_SECONDARY_LABEL} →
-            </a>
+          <div className="mt-10 grid gap-10 md:mt-14 md:grid-cols-[minmax(0,34rem)_1fr] md:items-end">
+            <p className="text-lg leading-relaxed text-[var(--meder-ink-soft)] md:text-xl">
+              Akár szerző vagy, akár előadó, akár mindkettő: a jogdíjaid ugyanúgy elakadnak
+              útközben. Megkeressük őket itthon és külföldön, és végigvisszük a kifizetésig.
+            </p>
+            <div className="flex flex-col items-start gap-4 md:items-end">
+              <div className="flex flex-wrap gap-3">
+                <a href="#ellenorzes" className="meder-cta">
+                  Megnézem, szerepelek-e
+                </a>
+                <a
+                  href="#kapcsolat"
+                  onClick={fillContactName}
+                  className="meder-cta border border-[var(--meder-ink)] bg-transparent text-[var(--meder-ink)] hover:bg-[var(--meder-ink)] hover:text-[var(--meder-paper)]"
+                >
+                  Inkább egyeztessünk
+                  <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
+                </a>
+              </div>
+              <p className="text-sm text-[var(--meder-ink-soft)]">
+                Nincs előleg · A jogaid nálad maradnak · Tételes elszámolás
+              </p>
+            </div>
           </div>
-          <p className="mt-6 text-[11px] font-medium tracking-[0.12em] text-white/45 uppercase">
-            Nincs előleg · A jogaid nálad maradnak · Tételes elszámolás
-          </p>
-          <div className="mt-14">
-            <MederMotif variant="white" />
+        </div>
+        <div className="relative border-t border-[var(--meder-line)]">
+          <div className={`${SECTION} grid gap-6 py-8 sm:grid-cols-[1.3fr_repeat(3,1fr)] sm:items-end`}>
+            <p className="text-sm font-medium text-[var(--meder-ink-soft)]">
+              Szerzői és szomszédos jogok,
+              <br className="hidden sm:block" /> itthon és külföldön
+            </p>
+            {HERO_STATS.map((s) => (
+              <div key={s.label}>
+                <p className="text-4xl font-semibold tracking-[-0.04em] md:text-5xl">{s.value}</p>
+                <p className="mt-1 text-sm text-[var(--meder-ink-soft)]">{s.label}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Trust */}
-      <div className="border-b border-black/10 bg-white">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-5 md:px-6">
-          <div className="flex flex-wrap gap-x-5 gap-y-1">
-            {TRUST_LOGOS.map((s) => (
-              <span key={s} className="text-[11px] font-bold tracking-[0.14em] text-black/35 uppercase">
-                {s}
-              </span>
-            ))}
-          </div>
-          <span className="text-[11px] font-bold tracking-[0.1em] text-black/55 uppercase">
-            15+ jogkezelő · 10+ ország
-          </span>
-        </div>
-      </div>
-
       {/* 2. Előzetes ellenőrzés */}
-      <section id="ellenorzes" className="scroll-mt-16 bg-white">
-        <div className="mx-auto max-w-6xl px-4 py-16 md:px-6 md:py-20">
-          <div className="grid gap-10 md:grid-cols-2 md:gap-16">
-            <div>
-              <p className="meder-label">(Előzetes ellenőrzés)</p>
-              <h2 className="meder-display mt-4 text-3xl md:text-5xl">
-                Szerepelsz a kifizetetlen listákon?
-              </h2>
-              <p className="mt-5 text-sm leading-relaxed text-black/55 md:text-base">
-                Írd be az előadóneved, és megnézzük a jogkezelők nyilvános, azonosítatlan
-                tétel-listáit. Ez nem a teljes vizsgálat: a reklámkampányok lejelentései például nem
-                nyilvánosak, azokat a teljes átnézésben kérjük le.
+      <section id="ellenorzes" className="scroll-mt-16 bg-[var(--meder-white)]">
+        <div className={`${SECTION} py-20 md:py-28`}>
+          <div className="grid gap-12 lg:grid-cols-[1fr_minmax(0,30rem)] lg:gap-20">
+            <SectionHead label="(Előzetes ellenőrzés)" title="Szerepelsz a kifizetetlen listákon?">
+              <p>
+                Írd be a neved úgy, ahogy a kiadványokon szerepel. Megnézzük a magyar és külföldi
+                jogkezelőknél az azonosítatlan felhasználásokat, amelyek gazdára várnak,
+                szerzői és előadói oldalon is.
               </p>
-            </div>
+              <p className="mt-4 text-base">
+                Ez az első kör, nem a teljes vizsgálat: a film- és reklámfelhasználások nagy része
+                csak a teljes átnézésben kerül elő.
+              </p>
+            </SectionHead>
             <form onSubmit={runSearch} className="flex flex-col justify-end gap-3">
+              <label htmlFor="meder-query" className="meder-label">
+                A neved a kiadványokon (szóló, zenekar vagy álnév)
+              </label>
               <div className="relative">
-                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-black/35" />
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--meder-ink-faint)]" />
                 <input
+                  id="meder-query"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Előadóneved a kiadványokon"
-                  className="meder-input h-12 pl-10!"
-                  aria-label="Előadónév"
+                  placeholder="pl. Kovács Anna"
+                  className="meder-input h-14 pl-11! text-lg!"
                   minLength={2}
                   required
                 />
@@ -423,7 +615,7 @@ export function MederLanding() {
               <button
                 type="submit"
                 disabled={searchPhase === "loading"}
-                className="meder-cta inline-flex h-12 items-center justify-center gap-2 disabled:opacity-50"
+                className="meder-cta h-14 text-base disabled:opacity-50"
               >
                 {searchPhase === "loading" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Ellenőrzés"}
               </button>
@@ -431,7 +623,7 @@ export function MederLanding() {
           </div>
 
           {searchPhase !== "idle" && (
-            <div className="mt-10">
+            <div className="mt-14">
               <MederVerdict
                 phase={searchPhase}
                 status={searchStatus}
@@ -445,252 +637,242 @@ export function MederLanding() {
         </div>
       </section>
 
-      {/* 3. Bizonyíték — egy rövid anekdota */}
-      <section className="border-t border-black/10 bg-[var(--meder-sand)]">
-        <div className="mx-auto max-w-3xl px-4 py-12 md:px-6 md:py-14">
+      {/* 3. Ilyen apróságokon múlik */}
+      <section className="border-t border-[var(--meder-line)]">
+        <div className={`${SECTION} py-24 md:py-36`}>
           <p className="meder-label">(Ilyen apróságokon múlik)</p>
-          <p className="mt-5 text-base leading-relaxed text-black/70 md:text-lg">
-            Egy filmnél elírták az előadó nevét a stáblistán. Ennyi elég volt: a jogdíj évekig
-            elakadt. Senki nem hibázott nagyot. Csak senki nem nézett utána.
-          </p>
-        </div>
-      </section>
-
-      {/* 4. Hol szakad el — line accordion */}
-      <section className="border-t border-black/10 bg-white">
-        <div className="mx-auto max-w-6xl px-4 py-16 md:px-6 md:py-20">
-          <p className="meder-label">(Hol szakad el a lánc)</p>
-          <h2 className="meder-display mt-4 max-w-3xl text-3xl md:text-5xl">
-            Hol szokott elakadni a pénz
-          </h2>
-          <p className="mt-4 max-w-xl text-sm text-black/55 md:text-base">
-            Dalmegjelenésnél az adat többnyire utazik. Filmnél és reklámnál gyakran nem: ott fel
-            kell kutatni a felhasználást. Ez nyomozás, nem csak adminisztráció.
-          </p>
-          <div className="mt-10 border-t border-black/15">
-            {CHAIN_BREAKS.map((item) => (
-              <details key={item.title} className="group border-b border-black/15">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-5">
-                  <span className="meder-display text-base md:text-xl">{item.title}</span>
-                  <span className="text-lg text-black/40 transition group-open:rotate-45">+</span>
-                </summary>
-                <p className="pb-5 pr-10 text-sm leading-relaxed text-black/55">{item.text}</p>
-              </details>
-            ))}
-          </div>
-          <p className="mt-8 max-w-2xl text-sm leading-relaxed text-black/60">
-            A jogkezelők ugyanazt akarják, amit te: hogy a pénz megtalálja a gazdáját. A hiányzó
-            láncszem az adat. Mi ezt állítjuk elő, a te nevedben.
-          </p>
-        </div>
-      </section>
-
-      {/* 4. Split — photo | hogyan dolgozunk */}
-      <section id="hogyan" className="scroll-mt-16 grid md:grid-cols-2">
-        <div className="relative min-h-[320px] bg-[var(--meder-sand)] md:min-h-[520px]">
-          <Image
-            src="/hero.webp"
-            alt=""
-            fill
-            sizes="(max-width: 768px) 100vw, 50vw"
-            className="object-cover object-center opacity-90"
+          <RevealText
+            className="meder-statement mt-8 max-w-5xl"
+            text="Egy filmnél elírták az előadó nevét a stáblistán. Ennyi elég volt: a jogdíj évekig elakadt. Senki nem hibázott nagyot. Csak senki nem nézett utána."
           />
-          <div className="absolute bottom-6 left-6">
-            <MederMotif variant="white" className="drop-shadow-sm" />
-          </div>
-        </div>
-        <div className="flex flex-col justify-center bg-[var(--meder-black)] px-6 py-14 text-white md:px-12 md:py-20">
-          <p className="meder-label text-white/45">(Hogyan dolgozunk)</p>
-          <h2 className="meder-display mt-4 text-3xl md:text-4xl">A lelettől a karbantartásig</h2>
-          <ul className="mt-10 space-y-6">
-            {STEPS.map((step, i) => (
-              <li key={step.title} className="border-t border-white/15 pt-5">
-                <p className="meder-display text-sm text-white">
-                  <span className="text-white/40">{String(i + 1).padStart(2, "0")} · </span>
-                  {step.title}
-                </p>
-                <p className="mt-2 text-sm leading-relaxed text-white/60">{step.text}</p>
-              </li>
-            ))}
-          </ul>
-          <a href="#kapcsolat" onClick={fillContactName} className="meder-link-plus mt-10 self-start text-white">
-            Beszéljünk +
-          </a>
         </div>
       </section>
 
-      {/* 5. Mi nem vagyunk — before pricing, reduces price resistance */}
-      <section className="bg-[var(--meder-black)] text-white">
-        <div className="mx-auto max-w-6xl px-4 py-16 md:px-6 md:py-20">
-          <p className="meder-label text-white/45">(Átlátható elvárások)</p>
-          <h2 className="meder-display mt-4 text-3xl md:text-5xl">Mi nem vagyunk</h2>
-          <ul className="mt-10 max-w-3xl space-y-5">
-            {NOT_US.map((item) => (
-              <li key={item.lead} className="border-t border-white/15 pt-5 text-base leading-relaxed text-white/65">
-                <strong className="meder-display block text-sm text-white md:text-base">{item.lead}</strong>
-                <span className="mt-1 block text-sm">{item.rest}</span>
+      {/* 4. Hol akad el a pénz */}
+      <section className="relative overflow-hidden bg-[var(--meder-ink)] text-[var(--meder-paper)]">
+        <div className={`${SECTION} grid gap-14 py-20 md:py-28 lg:grid-cols-[minmax(0,26rem)_1fr] lg:gap-20`}>
+          <div className="lg:sticky lg:top-28 lg:self-start">
+            <SectionHead label="(Hol szakad el a lánc)" title="Hol akad el a pénz" dark>
+              <p>
+                A felhasználás megtörténik, a pénz be is folyik a jogkezelőhöz. Útközben viszont
+                elég egy hiányzó adat, és nem talál el hozzád.
+              </p>
+            </SectionHead>
+            <RiverMotif className="mt-12 hidden w-56 text-[var(--meder-river)] lg:block" />
+          </div>
+          <div>
+            <Accordion items={CHAIN_BREAKS} dark numbered />
+            <RevealText
+              dark
+              className="mt-14 max-w-2xl text-2xl font-medium leading-snug tracking-[-0.02em] md:text-3xl"
+              text="A jogkezelők ugyanazt akarják, amit te: hogy a pénz megtalálja a gazdáját. A hiányzó láncszem az adat. Mi ezt állítjuk elő, a te nevedben."
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* 5. Kiknek dolgozunk */}
+      <section id="kiknek" className="scroll-mt-16">
+        <div className={`${SECTION} py-20 md:py-28`}>
+          <SectionHead label="(Kiknek dolgozunk)" title="Kinél mi akad el" />
+          <div className="mt-14 grid gap-px overflow-hidden rounded-3xl border border-[var(--meder-line)] bg-[var(--meder-line)] md:grid-cols-2">
+            {AUDIENCES.map((a) => (
+              <article key={a.label} className="flex flex-col bg-[var(--meder-paper)] p-8 md:p-10">
+                <p className="meder-label text-[var(--meder-river-deep)]">{a.label}</p>
+                <h3 className="meder-h3 mt-4 text-2xl! md:text-3xl!">{a.title}</h3>
+                <p className="mt-4 leading-relaxed text-[var(--meder-ink-soft)]">{a.text}</p>
+                {a.note ? (
+                  <p className="mt-auto pt-6 text-sm text-[var(--meder-ink-faint)]">{a.note}</p>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 6. Miért mi */}
+      <section className="bg-[var(--meder-river-light)]">
+        <div className={`${SECTION} grid gap-12 py-20 md:py-28 lg:grid-cols-[minmax(0,26rem)_1fr] lg:gap-20`}>
+          <SectionHead label="(Miért mi)" title="Belülről, gyorsabban" />
+          <div className="grid gap-x-12 gap-y-10 sm:grid-cols-2">
+            {WHY_US.map((item) => (
+              <div key={item.title} className="border-t border-[var(--meder-ink)]/20 pt-6">
+                <h3 className="meder-h3">{item.title}</h3>
+                <p className="mt-3 leading-relaxed text-[var(--meder-ink-soft)]">{item.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 7. Hogyan dolgozunk */}
+      <section id="hogyan" className="scroll-mt-16">
+        <div className={`${SECTION} py-20 md:py-28`}>
+          <div className="flex flex-wrap items-end justify-between gap-6">
+            <SectionHead label="(Hogyan dolgozunk)" title="A lelettől a karbantartásig" />
+            <a href="#kapcsolat" onClick={fillContactName} className="meder-link">
+              Beszéljünk +
+            </a>
+          </div>
+          <ol className="mt-14 grid gap-10 md:grid-cols-4 md:gap-8">
+            {STEPS.map((step, i) => (
+              <li key={step.title} className="border-t-2 border-[var(--meder-ink)] pt-6">
+                <p className="text-sm tabular-nums text-[var(--meder-river-deep)]">
+                  {String(i + 1).padStart(2, "0")}
+                </p>
+                <h3 className="meder-h3 mt-3 text-2xl!">{step.title}</h3>
+                <p className="mt-3 leading-relaxed text-[var(--meder-ink-soft)]">{step.text}</p>
               </li>
             ))}
-          </ul>
-          <div className="mt-14 border-t border-white/15 pt-10">
-            <h3 className="meder-display text-2xl md:text-3xl">Miért nem érdemes halogatni</h3>
-            <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/55 md:text-base">
-              Az igényérvényesítésnek időbeli korlátai vannak. Ami kicsúszik belőlük, az véglegesen
-              máshova kerül. Minél korábban kezdjük, annál kevesebb vész el.
-            </p>
-            <a
-              href="#kapcsolat"
-              onClick={fillContactName}
-              className="meder-cta meder-cta-light mt-8"
-            >
+          </ol>
+        </div>
+      </section>
+
+      {/* 8. Mi nem vagyunk */}
+      <section className="bg-[var(--meder-ink)] text-[var(--meder-paper)]">
+        <div className={`${SECTION} py-20 md:py-28`}>
+          <div className="grid gap-12 lg:grid-cols-[minmax(0,26rem)_1fr] lg:gap-20">
+            <SectionHead label="(Átlátható elvárások)" title="Mi nem vagyunk" dark />
+            <ul className="grid gap-x-12 gap-y-8 sm:grid-cols-2">
+              {NOT_US.map((item) => (
+                <li key={item.lead} className="border-t border-white/15 pt-6">
+                  <p className="meder-h3">{item.lead}</p>
+                  <p className="mt-2 text-white/60">{item.rest}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="mt-20 grid gap-8 rounded-3xl bg-white/[0.06] p-8 md:grid-cols-[1fr_auto] md:items-center md:p-12">
+            <div>
+              <h3 className="text-3xl font-semibold tracking-[-0.03em] md:text-4xl">
+                Miért nem érdemes halogatni
+              </h3>
+              <p className="mt-4 max-w-2xl text-lg leading-relaxed text-white/65">
+                Az igényérvényesítésnek időbeli korlátai vannak. Ami kicsúszik belőlük, az
+                véglegesen máshova kerül. Minél korábban kezdjük, annál kevesebb vész el.
+              </p>
+            </div>
+            <a href="#kapcsolat" onClick={fillContactName} className="meder-cta meder-cta-light">
               {CTA_LABEL}
             </a>
           </div>
         </div>
       </section>
 
-      {/* 6. Árazás */}
-      <section id="dijazas" className="scroll-mt-16 bg-white">
-        <div className="mx-auto max-w-6xl px-4 py-16 md:px-6 md:py-20">
-          <p className="meder-label">(Árazás)</p>
-          <h2 className="meder-display mt-4 text-3xl md:text-5xl">Mennyibe kerül</h2>
-          <div className="mt-12 grid gap-0 border-t border-black/15 md:grid-cols-2">
-            <div className="border-b border-black/15 py-8 md:border-r md:border-b-0 md:pr-12 md:py-10">
-              <p className="meder-display text-xl md:text-2xl">Visszaszerzés · 25%</p>
-              <p className="mt-4 max-w-sm text-sm leading-relaxed text-black/55">
-                A ténylegesen megérkezett összegből. Nincs előleg. Ha nem érkezik pénz, nem fizetsz.
-              </p>
-              <p className="mt-4 max-w-sm text-sm font-semibold leading-relaxed text-black/70">
-                A választás nem 100% és 75% között van, hanem 75% és 0% között.
-              </p>
-            </div>
-            <div className="py-8 md:py-10 md:pl-12">
-              <p className="meder-display text-xl md:text-2xl">Folyamatos kezelés · 15%</p>
-              <p className="mt-4 max-w-sm text-sm leading-relaxed text-black/55">
-                A kezelt jogdíjfolyamból. Nincs havidíj, nincs kiadói részesedés a műveidből.
-              </p>
-            </div>
-          </div>
-          <p className="mt-10 max-w-2xl text-sm leading-relaxed text-black/55">
-            Kis tételre nem számlázunk. A legjobb eredményünk az, ha egy év múlva nincs mit
-            visszaszerezni.
-          </p>
-          <p className="mt-8 text-[11px] font-medium tracking-[0.06em] text-black/40 uppercase">
-            Megújuló keret · Felmondás 90 napra · A jogaid nálad maradnak ·{" "}
-            <a
-              href="#dijazas-reszletek"
-              className="text-black/55 underline underline-offset-4 transition hover:text-black"
-            >
-              Részletek +
-            </a>
-          </p>
-          <div id="dijazas-reszletek" className="mt-10 scroll-mt-16 border-t border-black/15">
-            {PRICING_FAQ.map((item) => (
-              <details key={item.title} className="group border-b border-black/15">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-5">
-                  <span className="meder-display text-base md:text-xl">{item.title}</span>
-                  <span className="text-lg text-black/40 transition group-open:rotate-45">+</span>
-                </summary>
-                <p className="pb-5 pr-10 text-sm leading-relaxed text-black/55">{item.text}</p>
-              </details>
+      {/* 9. Díjazás */}
+      <section id="dijazas" className="scroll-mt-16 bg-[var(--meder-white)]">
+        <div className={`${SECTION} py-20 md:py-28`}>
+          <SectionHead label="(Díjazás)" title="Mennyibe kerül" />
+          <div className="mt-14 grid gap-4 md:grid-cols-3">
+            {PRICES.map((p, i) => (
+              <div
+                key={p.name}
+                className={`flex flex-col rounded-3xl p-8 md:p-10 ${
+                  i === 1
+                    ? "bg-[var(--meder-ink)] text-[var(--meder-paper)]"
+                    : "border border-[var(--meder-line)] bg-[var(--meder-paper)]"
+                }`}
+              >
+                <p className={`meder-label ${i === 1 ? "text-white/60" : ""}`}>{p.name}</p>
+                <p className="mt-6 text-6xl font-semibold tracking-[-0.05em] md:text-7xl">{p.value}</p>
+                <p className={`mt-6 leading-relaxed ${i === 1 ? "text-white/70" : "text-[var(--meder-ink-soft)]"}`}>
+                  {p.text}
+                </p>
+              </div>
             ))}
+          </div>
+          <p className="mt-8 text-sm text-[var(--meder-ink-soft)]">
+            Megújuló keret · Felmondás 90 napra · A jogaid nálad maradnak
+          </p>
+          <div className="mt-16 grid gap-10 lg:grid-cols-[minmax(0,26rem)_1fr] lg:gap-20">
+            <p className="meder-h3">Gyakori kérdések</p>
+            <Accordion items={PRICING_FAQ} />
           </div>
         </div>
       </section>
 
-      {/* 7. Kik vagyunk */}
-      <section className="bg-white">
-        <div className="mx-auto max-w-6xl px-4 py-16 md:px-6 md:py-20">
+      {/* 10. Rólunk */}
+      <section id="rolunk" className="scroll-mt-16">
+        <div className={`${SECTION} py-20 md:py-28`}>
           <p className="meder-label">(Kik vagyunk)</p>
-          <h2 className="mt-4 flex flex-col items-start gap-2 md:flex-row md:items-baseline md:gap-6">
-            <span className="meder-display text-3xl md:text-5xl">Meder</span>
-            <span className="text-sm font-bold tracking-[0.12em] text-black/45 uppercase md:text-xs">
-              Rights Management
-            </span>
+          <h2 className="mt-5 flex flex-wrap items-baseline gap-x-6 gap-y-2">
+            <span className="meder-h2">Meder</span>
+            <span className="text-lg font-medium text-[var(--meder-ink-soft)]">Rights Management</span>
           </h2>
-          <div className="mt-10 grid gap-8 sm:grid-cols-2">
+          <div className="mt-14 grid gap-12 md:grid-cols-3 md:gap-10">
             {TEAM.map((person) => (
-              <div key={person.key} className="flex gap-4 border-t border-black/15 pt-6">
-                {person.imageSrc ? (
-                  <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-[var(--meder-sand)]">
+              <article key={person.key} className="border-t border-[var(--meder-line)] pt-8">
+                <div className="relative h-24 w-24 overflow-hidden rounded-full bg-[var(--meder-river-light)]">
+                  {person.imageSrc ? (
                     <Image
                       src={person.imageSrc}
                       alt={`${person.name} fotó`}
                       fill
-                      sizes="80px"
+                      sizes="96px"
                       className="object-cover grayscale"
-                      priority={false}
                     />
-                  </div>
-                ) : (
-                  <div
-                    className="flex h-20 w-20 shrink-0 items-center justify-center bg-[var(--meder-sand)] text-[10px] font-bold tracking-wider text-black/35 uppercase"
-                    aria-hidden
-                  >
-                    Fotó
-                  </div>
-                )}
-                <div className="min-w-0">
-                  <p className="meder-display text-base">{person.name}</p>
-                  <p className="mt-2 text-sm leading-relaxed text-black/55">{person.bio}</p>
-                  {person.links.length ? (
-                    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs font-semibold">
-                      {person.links.map((l) => (
-                        <a
-                          key={l.href}
-                          href={l.href}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-black/55 underline underline-offset-4 transition hover:text-black"
-                        >
-                          {l.label}
-                        </a>
-                      ))}
-                    </div>
-                  ) : null}
+                  ) : (
+                    <span
+                      aria-hidden
+                      className="flex h-full w-full items-center justify-center text-xl font-semibold text-[var(--meder-river-deep)]"
+                    >
+                      {person.name
+                        .split(" ")
+                        .map((part) => part[0])
+                        .join("")}
+                    </span>
+                  )}
                 </div>
-              </div>
+                <h3 className="meder-h3 mt-6">{person.name}</h3>
+                <p className="mt-3 text-[15px] leading-relaxed text-[var(--meder-ink-soft)]">{person.bio}</p>
+                {person.links.length ? (
+                  <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+                    {person.links.map((l) => (
+                      <a key={l.href} href={l.href} target="_blank" rel="noreferrer" className="meder-link">
+                        {l.label}
+                      </a>
+                    ))}
+                  </div>
+                ) : null}
+              </article>
             ))}
           </div>
-          <p className="mt-8 max-w-2xl text-sm leading-relaxed text-black/60 md:text-base">
-            A Meder mögött két nézőpont találkozik: Zsófia a jogi stratégia és a gondolkodás
-            tisztaságát adja; Renátó a sync és a jogdíj-kezelés gyakorlatát — és azt a ritka
-            képességet, hogy a hiányzó láncszemeket szoftverrel is megépíti, nem csak kézzel
-            keresi. Így nem csak „helyesen” dolgoznak, hanem a kifizetésig is eljutnak.
+          <p className="mt-16 max-w-3xl text-lg leading-relaxed text-[var(--meder-ink-soft)]">
+            A Meder mögött három nézőpont találkozik. Zsófia a jogi stratégiát és a gondolkodás
+            tisztaságát adja. Tamás a kiadói adminisztráció gyakorlatát, Renátó a sync és a
+            jogdíj-kezelés tapasztalatát, és azt, hogy a hiányzó láncszemeket szoftverrel is
+            megépíti, nem csak kézzel keresi.
           </p>
-          <p className="mt-12 max-w-2xl text-sm leading-relaxed text-black/60 md:text-base">
-            A Meder jogdíj-visszaszerzéssel és kiadói adminisztrációval foglalkozik film- és
-            reklámzeneszerzők, előadók és kisebb katalógusok számára. A jogkezelők saját
-            rendszereiben dolgozunk, meghatalmazás alapján — de a háttérben saját fejlesztésű,
-            ügyfélre szabott eszközökkel: összevetés, azonosítás, nyomkövetés. Nem szoftvert
-            adunk el. Azt használjuk, hogy gyorsabban és pontosabban jussunk el oda, ahova a
-            hagyományos kiadói admin egyedül nem érne el.
-          </p>
-          <p className="mt-8 max-w-xl font-[family-name:var(--font-meder-sans)] text-xl leading-snug font-medium tracking-tight md:text-2xl">
-            A jogdíjnak van egy medre. Mi visszatereljük bele, és benne is tartjuk.
-          </p>
+          <RevealText
+            className="meder-statement mt-20 max-w-4xl"
+            text="A jogdíjnak van egy medre. Mi visszatereljük bele, és benne is tartjuk."
+          />
         </div>
       </section>
 
-      {/* 8. Kapcsolat — petrol block */}
-      <section id="kapcsolat" className="scroll-mt-16 bg-[var(--meder-petrol)] text-white">
-        <div className="mx-auto max-w-xl px-4 py-16 md:px-6 md:py-20">
-          <p className="meder-label text-white/50">(Kapcsolat)</p>
-          <h2 className="meder-display mt-4 text-3xl md:text-5xl">Beszéljünk</h2>
-          <p className="mt-4 text-sm text-white/60 md:text-base">
-            Húsz perc alatt kiderül, van-e mit keresni nálad. Ha nincs, azt is megmondjuk.
-          </p>
+      {/* 11. Kapcsolat */}
+      <section
+        id="kapcsolat"
+        className="relative scroll-mt-16 overflow-hidden bg-[var(--meder-ink)] text-[var(--meder-paper)]"
+      >
+        <RiverMotif className="pointer-events-none absolute -bottom-24 -left-24 w-[520px] text-[var(--meder-river)] opacity-30 md:-left-10" />
+        <div className={`${SECTION} relative grid gap-14 py-20 md:py-28 lg:grid-cols-2 lg:gap-20`}>
+          <SectionHead label="(Kapcsolat)" title="Beszéljünk" dark>
+            <p>Húsz perc alatt kiderül, van-e mit keresni nálad. Ha nincs, azt is megmondjuk.</p>
+            <p className="mt-6 text-base">
+              <a href="mailto:hello@meder.hu" className="meder-link text-[var(--meder-paper)]">
+                hello@meder.hu
+              </a>
+            </p>
+          </SectionHead>
 
           {sent ? (
-            <p className="mt-10 border border-white/25 px-5 py-6 text-sm font-medium">
+            <p className="self-start rounded-2xl border border-white/20 px-6 py-8 text-lg font-medium">
               Megkaptuk. Két munkanapon belül jelentkezünk.
             </p>
           ) : (
-            <form onSubmit={onSubmit} className="mt-10 space-y-4">
-              <div>
-                <label htmlFor="meder-name" className="mb-1.5 block text-[11px] font-bold tracking-wider uppercase text-white/55">
-                  Név
-                </label>
+            <form onSubmit={onSubmit} className="space-y-4">
+              <Field id="meder-name" label="Név">
                 <input
                   id="meder-name"
                   required
@@ -698,11 +880,8 @@ export function MederLanding() {
                   onChange={(e) => setName(e.target.value)}
                   className="meder-input-on-color"
                 />
-              </div>
-              <div>
-                <label htmlFor="meder-email" className="mb-1.5 block text-[11px] font-bold tracking-wider uppercase text-white/55">
-                  E-mail
-                </label>
+              </Field>
+              <Field id="meder-email" label="E-mail">
                 <input
                   id="meder-email"
                   type="email"
@@ -711,11 +890,8 @@ export function MederLanding() {
                   onChange={(e) => setEmail(e.target.value)}
                   className="meder-input-on-color"
                 />
-              </div>
-              <div>
-                <label htmlFor="meder-phone" className="mb-1.5 block text-[11px] font-bold tracking-wider uppercase text-white/55">
-                  Telefon <span className="font-normal normal-case tracking-normal">(opcionális)</span>
-                </label>
+              </Field>
+              <Field id="meder-phone" label="Telefon" optional>
                 <input
                   id="meder-phone"
                   type="tel"
@@ -724,11 +900,8 @@ export function MederLanding() {
                   placeholder="Ha hívást kérsz"
                   className="meder-input-on-color"
                 />
-              </div>
-              <div>
-                <label htmlFor="meder-occ" className="mb-1.5 block text-[11px] font-bold tracking-wider uppercase text-white/55">
-                  Mivel foglalkozol
-                </label>
+              </Field>
+              <Field id="meder-occ" label="Mivel foglalkozol">
                 <select
                   id="meder-occ"
                   required
@@ -745,78 +918,83 @@ export function MederLanding() {
                     </option>
                   ))}
                 </select>
-              </div>
-              <div>
-                <label htmlFor="meder-msg" className="mb-1.5 block text-[11px] font-bold tracking-wider uppercase text-white/55">
-                  Miről van szó <span className="font-normal normal-case tracking-normal">(opcionális)</span>
-                </label>
+              </Field>
+              <Field id="meder-msg" label="Miről van szó" optional>
                 <textarea
                   id="meder-msg"
                   rows={3}
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Pár mondat: milyen filmekhez, reklámokhoz írtál zenét, vagy mi nem stimmel."
+                  placeholder="Pár mondat: mit írsz vagy játszol, hol jelent meg, mi nem stimmel."
                   className="meder-input-on-color resize-y"
                 />
-              </div>
-              {formError ? <p className="text-sm font-medium text-[#f0c4a0]">{formError}</p> : null}
+              </Field>
+              {formError ? <p className="text-sm font-medium text-[#f0b8a0]">{formError}</p> : null}
               <button
                 type="submit"
                 disabled={sending}
-                className="meder-cta meder-cta-light inline-flex h-12 w-full items-center justify-center gap-2 disabled:opacity-50"
+                className="meder-cta meder-cta-light h-14 w-full text-base disabled:opacity-50"
               >
                 {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Elküldöm"}
               </button>
-              <p className="text-xs text-white/40">
+              <p className="text-sm text-white/45">
                 Az adataidat kizárólag a megkeresésed megválaszolására használjuk.{" "}
-                <Link href="/adatvedelem" className="underline hover:text-white/70">
+                <Link href="/adatvedelem" className="underline hover:text-white/75">
                   Adatkezelés
                 </Link>
               </p>
             </form>
           )}
-          <div className="mt-12">
-            <MederMotif variant="white" />
-          </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-black/10 bg-white">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-10 md:flex-row md:items-end md:justify-between md:px-6">
+      <footer className="border-t border-white/10 bg-[var(--meder-ink)] text-[var(--meder-paper)]">
+        <div className={`${SECTION} flex flex-col gap-6 py-10 md:flex-row md:items-end md:justify-between`}>
           <div>
-            <p className="meder-display inline-flex items-center gap-2 text-lg normal-case tracking-tight">
-              <MederMotif variant="ink" size="mark" />
+            <p className="inline-flex items-center gap-2 text-2xl font-semibold tracking-[-0.04em]">
+              <RiverMotif className="h-6 text-[var(--meder-river-glow)]" />
               meder.
             </p>
-            <p className="mt-2 text-xs tracking-wide text-black/45 uppercase">
-              hello@meder.hu · Cégadatok hamarosan
-            </p>
+            <p className="mt-3 text-sm text-white/50">hello@meder.hu · Cégadatok hamarosan</p>
           </div>
-          <div className="flex flex-wrap gap-5 text-[11px] font-bold tracking-[0.1em] uppercase text-black/45">
-            <Link href="/adatvedelem" className="hover:text-black">
+          <div className="flex flex-wrap gap-6 text-sm text-white/55">
+            <Link href="/adatvedelem" className="hover:text-white">
               Adatkezelés
             </Link>
           </div>
         </div>
-        <div className="mx-auto max-w-6xl border-t border-black/10 px-4 py-4 md:px-6">
-          <p className="text-xs text-black/40">
-            A magyar és külföldi jogkezelőkkel együttműködve dolgozunk.
-          </p>
-        </div>
       </footer>
 
       {/* Mobile sticky */}
-      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-black/10 bg-white p-3 md:hidden">
-        <a
-          href="#kapcsolat"
-          onClick={fillContactName}
-          className="meder-cta flex h-11 w-full items-center justify-center"
-        >
+      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[var(--meder-line)] bg-[var(--meder-paper)]/95 p-3 backdrop-blur md:hidden">
+        <a href="#kapcsolat" onClick={fillContactName} className="meder-cta h-12 w-full">
           {CTA_LABEL}
         </a>
       </div>
-      <div className="h-16 md:hidden" aria-hidden />
+      <div className="h-[72px] md:hidden" aria-hidden />
+    </div>
+  );
+}
+
+function Field({
+  id,
+  label,
+  optional = false,
+  children,
+}: {
+  id: string;
+  label: string;
+  optional?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div>
+      <label htmlFor={id} className="mb-2 block text-sm font-medium text-white/65">
+        {label}
+        {optional ? <span className="font-normal text-white/40"> (opcionális)</span> : null}
+      </label>
+      {children}
     </div>
   );
 }
@@ -834,19 +1012,19 @@ function MederVerdict({
   phase: SearchPhase;
   status: SearchStatus;
   groups: LandingTeaserGroup[];
-  summary: { totalItems: number; societies: number; countries: number };
+  summary: Summary;
   resolvedName: string;
   onPrimaryCta: () => void;
 }) {
   if (phase === "loading") {
     return (
-      <div className="border border-black/15 px-6 py-10 text-center">
-        <Loader2 className="mx-auto h-5 w-5 animate-spin text-black/40" />
-        <p className="mt-3 text-sm text-black/55">
-          Magyar és európai listákat nézem <strong>{resolvedName}</strong> névre…
+      <div className="rounded-3xl border border-[var(--meder-line)] bg-[var(--meder-paper)] px-6 py-14 text-center">
+        <Loader2 className="mx-auto h-6 w-6 animate-spin text-[var(--meder-river)]" />
+        <p className="mt-4 text-lg">
+          Magyar és külföldi listákat nézünk <strong className="font-semibold">{resolvedName}</strong> névre…
         </p>
-        <p className="mt-2 text-xs text-black/40">
-          Néhány forrás (pl. EJI) lassabb lehet — akár 30–40 másodperc. Várj, dolgozunk.
+        <p className="mt-2 text-sm text-[var(--meder-ink-soft)]">
+          Néhány forrás lassabb, ez fél percig is eltarthat.
         </p>
       </div>
     );
@@ -860,7 +1038,7 @@ function MederVerdict({
     const copy =
       status === "unavailable"
         ? {
-            title: "A nyilvános kereső most nem elérhető",
+            title: "A kereső most nem elérhető",
             body: "Add meg a kapcsolati adataidat, és kézzel nézzük át a listákat.",
           }
         : status === "error"
@@ -869,82 +1047,72 @@ function MederVerdict({
               body: "Próbáld újra, vagy írj nekünk, utánanézünk.",
             }
           : {
-              title: "Nincs egyértelmű nyilvános találat",
-              body: "Ez nem jelenti, hogy nincs kint pénzed. Beszéljünk, és mélyebben utánanézünk.",
+              title: "Nincs egyértelmű találat",
+              body: "Ez nem jelenti, hogy nincs kint pénzed: a film, a reklám és a külföldi lejelentések nagy részét csak megbízással tudjuk lekérni.",
             };
 
     return (
-      <div className="border border-black/15">
-        <div className="px-6 py-6">
-          <div className="flex items-center gap-2">
-            <SearchX className="h-4 w-4 text-black/35" />
-            <span className="meder-label">{copy.title}</span>
-          </div>
-          <p className="meder-display mt-4 text-xl">{resolvedName}</p>
-          <p className="mt-2 text-sm text-black/55">{copy.body}</p>
-          <button type="button" onClick={onPrimaryCta} className="meder-cta mt-6">
-            {CTA_LABEL}
-          </button>
+      <div className="rounded-3xl border border-[var(--meder-line)] bg-[var(--meder-paper)] p-8 md:p-10">
+        <div className="flex items-center gap-2 text-[var(--meder-ink-soft)]">
+          <SearchX className="h-4 w-4" />
+          <span className="meder-label">{copy.title}</span>
         </div>
+        <p className="meder-h3 mt-4 text-3xl!">{resolvedName}</p>
+        <p className="mt-3 max-w-2xl leading-relaxed text-[var(--meder-ink-soft)]">{copy.body}</p>
+        <button type="button" onClick={onPrimaryCta} className="meder-cta mt-8">
+          {CTA_LABEL}
+        </button>
       </div>
     );
   }
 
+  const summaryLine = [
+    `${summary.totalItems} tétel`,
+    `${summary.countries} ország`,
+    summary.rights.map((r) => RIGHT_SHORT[r]).join(" / "),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
-    <div className="border border-black/15">
-      <div className="border-b border-black/15 px-6 py-5">
-        <div className="flex items-center gap-2">
-          <CheckCircle2 className="h-4 w-4 text-[var(--meder-petrol)]" />
-          <span className="meder-label text-[var(--meder-petrol)]">(Valószínű találat)</span>
+    <div className="overflow-hidden rounded-3xl border border-[var(--meder-line)] bg-[var(--meder-paper)]">
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-[var(--meder-line)] p-8 md:p-10">
+        <div>
+          <p className="meder-label text-[var(--meder-river-deep)]">(Valószínű találat)</p>
+          <p className="meder-h3 mt-3 text-3xl! md:text-4xl!">
+            {resolvedName} <span className="text-[var(--meder-ink-faint)]">· azonosítatlan tételek</span>
+          </p>
         </div>
-        <p className="meder-display mt-3 text-xl md:text-2xl">
-          {resolvedName} · azonosítatlan tételek
-        </p>
-        <p className="mt-2 text-sm text-black/50">
-          A teljes lista és a visszaszerzés a beszélgetés után jön.
-        </p>
+        <p className="text-sm font-medium text-[var(--meder-ink-soft)]">{summaryLine}</p>
       </div>
 
-      <div className="grid grid-cols-3 divide-x divide-black/10 border-b border-black/15">
-        {[
-          { value: summary.totalItems, label: "tétel" },
-          { value: summary.societies, label: "jogkezelő" },
-          { value: summary.countries, label: "ország" },
-        ].map((s) => (
-          <div key={s.label} className="px-4 py-4 text-center">
-            <div className="meder-display text-2xl">{s.value}</div>
-            <div className="mt-1 text-[10px] font-bold tracking-wider text-black/40 uppercase">
-              {s.label}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="space-y-3 px-6 py-5">
+      <div className="grid gap-4 p-4 md:grid-cols-2 md:p-6">
         {visibleGroups.map((group) => (
-          <MederSourceGroup key={group.key} group={group} />
+          <MederResultGroup key={group.key} group={group} />
         ))}
-        {hiddenCount > 0 ? (
-          <p className="text-xs text-black/45">+{hiddenCount} további forrás a teljes átnézésben.</p>
-        ) : null}
       </div>
+      {hiddenCount > 0 ? (
+        <p className="px-8 pb-2 text-sm text-[var(--meder-ink-soft)] md:px-10">
+          +{hiddenCount} további ország vagy jogtípus a teljes átnézésben.
+        </p>
+      ) : null}
 
-      <div className="border-t border-black/15 bg-[var(--meder-sand)]/40 px-6 py-5">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 p-8 md:px-10">
+        <p className="meder-h3 w-full">
+          Ráismersz a dalaidra? A teljes listát és a következő lépést a beszélgetésen nézzük át.
+        </p>
         <button type="button" onClick={onPrimaryCta} className="meder-cta">
           {CTA_LABEL}
         </button>
-        <p className="mt-3 text-xs text-black/45">Nincs kötelezettség. Átbeszéljük a következő lépést.</p>
+        <p className="text-sm text-[var(--meder-ink-soft)]">Nincs kötelezettség.</p>
       </div>
     </div>
   );
 }
 
-const GHOSTS: LandingTeaserHit[] = [
-  { title: "Azonosítatlan tétel" },
-  { title: "Azonosítatlan tétel" },
-];
+const GHOSTS: LandingTeaserHit[] = [{ title: "Azonosítatlan tétel" }, { title: "Azonosítatlan tétel" }];
 
-function MederSourceGroup({ group }: { group: LandingTeaserGroup }) {
+function MederResultGroup({ group }: { group: LandingTeaserGroup }) {
   const isFuzzy = group.confidence === "fuzzy";
   const visibleHits = isFuzzy ? [] : group.hits;
   const remaining = group.total - visibleHits.length;
@@ -953,19 +1121,22 @@ function MederSourceGroup({ group }: { group: LandingTeaserGroup }) {
     visibleHits.length > 0 ? group.hits.slice(0, ghostCount) : GHOSTS.slice(0, ghostCount);
 
   return (
-    <div className="border border-black/10 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span>{group.flag}</span>
-          <span className="text-sm font-bold tracking-wide uppercase">{group.source}</span>
-          <span className="text-xs text-black/40">{group.region}</span>
-          {isFuzzy ? (
-            <span className="text-[10px] font-bold tracking-wider text-black/35 uppercase">
-              névegyezés
-            </span>
-          ) : null}
+    <div className="rounded-2xl bg-[var(--meder-white)] p-5 md:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <span className="text-xl leading-none">{group.flag}</span>
+          <span className="font-semibold">{group.region}</span>
+          <span
+            className={`meder-chip ${
+              group.right === "author"
+                ? "border-transparent bg-[var(--meder-river-light)] text-[var(--meder-river-deep)]"
+                : ""
+            }`}
+          >
+            {RIGHT_LABEL[group.right]}
+          </span>
         </div>
-        <span className="text-[10px] font-bold tracking-wider text-black/45 uppercase">
+        <span className="text-sm tabular-nums text-[var(--meder-ink-soft)]">
           {visibleHits.length === 0
             ? `${group.total} tétel`
             : remaining > 0
@@ -973,19 +1144,22 @@ function MederSourceGroup({ group }: { group: LandingTeaserGroup }) {
               : `Mind a ${group.total}`}
         </span>
       </div>
-      <div className="mt-3 space-y-1.5">
+      {isFuzzy ? (
+        <p className="mt-3 text-sm text-[var(--meder-ink-soft)]">Csak névegyezés, ellenőrizzük.</p>
+      ) : null}
+      <div className="mt-4 space-y-2">
         {visibleHits.map((hit, i) => (
           <MederHitRow key={`${group.key}-${i}`} hit={hit} />
         ))}
         {remaining > 0 && ghostHits.length > 0 ? (
           <div className="relative">
-            <div aria-hidden className="space-y-1.5 select-none blur-[5px]">
+            <div aria-hidden className="space-y-2 blur-[5px] select-none">
               {ghostHits.map((hit, i) => (
                 <MederHitRow key={`g-${group.key}-${i}`} hit={hit} />
               ))}
             </div>
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <span className="inline-flex items-center gap-1.5 border border-black/10 bg-white px-3 py-1 text-[10px] font-bold tracking-wider uppercase text-black/55">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--meder-line)] bg-[var(--meder-white)] px-3 py-1 text-xs font-semibold text-[var(--meder-ink-soft)]">
                 <Lock className="h-3 w-3" />+{remaining} további
               </span>
             </div>
@@ -998,15 +1172,15 @@ function MederSourceGroup({ group }: { group: LandingTeaserGroup }) {
 
 function MederHitRow({ hit }: { hit: LandingTeaserHit }) {
   return (
-    <div className="flex items-center gap-2 text-sm">
-      <Music4 className="h-3.5 w-3.5 shrink-0 text-black/30" />
-      <span className="truncate text-black/65">{hit.title}</span>
-      {(hit.type || hit.year) && (
-        <span className="ml-auto flex shrink-0 items-center gap-2 text-[10px] text-black/35">
+    <div className="flex items-center gap-2.5 text-[15px]">
+      <Music4 className="h-3.5 w-3.5 shrink-0 text-[var(--meder-river)]" />
+      <span className="truncate">{hit.title}</span>
+      {hit.type || hit.year ? (
+        <span className="ml-auto flex shrink-0 items-center gap-2 text-xs text-[var(--meder-ink-faint)]">
           {hit.type ? <span>{hit.type}</span> : null}
           {hit.year ? <span>{hit.year}</span> : null}
         </span>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -86,7 +86,7 @@ const HOW_STEPS = [
   {
     icon: Globe2,
     title: "Megkeressük a pénzed",
-    text: "Átnézzük a magyar ARTISJUS és EJI, valamint 10+ ország jogkezelőinek nyilvános listáit, és kiderítjük, hol áll gazdátlanul a jogdíjad.",
+    text: "Magyarországon és további 10+ ország jogkezelőinél keressük az azonosítatlan tételeket, és kiderítjük, hol áll gazdátlanul a jogdíjad.",
   },
   {
     icon: Sparkles,
@@ -117,7 +117,7 @@ const REASONS = [
 const FAQ = [
   {
     q: "Ügyvédkedés ez?",
-    a: "Nem. Ez metaadat-audit, nem peres panasz. Nyilvános, hivatalos jogkezelői listákat nézünk át helyetted, és segítünk rendezni a tételeket. Nem fenyegetünk és nem perelünk senkit.",
+    a: "Nem. Ez metaadat-audit, nem peres panasz. Jogkezelői adatokat nézünk át helyetted, és segítünk rendezni a tételeket. Nem fenyegetünk és nem perelünk senkit.",
   },
   {
     q: "Mibe kerül?",
@@ -129,7 +129,7 @@ const FAQ = [
   },
   {
     q: "Honnan vannak a listák?",
-    a: "Hivatalos jogkezelők nyilvános, azonosítatlan és kifizetetlen tétel-listáiból: ARTISJUS, EJI, és 10+ ország további szervezetei.",
+    a: "Magyar és külföldi jogkezelői adatokból, szerzői és szomszédos jogi oldalon.",
   },
 ];
 
@@ -272,11 +272,8 @@ export function RecoveryLanding({ preview = false }: { preview?: boolean }) {
           </h1>
 
           <p className="mx-auto mt-5 max-w-2xl text-pretty text-lg leading-relaxed text-[var(--text-secondary)]">
-            Írd be az előadóneved. Megkeressük a neved a magyar{" "}
-            <strong className="font-semibold text-[var(--text-primary)]">ARTISJUS</strong> és{" "}
-            <strong className="font-semibold text-[var(--text-primary)]">EJI</strong>, valamint 10+
-            ország jogkezelőinek nyilvános listáin, kibogozzuk a hiányzó adatokat, és segítünk
-            visszaszerezni a pénzed.
+            Írd be az előadóneved. Megkeressük a neved Magyarországon és további 10+ ország
+            jogkezelőinél, kibogozzuk a hiányzó adatokat, és segítünk visszaszerezni a pénzed.
           </p>
 
           <form
@@ -310,7 +307,7 @@ export function RecoveryLanding({ preview = false }: { preview?: boolean }) {
 
           <p className="mx-auto mt-3 flex items-center justify-center gap-1.5 text-xs text-[var(--text-muted)]">
             <ShieldCheck className="h-3.5 w-3.5" />
-            Nyilvános listák alapján. Nem ügyvédi panasz, nem kérünk előleget.
+            Nem ügyvédi panasz, nem kérünk előleget.
           </p>
         </div>
 
@@ -644,7 +641,7 @@ function NoHitTeaser(props: VerdictTeaserProps) {
   const copy =
     status === "unavailable"
       ? {
-          title: "A nyilvános kereső most nem elérhető",
+          title: "A kereső most nem elérhető",
           body: "A keresőmotor épp nem fut ezen a környezeten. Add meg az e-mailed, és kézzel nézzük át a magyar és külföldi listákat a nevedre.",
         }
       : status === "error"
@@ -653,8 +650,8 @@ function NoHitTeaser(props: VerdictTeaserProps) {
             body: "Valami félrement a lekérdezésnél. Add meg az e-mailed, és kézzel nézünk utána, vagy próbáld újra kicsit később.",
           }
         : {
-            title: "Nincs egyértelmű nyilvános találat",
-            body: "A nyilvános listákon most nem találtunk egyértelmű tételt erre a névre. Ez nem jelenti, hogy nincs kint pénzed: sok jogdíj nem nyilvános listán ül. Add meg az e-mailed, és mélyebben utánanézünk.",
+            title: "Nincs egyértelmű találat",
+            body: "Most nem találtunk egyértelmű tételt erre a névre. Ez nem jelenti, hogy nincs kint pénzed. Add meg az e-mailed, és mélyebben utánanézünk.",
           };
 
   return (
