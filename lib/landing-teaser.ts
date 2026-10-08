@@ -66,6 +66,8 @@ const CMO_PRESENTATION: Record<CmoSourceId, { source: string; region: string }> 
   "cz-intergram": { source: "INTERGRAM", region: "Csehország" },
   "fi-gramex": { source: "Gramex", region: "Finnország" },
   "de-gvl": { source: "GVL", region: "Németország" },
+  "hu-mahasz": { source: "MAHASZ", region: "Magyarország" },
+  "de-gema": { source: "GEMA", region: "Németország" },
 };
 
 const CMO_WEB_PRESENTATION: Record<CmoWebSourceId, { source: string; region: string }> = {
@@ -81,6 +83,34 @@ const CMO_WEB_PRESENTATION: Record<CmoWebSourceId, { source: string; region: str
 
 function flagFor(region: string): string {
   return REGION_FLAG[region] ?? "🏳️";
+}
+
+const HTML_ENTITIES: Record<string, string> = { amp: "&", quot: '"', apos: "'", lt: "<", gt: ">" };
+
+function decodeEntities(value: string): string {
+  return value.replace(/&(#\d+|#x[\da-f]+|[a-z]+);/gi, (whole, code: string) => {
+    if (code[0] === "#") {
+      const n = code[1]?.toLowerCase() === "x" ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
+      return Number.isFinite(n) ? String.fromCodePoint(n) : whole;
+    }
+    return HTML_ENTITIES[code.toLowerCase()] ?? whole;
+  });
+}
+
+/** Readable, distinct titles first — placeholder titles ("(névtelen)") would hide real hits. */
+function pickHits(hits: LandingTeaserHit[]): LandingTeaserHit[] {
+  const seen = new Set<string>();
+  const out: LandingTeaserHit[] = [];
+  for (const hit of hits) {
+    const title = decodeEntities(hit.title ?? "").trim();
+    if (!title || title.startsWith("(")) continue;
+    const key = title.toLocaleLowerCase("hu");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ ...hit, title });
+    if (out.length >= MAX_HITS) break;
+  }
+  return out;
 }
 
 export interface BuildLandingTeaserInput {
@@ -120,7 +150,7 @@ export function buildLandingTeaser(input: BuildLandingTeaserInput): LandingTease
       total: input.artisjusMatches.length,
       confidence: hasPerformer ? "high" : "fuzzy",
       hits: hasPerformer
-        ? performerish.slice(0, MAX_HITS).map((m) => ({ title: m.work.mucim }))
+        ? pickHits(performerish.map((m) => ({ title: m.work.mucim })))
         : [],
     });
   }
@@ -140,7 +170,7 @@ export function buildLandingTeaser(input: BuildLandingTeaserInput): LandingTease
       flag: flagFor("Magyarország"),
       total: input.ejiHits.length,
       confidence: "high",
-      hits: trackTitles.slice(0, MAX_HITS),
+      hits: pickHits(trackTitles),
     });
   }
 
@@ -154,6 +184,7 @@ export function buildLandingTeaser(input: BuildLandingTeaserInput): LandingTease
   }
   for (const [sourceId, matches] of cmoBySource) {
     const pres = CMO_PRESENTATION[sourceId];
+    if (!pres) continue;
     const sorted = [...matches].sort((a, b) => b.score - a.score);
     const foreignSingle = singleTokenQuery && pres.region !== "Magyarország";
     groups.push({
@@ -163,7 +194,7 @@ export function buildLandingTeaser(input: BuildLandingTeaserInput): LandingTease
       flag: flagFor(pres.region),
       total: matches.length,
       confidence: foreignSingle ? "fuzzy" : "high",
-      hits: foreignSingle ? [] : sorted.slice(0, MAX_HITS).map((m) => ({ title: m.record.title })),
+      hits: foreignSingle ? [] : pickHits(sorted.map((m) => ({ title: m.record.title }))),
     });
   }
 

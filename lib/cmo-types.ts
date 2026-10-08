@@ -12,6 +12,8 @@ export const CMO_SOURCE_IDS = [
   "cz-intergram",
   "fi-gramex",
   "de-gvl",
+  "hu-mahasz",
+  "de-gema",
 ] as const;
 
 export type CmoSourceId = (typeof CMO_SOURCE_IDS)[number];
@@ -80,6 +82,8 @@ export const CMO_SOURCE_LABELS: Record<CmoSourceId, string> = {
   "cz-intergram": "INTERGRAM (CZ)",
   "fi-gramex": "Gramex (FI)",
   "de-gvl": "GVL (DE)",
+  "hu-mahasz": "MAHASZ (HU)",
+  "de-gema": "GEMA (DE)",
 };
 
 export const CMO_CHIP_LABELS: Record<CmoSourceId, string> = {
@@ -96,6 +100,8 @@ export const CMO_CHIP_LABELS: Record<CmoSourceId, string> = {
   "cz-intergram": "Csehország · INTERGRAM",
   "fi-gramex": "Finnország · Gramex",
   "de-gvl": "Németország · GVL",
+  "hu-mahasz": "Magyarország · MAHASZ",
+  "de-gema": "Németország · GEMA",
 };
 
 export const CMO_ISRC_PREFIX = "cmo:";

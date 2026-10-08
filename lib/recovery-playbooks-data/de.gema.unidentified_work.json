@@ -1,0 +1,46 @@
+{
+  "id": "de.gema.unidentified_work",
+  "organization": "GEMA",
+  "country": "DE",
+  "rightsType": "musical_work",
+  "summary": "A mű a GEMA nem egyértelműen azonosított műveinek listáján szerepel — a németországi szerzői jogdíj egy része nem került kiosztásra.",
+  "eligibility": "A mű szerzője vagy kiadója GEMA tagként, vagy a hazai közös jogkezelő reciprocitási szerződésén keresztül.",
+  "steps": [
+    {
+      "id": "identify",
+      "order": 1,
+      "title": "Mű azonosítása",
+      "description": "Egyeztesd a Werkfassungsnummer, cím és a szerzők/kiadók listáját a saját műnyilvántartással."
+    },
+    {
+      "id": "registration",
+      "order": 2,
+      "title": "Műbejelentés pótlása",
+      "description": "Ellenőrizd, hogy a mű a hazai jogkezelőnél és a GEMA-nál is be van-e jelentve helyes share-ekkel."
+    },
+    {
+      "id": "claim",
+      "order": 3,
+      "title": "Reklamáció",
+      "description": "GEMA tagként a tagi portálon, egyébként a hazai jogkezelőn keresztül jelezd a jogosultságot."
+    }
+  ],
+  "requiredData": [
+    { "field": "Werkfassungsnummer", "required": true },
+    { "field": "Mű címe", "required": true },
+    { "field": "Szerzők és kiadói share-ek", "required": true }
+  ],
+  "requiredPermissions": ["GEMA tagság vagy hazai jogkezelői képviselet"],
+  "channels": [
+    { "type": "portal", "url": "https://www.gema.de/", "label": "GEMA" }
+  ],
+  "pitfalls": [
+    "A lista részleges, nem a teljes németországi azonosítatlan katalógus",
+    "Subverlag (SV) bejegyzés esetén a helyi kiadói képviselettel egyeztetni kell"
+  ],
+  "sources": [
+    { "url": "https://www.gema.de/", "title": "GEMA", "checkedAt": "2026-09-06" }
+  ],
+  "version": "2026-10",
+  "confidence": "draft"
+}

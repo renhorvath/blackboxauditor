@@ -146,6 +146,23 @@ def load_akm_aume(path: Path, source: str, org: str, rights_type: str, country: 
     )
 
 
+PLACEHOLDER_NAMES = {"farainfo", "fara info", "_", "-", "n a", "unknown", "inconnu compositeur auteur"}
+
+
+def clean_name(value: str) -> str:
+    """Drop placeholder segments ("Farainfo | X" → "X") from pipe-joined name cells."""
+    parts = [p.strip() for p in value.split("|")]
+    kept = [p for p in parts if p and normalize_text(p) not in PLACEHOLDER_NAMES]
+    seen: set[str] = set()
+    out: list[str] = []
+    for p in kept:
+        key = normalize_text(p)
+        if key not in seen:
+            seen.add(key)
+            out.append(p)
+    return " | ".join(out)
+
+
 def _cell_str(row: tuple, col_map: dict[str, int], key: str) -> str:
     if key not in col_map or col_map[key] >= len(row):
         return ""
@@ -196,7 +213,7 @@ def _map_columns(header_row: tuple) -> dict[str, int]:
                 "vykonní",
                 "vykonni",
             )
-        ) or (label == "artist" or label.endswith(" artist")):
+        ) or (label.startswith("artist") or label.endswith(" artist")):
             col_map.setdefault("performer", i)
         if any(k in label for k in ("composer", "zeneszerző", "zeneszerzo", "szerző", "szerzo")):
             col_map.setdefault("composer", i)
@@ -210,7 +227,9 @@ def _map_columns(header_row: tuple) -> dict[str, int]:
             col_map.setdefault("label", i)
         if "gramexid" in label.replace(" ", ""):
             col_map.setdefault("external_id", i)
-        if any(k in label for k in ("recording id", "werknummer", "ssz")):
+        if "work #" in label:
+            col_map["id"] = i
+        elif any(k in label for k in ("recording id", "werknummer", "ssz")):
             col_map.setdefault("id", i)
         elif label in ("id", "number") or label.endswith(" id"):
             col_map.setdefault("id", i)
@@ -225,7 +244,10 @@ def load_flexible_xlsx(
     source: str,
     id_prefix: str = "",
     sheet_tag: str | None = None,
+    content_seen: set[str] | None = None,
 ) -> list[dict]:
+    """``content_seen``: when given, rows repeating title+performer+composer are skipped
+    (shared across files, so repeated monthly lists collapse)."""
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
     records: list[dict] = []
     seen: set[str] = set()
@@ -242,15 +264,20 @@ def load_flexible_xlsx(
             if not row:
                 continue
             row_num += 1
-            title = _cell_str(row, col_map, "title")
-            performer = _cell_str(row, col_map, "performer")
-            composer = _cell_str(row, col_map, "composer")
+            title = re.sub(r"\s*\|+\s*", " | ", _cell_str(row, col_map, "title")).strip(" |")
+            performer = clean_name(_cell_str(row, col_map, "performer"))
+            composer = clean_name(_cell_str(row, col_map, "composer"))
             ident_fallback = _cell_str(row, col_map, "identification")
             ident = build_identification(
                 performer=performer, composer=composer, fallback=ident_fallback
             )
             if not title and not ident:
                 continue
+            if content_seen is not None:
+                ckey = "\x1f".join(normalize_text(v) for v in (title, performer, composer))
+                if ckey in content_seen:
+                    continue
+                content_seen.add(ckey)
             rec_id = _cell_str(row, col_map, "external_id") or _cell_str(row, col_map, "id")
             if not rec_id:
                 rec_id = f"{path.stem}:{sheet_name}:{row_num}"
@@ -411,13 +438,26 @@ def load_sena(dir_path: Path) -> dict:
     )
 
 
-def load_dir_xlsx(dir_path: Path, *, source: str, org: str, country: str, rights_type: str) -> dict:
+def load_dir_xlsx(
+    dir_path: Path,
+    *,
+    source: str,
+    org: str,
+    country: str,
+    rights_type: str,
+    dedupe_content: bool = False,
+) -> dict:
     paths = sorted(dir_path.glob("*.xlsx")) + sorted(dir_path.glob("*.xls"))
     if not paths:
         raise FileNotFoundError(dir_path)
     records: list[dict] = []
+    content_seen: set[str] | None = set() if dedupe_content else None
     for path in paths:
-        records.extend(load_flexible_xlsx(path, source=source, id_prefix=f"{path.name}:"))
+        records.extend(
+            load_flexible_xlsx(
+                path, source=source, id_prefix=f"{path.name}:", content_seen=content_seen
+            )
+        )
     return pack_source(
         source=source, organization=org, country=country, rights_type=rights_type, records=records
     )
@@ -432,4 +472,113 @@ def load_dir_csv(dir_path: Path, *, source: str, org: str, country: str, rights_
         records.extend(load_csv_file(path, source=source))
     return pack_source(
         source=source, organization=org, country=country, rights_type=rights_type, records=records
+    )
+
+
+def _distribution_years(value: str) -> str:
+    years = sorted({int(y) for y in re.findall(r"\b(20\d\d)\.", value or "")})
+    if not years:
+        return ""
+    span = str(years[0]) if years[0] == years[-1] else f"{years[0]}–{years[-1]}"
+    return f"Felosztás: {span}"
+
+
+def load_mahasz(dir_path: Path) -> dict:
+    """MAHASZ jogosultkutatás scrape (tracks.csv: id, artist, title, version, distributions)."""
+    path = dir_path / "tracks.csv"
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    records: list[dict] = []
+    seen: set[str] = set()
+    with path.open(encoding="utf-8-sig", newline="") as f:
+        for row in csv.DictReader(f):
+            rec_id = (row.get("id") or "").strip()
+            title = _cap_field((row.get("title") or "").strip())
+            version = (row.get("version") or "").strip()
+            performer = _cap_field(clean_name((row.get("artist") or "").strip()))
+            if not rec_id or rec_id in seen or not (title or performer):
+                continue
+            seen.add(rec_id)
+            full_title = f"{title} ({version})" if version and title else title
+            rec: dict = {
+                "id": f"mahasz:{rec_id}",
+                "source": "hu-mahasz",
+                "title": full_title or "(névtelen)",
+                "identification": performer,
+                "remark": _distribution_years(row.get("distributions") or "") or None,
+            }
+            if performer:
+                rec["performer"] = performer
+            records.append(rec)
+    return pack_source(
+        source="hu-mahasz",
+        organization="MAHASZ",
+        country="HU",
+        rights_type="neighbouring",
+        records=records,
+    )
+
+
+GEMA_PUBLISHER_ROLES = {"V", "SV", "OV"}
+
+
+def load_gema(dir_path: Path) -> dict:
+    """GEMA unidentified works: one row per (work, role, name) → one record per work."""
+    paths = sorted(dir_path.glob("*.xlsx"))
+    if not paths:
+        raise FileNotFoundError(dir_path)
+    works: dict[str, dict] = {}
+    for path in paths:
+        wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+        for ws in wb.worksheets:
+            rows_iter = ws.iter_rows(values_only=True)
+            header = [header_label(c) for c in (next(rows_iter, None) or ())]
+            try:
+                i_id = header.index("werkfassungsnummer")
+                i_title = header.index("werktitel")
+                i_role = header.index("rolle")
+                i_name = header.index("name")
+            except ValueError:
+                continue
+            i_first = header.index("vorname") if "vorname" in header else None
+            for row in rows_iter:
+                if not row or row[i_id] in (None, ""):
+                    continue
+                wid = str(row[i_id]).strip()
+                work = works.setdefault(
+                    wid,
+                    {"title": str(row[i_title] or "").strip(), "authors": [], "publishers": []},
+                )
+                last = str(row[i_name] or "").strip()
+                first = str(row[i_first] or "").strip() if i_first is not None else ""
+                name = clean_name(f"{first} {last}".strip() if first else last)
+                if not name:
+                    continue
+                role = str(row[i_role] or "").strip().upper()
+                bucket = "publishers" if role in GEMA_PUBLISHER_ROLES else "authors"
+                if name not in work[bucket]:
+                    work[bucket].append(name)
+        wb.close()
+    records: list[dict] = []
+    for wid, work in works.items():
+        composer = _cap_field(", ".join(work["authors"]))
+        publishers = ", ".join(work["publishers"])
+        if not work["title"] and not composer:
+            continue
+        rec: dict = {
+            "id": f"gema:{wid}",
+            "source": "de-gema",
+            "title": _cap_field(work["title"]) or "(névtelen)",
+            "identification": composer or publishers,
+            "remark": _cap_field(f"Verlag: {publishers}") if publishers else None,
+        }
+        if composer:
+            rec["composer"] = composer
+        records.append(rec)
+    return pack_source(
+        source="de-gema",
+        organization="GEMA",
+        country="DE",
+        rights_type="musical_work",
+        records=records,
     )

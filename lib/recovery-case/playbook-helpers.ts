@@ -15,6 +15,8 @@ const CMO_PLAYBOOK_ID: Record<
   "ee-eel": "ee.eel.unidentified_work",
   "cz-intergram": "cz.intergram.unidentified_work",
   "fi-gramex": "fi.gramex.unidentified_work",
+  "hu-mahasz": "hu.mahasz.jogosultkutatas",
+  "de-gema": "de.gema.unidentified_work",
 };
 
 /** Shared CMO → playbook mapping (recovery-mapper mirror). */

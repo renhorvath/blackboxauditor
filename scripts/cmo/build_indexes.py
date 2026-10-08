@@ -13,11 +13,19 @@ if str(CMO_DIR) not in sys.path:
     sys.path.insert(0, str(CMO_DIR))
 
 from gvl_loaders import load_gvl  # noqa: E402
-from loaders import load_akm_aume, load_dir_csv, load_dir_xlsx, load_sena  # noqa: E402
+from loaders import (  # noqa: E402
+    load_akm_aume,
+    load_dir_csv,
+    load_dir_xlsx,
+    load_gema,
+    load_mahasz,
+    load_sena,
+)
 from source_specs import BULK_SPECS, gvl_data_present, resolve_files  # noqa: E402
 
 PROJECT_ROOT = CMO_DIR.parents[1]
 OUT_PATH = PROJECT_ROOT / "data" / "cmo-index.json"
+PARTIAL_OUT_PATH = PROJECT_ROOT / "data" / "cmo-index.partial.json"
 GVL_OUT_PATH = PROJECT_ROOT / "data" / "cmo-gvl-index.json"
 UCMR_OUT_PATH = PROJECT_ROOT / "data" / "cmo-ucmr-index.json"
 RAW = PROJECT_ROOT / "raw" / "cmo"
@@ -37,7 +45,8 @@ LOADERS: dict[str, tuple] = {
         RAW / "sk-soza", source="sk-soza", org="SOZA", country="SK", rights_type="musical_work"
     )),
     "ro-credidam": ("CREDIDAM", "RO", "neighbouring", lambda: load_dir_xlsx(
-        RAW / "ro-credidam", source="ro-credidam", org="CREDIDAM", country="RO", rights_type="neighbouring"
+        RAW / "ro-credidam", source="ro-credidam", org="CREDIDAM", country="RO", rights_type="neighbouring",
+        dedupe_content=True,
     )),
     "hr-hds-zamp": ("HDS-ZAMP", "HR", "musical_work", lambda: load_dir_xlsx(
         RAW / "hr-hds-zamp", source="hr-hds-zamp", org="HDS-ZAMP", country="HR", rights_type="musical_work"
@@ -57,12 +66,24 @@ LOADERS: dict[str, tuple] = {
     "fi-gramex": ("Gramex", "FI", "neighbouring", lambda: load_dir_xlsx(
         RAW / "fi-gramex", source="fi-gramex", org="Gramex", country="FI", rights_type="neighbouring"
     )),
+    "hu-mahasz": ("MAHASZ", "HU", "neighbouring", lambda: load_mahasz(RAW / "hu-mahasz")),
+    "de-gema": ("GEMA", "DE", "musical_work", lambda: load_gema(RAW / "de-gema")),
     "de-gvl": ("GVL", "DE", "neighbouring", lambda: load_gvl(
         RAW / "de-gvl",
         derived_dir=PROJECT_ROOT / "derived" / "cmo" / "de-gvl",
         force_sendemeldungen_csv="--gvl-force-pdf" in sys.argv,
     )),
 }
+
+
+def _only_ids() -> set[str] | None:
+    """``--only a,b`` → build just these sources into ``PARTIAL_OUT_PATH`` (for per-source loads)."""
+    for i, arg in enumerate(sys.argv):
+        if arg == "--only" and i + 1 < len(sys.argv):
+            return {s.strip() for s in sys.argv[i + 1].split(",") if s.strip()}
+        if arg.startswith("--only="):
+            return {s.strip() for s in arg.split("=", 1)[1].split(",") if s.strip()}
+    return None
 
 
 def main() -> None:
@@ -76,8 +97,18 @@ def main() -> None:
     ucmr_source: dict | None = None
     skipped: list[str] = []
     write_ucmr_json = "--ucmr-json" in sys.argv
+    only = _only_ids()
+    if only is not None:
+        unknown = only - {s.id for s in BULK_SPECS}
+        if unknown:
+            raise SystemExit(f"Unknown source id(s): {', '.join(sorted(unknown))}")
+        if only & {"de-gvl", "ro-ucmr-ada"}:
+            raise SystemExit("--only does not support de-gvl / ro-ucmr-ada (separate outputs)")
+    out_path = PARTIAL_OUT_PATH if only is not None else OUT_PATH
 
     for spec in BULK_SPECS:
+        if only is not None and spec.id not in only:
+            continue
         if spec.id == "de-gvl":
             if not gvl_data_present(RAW):
                 skipped.append(f"{spec.id} (optional, no data in de-gvl/)")
@@ -123,12 +154,12 @@ def main() -> None:
         "sources": sources,
     }
 
-    OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    OUT_PATH.write_text(json.dumps(payload), encoding="utf-8")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(payload), encoding="utf-8")
     total = sum(s["recordCount"] for s in sources.values())
     gvl_count = gvl_source["recordCount"] if gvl_source else 0
     ucmr_count = ucmr_source["recordCount"] if ucmr_source else 0
-    print(f"Wrote {OUT_PATH} ({total:,} records across {len(sources)} sources)")
+    print(f"Wrote {out_path} ({total:,} records across {len(sources)} sources)")
     for sid, meta in sources.items():
         print(f"  {sid}: {meta['recordCount']:,} ({meta['organization']})")
 

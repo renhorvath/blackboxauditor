@@ -6,6 +6,7 @@ import czIntergram from "./cz.intergram.unidentified_work.json";
 import deGvlKonu from "./de.gvl.konu.json";
 import deGvlListenArtist from "./de.gvl.listen_artist.json";
 import deGvlListenProducer from "./de.gvl.listen_producer.json";
+import deGemaUnidentified from "./de.gema.unidentified_work.json";
 import deGvlSendemeldung from "./de.gvl.sendemeldung.json";
 import eeEau from "./ee.eau.unidentified_work.json";
 import eeEel from "./ee.eel.unidentified_work.json";
@@ -13,6 +14,7 @@ import fiGramex from "./fi.gramex.unidentified_work.json";
 import hrHdsZamp from "./hr.hds_zamp.unidentified_work.json";
 import huArtisjus from "./hu.artisjus.unidentified_work.json";
 import huEji from "./hu.eji.unidentified.json";
+import huMahasz from "./hu.mahasz.jogosultkutatas.json";
 import nlSenaPerformer from "./nl.sena.performer.json";
 import nlSenaProducent from "./nl.sena.producent.json";
 import roCredidam from "./ro.credidam.unidentified_work.json";
@@ -30,12 +32,14 @@ export const PLAYBOOK_ENTRIES: PlaybookEntry[] = [
   deGvlListenArtist,
   deGvlListenProducer,
   deGvlSendemeldung,
+  deGemaUnidentified,
   eeEau,
   eeEel,
   fiGramex,
   hrHdsZamp,
   huArtisjus,
   huEji,
+  huMahasz,
   nlSenaPerformer,
   nlSenaProducent,
   roCredidam,

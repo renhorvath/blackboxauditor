@@ -53,14 +53,40 @@ DOWNLOADS: dict[str, list[tuple[str, str]]] = {
             "Registreerimata_esitused_2020_2024.xlsx",
         ),
     ],
-    "cz-intergram": [
+    "ro-credidam": [
         (
-            "https://www.intergram.cz/wp-content/uploads/2025/01/Neprirazene-snimky-2024.xlsx",
-            "Neprirazene-snimky-2024.xlsx",
+            "http://credidam.ro/wp/wp-content/uploads/2026/02/radio-iunie-2025.xlsx",
+            "radio-iunie-2025.xlsx",
         ),
         (
-            "https://www.intergram.cz/wp-content/uploads/2025/01/Neprirazene-snimky-2025.xlsx",
+            "http://credidam.ro/wp/wp-content/uploads/2026/02/tv-iunie-2025.xlsx",
+            "tv-iunie-2025.xlsx",
+        ),
+        *(
+            (f"http://credidam.ro/wp/wp-content/uploads/{path}", path.rsplit("/", 1)[1])
+            for path in (
+                "2026/02/radio-decembrie-2024.xlsx",
+                "2026/02/tv-decembrie-2024.xlsx",
+                "2025/01/Radio-iunie-2024.xlsx",
+                "2025/01/TV-iunie-2024.xlsx",
+                "2024/09/Radio-decembrie-2023-ok.xlsx",
+                "2024/09/TV-decembrie-2023-ok.xlsx",
+                "2024/09/Radio-iunie-2023-ok.xlsx",
+                "2024/09/TV-iunie-2023-ok.xlsx",
+                "2022/10/Radio-iunie-2022-ok.xlsx",
+                "2022/05/TV-decembrie-2021.xlsx",
+                "2021/09/TV-iunie-2021.xlsx",
+            )
+        ),
+    ],
+    "cz-intergram": [
+        (
+            "https://cdn.prod.website-files.com/67e9049847579c23dbfa855a/6a1dcc41e6bb6347a701da82_Neprirazene-snimky-2025.xlsx",
             "Neprirazene-snimky-2025.xlsx",
+        ),
+        (
+            "https://cdn.prod.website-files.com/67e9049847579c23dbfa855a/6a1dcc5cf4a42eead33504bf_92d039cd3cd4cfb47bbcb18cce5b4135_Nenalezeni-nositele-prav-VU-2025.xlsx",
+            "Nenalezeni-nositele-prav-VU-2025.xlsx",
         ),
     ],
 }

@@ -1,0 +1,46 @@
+{
+  "id": "hu.mahasz.jogosultkutatas",
+  "organization": "MAHASZ",
+  "country": "HU",
+  "rightsType": "neighbouring",
+  "summary": "A hangfelvétel a MAHASZ jogosultkutatási listáján szerepel — a hangfelvétel-előállítói (kiadói/producenti) jogdíj felosztásra vár, mert a jogosult nem azonosított.",
+  "eligibility": "A hangfelvétel előállítója (kiadó, label vagy saját kiadású előadó), illetve az általa meghatalmazott képviselő.",
+  "steps": [
+    {
+      "id": "identify",
+      "order": 1,
+      "title": "Felvétel azonosítása",
+      "description": "Egyeztesd a listán szereplő előadót, címet és verziót a saját katalógusoddal (ISRC, megjelenés, terjesztő)."
+    },
+    {
+      "id": "membership",
+      "order": 2,
+      "title": "MAHASZ jogosulti nyilvántartás",
+      "description": "Ha még nem vagy nyilvántartva, regisztrálj hangfelvétel-előállítóként a MAHASZ-nál."
+    },
+    {
+      "id": "claim",
+      "order": 3,
+      "title": "Jogosultság igazolása",
+      "description": "Jelezd a MAHASZ-nak a jogosultságot a felvételre (előállítói szerződés, terjesztési adatok, ISRC)."
+    }
+  ],
+  "requiredData": [
+    { "field": "Előadó és cím (a lista szerint)", "required": true },
+    { "field": "ISRC", "required": false },
+    { "field": "Előállítói jogosultság igazolása", "required": true }
+  ],
+  "requiredPermissions": ["Előállítói jogosultság vagy meghatalmazás"],
+  "channels": [
+    { "type": "portal", "url": "https://www.mahasz.hu/jogosultkutatas/", "label": "MAHASZ jogosultkutatás" }
+  ],
+  "pitfalls": [
+    "Az előadói jogdíj nem a MAHASZ-hoz, hanem az EJI-hez tartozik — a két igény külön kezelendő",
+    "Azonos nevű előadók / feldolgozások: a verzió és a megjelenés egyeztetése kötelező"
+  ],
+  "sources": [
+    { "url": "https://www.mahasz.hu/jogosultkutatas/", "title": "MAHASZ jogosultkutatás", "checkedAt": "2026-09-23" }
+  ],
+  "version": "2026-10",
+  "confidence": "draft"
+}

@@ -4,6 +4,13 @@
  *
  * Usage:
  *   npm run cloudsql:load-indexes
+ *   npm run cloudsql:load-indexes -- --partial            # data/cmo-index.partial.json only
+ *   npm run cloudsql:load-indexes -- --partial --allow-new-source
+ *   npm run cloudsql:load-indexes -- --drop ee-eau
+ *
+ * Full mode TRUNCATEs artisjus_works + cmo_records. --partial replaces only the sources in
+ * the partial file (one transaction per source) and refuses ids missing from index_meta
+ * unless --allow-new-source: the deployed search maps every index_meta source to a label.
  *
  * Requires INDEX_LOADER_DATABASE_URL in .env.local
  */
@@ -46,6 +53,18 @@ function cmoPath(): string {
     process.env.CMO_INDEX_PATH?.trim() ||
     path.join(process.cwd(), "data", "cmo-index.json")
   );
+}
+
+function partialPath(): string {
+  return (
+    process.env.CMO_PARTIAL_INDEX_PATH?.trim() ||
+    path.join(process.cwd(), "data", "cmo-index.partial.json")
+  );
+}
+
+function argValue(flag: string): string | null {
+  const i = process.argv.indexOf(flag);
+  return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1]! : null;
 }
 
 function gvlPath(): string {
@@ -150,6 +169,7 @@ async function loadCmoFile(
   file: string,
   label: string,
   truncateFirst: boolean,
+  transactional = false,
 ): Promise<number> {
   if (!fs.existsSync(file)) {
     console.warn(`Skip ${label} — missing ${file}`);
@@ -166,6 +186,7 @@ async function loadCmoFile(
     if (!src?.records?.length) continue;
     console.log(`  ${sourceId}: ${src.records.length.toLocaleString()} records`);
 
+    if (transactional) await client.query("BEGIN");
     await client.query("DELETE FROM meder.cmo_records WHERE source = $1", [sourceId]);
 
     const records = src.records as CmoRecord[];
@@ -196,6 +217,7 @@ async function loadCmoFile(
       index.builtAt ?? null,
       records.length,
     );
+    if (transactional) await client.query("COMMIT");
     total += records.length;
   }
   console.log(`  ${label} done (+${total.toLocaleString()})`);
@@ -212,10 +234,38 @@ async function main() {
   const t0 = Date.now();
   try {
     await client.query("SET statement_timeout = 0");
-    await loadArtisjus(client);
-    await loadCmoFile(client, cmoPath(), "CMO", true);
-    await loadCmoFile(client, gvlPath(), "GVL", false);
-    await client.query("ANALYZE meder.artisjus_works");
+    const drop = argValue("--drop");
+    if (drop) {
+      const ids = drop.split(",").map((s) => s.trim()).filter(Boolean);
+      if (ids.includes("artisjus")) throw new Error("--drop artisjus is not allowed");
+      await client.query("BEGIN");
+      for (const id of ids) {
+        const del = await client.query("DELETE FROM meder.cmo_records WHERE source = $1", [id]);
+        await client.query("DELETE FROM meder.index_meta WHERE source = $1", [id]);
+        console.log(`Dropped ${id} (${del.rowCount ?? 0} records)`);
+      }
+      await client.query("COMMIT");
+    } else if (process.argv.includes("--partial")) {
+      const file = partialPath();
+      const index = JSON.parse(fs.readFileSync(file, "utf8")) as CmoIndexFile;
+      const known = new Set(
+        (await client.query<{ source: string }>("SELECT source FROM meder.index_meta")).rows.map(
+          (r) => r.source,
+        ),
+      );
+      const fresh = Object.keys(index.sources ?? {}).filter((id) => !known.has(id));
+      if (fresh.length && !process.argv.includes("--allow-new-source")) {
+        throw new Error(
+          `New source id(s) ${fresh.join(", ")} — deploy code that knows them first, then pass --allow-new-source`,
+        );
+      }
+      await loadCmoFile(client, file, "CMO partial", false, true);
+    } else {
+      await loadArtisjus(client);
+      await loadCmoFile(client, cmoPath(), "CMO", true);
+      await loadCmoFile(client, gvlPath(), "GVL", false);
+      await client.query("ANALYZE meder.artisjus_works");
+    }
     await client.query("ANALYZE meder.cmo_records");
 
     const sizes = await client.query<{
