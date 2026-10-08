@@ -37,9 +37,19 @@ npm run cloudsql:load-ucmr      # UCMR-ADA CSV → meder.cmo_records (ro-ucmr-ad
 npm run cloudsql:parity         # fájl vs DB egyezés
 ```
 
-UCMR: `raw/cmo/ro-ucmr-ada/unidentified.csv` (vagy `UCMR_CSV_PATH`). Mezők max 500 karakterre vágva (PDF parse poison). Nem truncate-eli a többi source-ot.
+UCMR: `raw/cmo/ro-ucmr-ada/unidentified.csv` (vagy `UCMR_CSV_PATH`). Mezők max 500 karakterre vágva (PDF parse poison). Nem truncate-eli a többi source-ot. Címtisztítás (Public/Cablu/Q4/évszám kiszórása): `python3 scripts/cmo/ucmr_clean.py`, majd `UCMR_CSV_PATH=raw/cmo/ro-ucmr-ada/unidentified.clean.csv npm run cloudsql:load-ucmr`.
 
 Újrafuttatható: truncate + COPY (teljes index); UCMR load csak `DELETE … WHERE source = 'ro-ucmr-ada'`.
+
+**A teljes `cloudsql:load-indexes` kiüríti az egész `cmo_records`-ot** — ami helyben nincs meg a `raw/cmo/` alatt, az élesből eltűnik. Egy-egy forrás frissítésére a részleges mód kell:
+
+```bash
+python3 scripts/cmo/build_indexes.py --only sk-soza,ro-credidam   # → data/cmo-index.partial.json
+npm run cloudsql:load-indexes -- --partial                         # forrásonként 1 tranzakció
+npm run cloudsql:load-indexes -- --drop ee-eau                     # forrás törlése
+```
+
+Új forrás-id (`index_meta`-ban még nincs) csak `--allow-new-source`-szal megy be, és **csak azután, hogy az azt ismerő kód élesben van**: a landing kereső minden `index_meta` forrást címkéhez köt. Adatváltozás után emeld a `CACHE_VERSION`-t a `lib/landing-search-db.ts`-ben (7 napos találat-cache).
 
 ## Schema
 
