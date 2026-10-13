@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Clean UCMR-ADA unidentified.csv titles/names spilled over from adjacent PDF columns.
+"""Clean residual placeholders from parsed UCMR-ADA works.
 
-pdftotext column wrapping leaks station type (Public/Cablu), quarter (Q4) and year into the
-title cell, and sometimes doubles the title. Writes unidentified.clean.csv next to the input;
+The parser now handles column boundaries, so this pass deliberately avoids removing year or
+quarter tokens from otherwise valid titles. Writes unidentified.clean.csv next to the input;
 load with: UCMR_CSV_PATH=raw/cmo/ro-ucmr-ada/unidentified.clean.csv npm run cloudsql:load-ucmr
 """
 
@@ -19,9 +19,20 @@ ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "raw" / "cmo" / "ro-ucmr-ada" / "unidentified.csv"
 DST = SRC.with_name("unidentified.clean.csv")
 
-NOISE = re.compile(
-    r"(?<!\w)(?:Public|Publica|Cablu|Comercial|Privat|Q[1-4]|20[12]\d|\(anonim\)|\(Anonim\))(?!\w)"
+NOISE_ONLY = re.compile(
+    r"^(?:publica?|cablu|comercial|privat|q[1-4]|20[12]\d|\(?anonim\)?)$",
+    re.I,
 )
+TITLE_PLACEHOLDERS = {
+    "neidentificata",
+    "neidentificat",
+    "necunoscut",
+    "necunoscuta",
+    "titlu nespecificat",
+    "nespecificat",
+    "unknown",
+    "n/a",
+}
 NAME_PLACEHOLDERS = {"neidentificat", "necunoscut", "anonim", "unknown", "n/a"}
 
 
@@ -48,8 +59,13 @@ def dedupe_repeat(value: str) -> str:
 
 
 def clean_title(title: str, performer: str) -> str:
-    cleaned = dedupe_repeat(squash(NOISE.sub(" ", fix_mojibake(title))))
-    if not cleaned or cleaned.casefold() == performer.casefold():
+    cleaned = dedupe_repeat(squash(fix_mojibake(title)))
+    if (
+        not cleaned
+        or cleaned.casefold() in TITLE_PLACEHOLDERS
+        or NOISE_ONLY.fullmatch(cleaned)
+        or cleaned.casefold() == performer.casefold()
+    ):
         return ""
     return cleaned
 
