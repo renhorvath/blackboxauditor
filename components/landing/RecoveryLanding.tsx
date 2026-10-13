@@ -9,16 +9,16 @@ import {
   Globe2,
   Loader2,
   Lock,
-  Music4,
   Search,
   SearchX,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
-import type {
-  LandingTeaserGroup,
-  LandingTeaserHit,
-  LandingTeaserResult,
+import {
+  RIGHT_LABEL,
+  RIGHT_ORDER,
+  type LandingTeaserGroup,
+  type LandingTeaserResult,
 } from "@/lib/landing-teaser";
 
 /**
@@ -34,7 +34,13 @@ type Phase = "idle" | "loading" | "result";
 
 type SearchStatus = LandingTeaserResult["status"] | "error";
 
-const EMPTY_SUMMARY = { totalItems: 0, societies: 0, countries: 0 };
+const EMPTY_SUMMARY: LandingTeaserResult["summary"] = {
+  totalItems: 0,
+  societies: 0,
+  countries: 0,
+  rights: [],
+  titles: [],
+};
 
 /** Preview-only color palettes. Scoped to the landing via CSS vars on the root. */
 type Palette = {
@@ -559,7 +565,7 @@ interface VerdictTeaserProps {
   phase: Phase;
   status: SearchStatus;
   groups: LandingTeaserGroup[];
-  summary: { totalItems: number; societies: number; countries: number };
+  summary: LandingTeaserResult["summary"];
   resolvedName: string;
   email: string;
   emailSent: boolean;
@@ -570,7 +576,7 @@ interface VerdictTeaserProps {
 }
 
 function VerdictTeaser(props: VerdictTeaserProps) {
-  const { phase, status, groups, summary, resolvedName } = props;
+  const { phase, status, summary, resolvedName } = props;
 
   if (phase === "loading") {
     return (
@@ -586,9 +592,10 @@ function VerdictTeaser(props: VerdictTeaserProps) {
     );
   }
 
-  if (status !== "found" || groups.length === 0) {
+  if (status !== "found" || summary.totalItems === 0) {
     return <NoHitTeaser {...props} />;
   }
+  const ticked = new Set(summary.rights);
 
   return (
     <div className="glow-grad overflow-hidden rounded-2xl border border-[color-mix(in_srgb,var(--accent-primary)_28%,var(--border))] bg-[var(--bg-primary)]">
@@ -603,31 +610,36 @@ function VerdictTeaser(props: VerdictTeaserProps) {
           </span>
         </div>
         <p className="mt-3 text-lg font-semibold text-[var(--text-primary)]">
-          A(z) <span className="text-[var(--accent-primary)]">{resolvedName}</span> névhez több
-          azonosítatlan tételt találtunk.
+          {summary.totalItems} azonosítatlan tétel · {summary.countries} országban
         </p>
-        <p className="mt-1 text-sm text-[var(--text-secondary)]">
-          Az alábbi forrásokon szerepel a neved. A teljes listát és a visszaszerzés lépéseit az
-          ingyenes összefoglalóban küldjük.
-        </p>
+        <p className="mt-1 text-sm text-[var(--text-secondary)]">{resolvedName}</p>
       </div>
 
-      {/* global summary */}
-      <div className="grid grid-cols-3 divide-x divide-[var(--border)] border-b border-[var(--border)]">
-        <SummaryStat value={summary.totalItems} label="tétel" />
-        <SummaryStat value={summary.societies} label="jogkezelő" />
-        <SummaryStat value={summary.countries} label="ország" />
-      </div>
-
-      {/* per-society groups */}
-      <div className="space-y-4 px-6 py-5">
-        {groups.map((group) => (
-          <SourceGroup key={group.key} group={group} />
+      <ul className="space-y-2 px-6 py-5">
+        {RIGHT_ORDER.map((right) => (
+          <li key={right} className="text-sm text-[var(--text-primary)]">
+            {ticked.has(right) ? "✓" : "–"} {RIGHT_LABEL[right]}
+          </li>
         ))}
-        <p className="text-xs text-[var(--text-secondary)]">
-          Jellemzően metaadat / IPI kérdés, amit ki tudunk bogozni és rendezni helyetted.
-        </p>
-      </div>
+      </ul>
+      {summary.titles.length > 0 ? (
+        <div className="px-6 pb-5">
+          <p className="text-xs text-[var(--text-muted)]">Ilyen címeken is</p>
+          <ul className="mt-2 space-y-1 text-sm font-medium">
+            {summary.titles.map((title) => (
+              <li key={title} className="truncate">{title}</li>
+            ))}
+          </ul>
+          {summary.totalItems > summary.titles.length ? (
+            <p className="mt-2 text-xs text-[var(--text-muted)]">
+              + {summary.totalItems - summary.titles.length} további tétel
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+      <p className="px-6 pb-5 text-xs text-[var(--text-secondary)]">
+        Névegyezés alapján. Azt, hogy a tétel a tiéd-e, együtt ellenőrizzük.
+      </p>
 
       <EmailGate {...props} />
     </div>
@@ -746,95 +758,3 @@ function EmailGate({
   );
 }
 
-function SummaryStat({ value, label }: { value: number; label: string }) {
-  return (
-    <div className="px-4 py-4 text-center">
-      <div className="text-2xl font-bold tracking-tight text-grad">{value}</div>
-      <div className="mt-0.5 text-xs font-medium text-[var(--text-muted)]">{label}</div>
-    </div>
-  );
-}
-
-const GHOST_PLACEHOLDERS: LandingTeaserHit[] = [
-  { title: "Azonosítatlan tétel" },
-  { title: "Azonosítatlan tétel" },
-];
-
-function SourceGroup({ group }: { group: LandingTeaserGroup }) {
-  const isFuzzy = group.confidence === "fuzzy";
-  const visibleHits = isFuzzy ? [] : group.hits;
-  const remaining = group.total - visibleHits.length;
-  const ghostCount = Math.min(2, Math.max(remaining, 0));
-  const ghostHits =
-    visibleHits.length > 0
-      ? group.hits.slice(0, ghostCount)
-      : GHOST_PLACEHOLDERS.slice(0, ghostCount);
-
-  return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4">
-      {/* group header */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="text-base">{group.flag}</span>
-          <span className="text-sm font-semibold text-[var(--text-primary)]">{group.source}</span>
-          <span className="text-xs text-[var(--text-muted)]">{group.region}</span>
-          {isFuzzy ? (
-            <span className="rounded-full border border-[var(--border)] bg-[var(--bg-primary)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-muted)]">
-              névegyezés, ellenőrzendő
-            </span>
-          ) : null}
-        </div>
-        <span className="rounded-full border border-[color-mix(in_srgb,var(--accent-primary)_30%,var(--border))] bg-[color-mix(in_srgb,var(--accent-primary)_8%,transparent)] px-2 py-0.5 text-[11px] font-semibold text-[var(--text-primary)]">
-          {visibleHits.length === 0
-            ? `${group.total} tétel`
-            : remaining > 0
-              ? `Top ${visibleHits.length} a ${group.total}-ből`
-              : `Mind a ${group.total}`}
-        </span>
-      </div>
-
-      {/* hits */}
-      <div className="mt-3 space-y-1.5">
-        {visibleHits.map((hit, i) => (
-          <HitRow key={`${group.key}-${i}-${hit.title}`} hit={hit} />
-        ))}
-        {remaining > 0 && ghostHits.length > 0 && (
-          <div className="relative">
-            <div aria-hidden className="space-y-1.5 select-none blur-[5px]">
-              {ghostHits.map((hit, i) => (
-                <HitRow key={`ghost-${group.key}-${i}`} hit={hit} />
-              ))}
-            </div>
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bg-primary)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)] shadow-sm">
-                <Lock className="h-3 w-3 text-[var(--accent-primary)]" />
-                +{remaining} további
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function HitRow({ hit }: { hit: LandingTeaserHit }) {
-  return (
-    <div className="flex items-center gap-2 text-sm">
-      <Music4 className="h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]" />
-      <span className="truncate text-[var(--text-secondary)]">{hit.title}</span>
-      {(hit.type || hit.year) && (
-        <span className="ml-auto flex shrink-0 items-center gap-2">
-          {hit.type ? (
-            <span className="rounded bg-[var(--bg-primary)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-muted)]">
-              {hit.type}
-            </span>
-          ) : null}
-          {hit.year ? (
-            <span className="text-[10px] text-[var(--text-muted)]">{hit.year}</span>
-          ) : null}
-        </span>
-      )}
-    </div>
-  );
-}

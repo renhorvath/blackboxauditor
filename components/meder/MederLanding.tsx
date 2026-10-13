@@ -10,14 +10,8 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
-import { ArrowRight, Loader2, Lock, Menu, Music4, Plus, Search, SearchX, X } from "lucide-react";
-import {
-  RIGHT_LABEL,
-  type LandingRightType,
-  type LandingTeaserGroup,
-  type LandingTeaserHit,
-  type LandingTeaserResult,
-} from "@/lib/landing-teaser";
+import { ArrowRight, Check, Loader2, Menu, Plus, Search, SearchX, X } from "lucide-react";
+import { RIGHT_LABEL, RIGHT_ORDER, type LandingTeaserResult } from "@/lib/landing-teaser";
 
 const CTA_LABEL = "Egyeztessünk 20 percben";
 
@@ -227,13 +221,7 @@ type SearchPhase = "idle" | "loading" | "result";
 type SearchStatus = LandingTeaserResult["status"] | "error";
 type Summary = LandingTeaserResult["summary"];
 
-const EMPTY_SUMMARY: Summary = { totalItems: 0, societies: 0, countries: 0, rights: [] };
-const MAX_GROUPS = 4;
-
-const RIGHT_SHORT: Record<LandingRightType, string> = {
-  author: "szerzői",
-  neighbouring: "szomszédos",
-};
+const EMPTY_SUMMARY: Summary = { totalItems: 0, societies: 0, countries: 0, rights: [], titles: [] };
 
 const SECTION = "mx-auto max-w-7xl px-5 md:px-8";
 
@@ -365,7 +353,6 @@ export function MederLanding() {
   const [query, setQuery] = useState("");
   const [searchPhase, setSearchPhase] = useState<SearchPhase>("idle");
   const [resolvedName, setResolvedName] = useState("");
-  const [groups, setGroups] = useState<LandingTeaserGroup[]>([]);
   const [summary, setSummary] = useState<Summary>(EMPTY_SUMMARY);
   const [searchStatus, setSearchStatus] = useState<SearchStatus>("none");
 
@@ -394,7 +381,6 @@ export function MederLanding() {
     if (trimmed.length < 2 || searchPhase === "loading") return;
     setResolvedName(trimmed);
     setSearchPhase("loading");
-    setGroups([]);
     setSummary(EMPTY_SUMMARY);
     try {
       const res = await fetch("/api/landing-search", {
@@ -406,7 +392,6 @@ export function MederLanding() {
       if (!res.ok || !data) {
         setSearchStatus("error");
       } else {
-        setGroups(data.groups);
         setSummary(data.summary);
         setSearchStatus(data.status);
         if (!name.trim()) setName(trimmed);
@@ -627,7 +612,6 @@ export function MederLanding() {
               <MederVerdict
                 phase={searchPhase}
                 status={searchStatus}
-                groups={groups}
                 summary={summary}
                 resolvedName={resolvedName}
                 onPrimaryCta={goToContact}
@@ -1004,14 +988,12 @@ function Field({
 function MederVerdict({
   phase,
   status,
-  groups,
   summary,
   resolvedName,
   onPrimaryCta,
 }: {
   phase: SearchPhase;
   status: SearchStatus;
-  groups: LandingTeaserGroup[];
   summary: Summary;
   resolvedName: string;
   onPrimaryCta: () => void;
@@ -1030,9 +1012,7 @@ function MederVerdict({
     );
   }
 
-  const visibleGroups = groups.slice(0, MAX_GROUPS);
-  const hiddenCount = Math.max(0, groups.length - MAX_GROUPS);
-  const found = status === "found" && groups.length > 0;
+  const found = status === "found" && summary.totalItems > 0;
 
   if (!found) {
     const copy =
@@ -1066,121 +1046,66 @@ function MederVerdict({
     );
   }
 
-  const summaryLine = [
-    `${summary.totalItems} tétel`,
-    `${summary.countries} ország`,
-    summary.rights.map((r) => RIGHT_SHORT[r]).join(" / "),
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const ticked = new Set(summary.rights);
 
   return (
     <div className="overflow-hidden rounded-3xl border border-[var(--meder-line)] bg-[var(--meder-paper)]">
-      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-[var(--meder-line)] p-8 md:p-10">
-        <div>
-          <p className="meder-label text-[var(--meder-river-deep)]">(Valószínű találat)</p>
-          <p className="meder-h3 mt-3 text-3xl! md:text-4xl!">
-            {resolvedName} <span className="text-[var(--meder-ink-faint)]">· azonosítatlan tételek</span>
-          </p>
-        </div>
-        <p className="text-sm font-medium text-[var(--meder-ink-soft)]">{summaryLine}</p>
+      <div className="border-b border-[var(--meder-line)] p-8 md:p-10">
+        <p className="meder-label text-[var(--meder-river-deep)]">(Valószínű találat)</p>
+        <p className="meder-h3 mt-3 text-3xl! md:text-4xl!">{resolvedName}</p>
+        <p className="mt-4 text-lg font-medium">
+          {summary.totalItems} azonosítatlan tétel · {summary.countries} országban
+        </p>
       </div>
 
-      <div className="grid gap-4 p-4 md:grid-cols-2 md:p-6">
-        {visibleGroups.map((group) => (
-          <MederResultGroup key={group.key} group={group} />
-        ))}
-      </div>
-      {hiddenCount > 0 ? (
-        <p className="px-8 pb-2 text-sm text-[var(--meder-ink-soft)] md:px-10">
-          +{hiddenCount} további ország vagy jogtípus a teljes átnézésben.
-        </p>
+      <ul className="space-y-3 px-8 py-6 md:px-10">
+        {RIGHT_ORDER.map((right) => {
+          const on = ticked.has(right);
+          return (
+            <li key={right} className="flex items-center gap-3 text-lg">
+              <span
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+                  on
+                    ? "bg-[var(--meder-river)] text-white"
+                    : "border border-[var(--meder-line)] text-[var(--meder-ink-faint)]"
+                }`}
+                aria-hidden
+              >
+                {on ? <Check className="h-3.5 w-3.5" strokeWidth={2.5} /> : <span className="text-sm leading-none">–</span>}
+              </span>
+              <span className={on ? "font-medium" : "text-[var(--meder-ink-faint)]"}>{RIGHT_LABEL[right]}</span>
+            </li>
+          );
+        })}
+      </ul>
+
+      {summary.titles.length > 0 ? (
+        <div className="px-8 pb-2 md:px-10">
+          <p className="text-sm text-[var(--meder-ink-soft)]">Ilyen címeken is</p>
+          <ul className="mt-3 space-y-2">
+            {summary.titles.map((title) => (
+              <li key={title} className="truncate text-lg font-medium">
+                {title}
+              </li>
+            ))}
+          </ul>
+          {summary.totalItems > summary.titles.length ? (
+            <p className="mt-3 text-sm text-[var(--meder-ink-soft)]">
+              + {summary.totalItems - summary.titles.length} további tétel
+            </p>
+          ) : null}
+        </div>
       ) : null}
 
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3 p-8 md:px-10">
-        <p className="meder-h3 w-full">
-          Ráismersz a dalaidra? A teljes listát és a következő lépést a beszélgetésen nézzük át.
+        <p className="max-w-xl text-sm leading-relaxed text-[var(--meder-ink-soft)]">
+          Névegyezés alapján. Azt, hogy a tétel a tiéd-e, együtt ellenőrizzük. A teljes listát a beszélgetésen nézzük át.
         </p>
         <button type="button" onClick={onPrimaryCta} className="meder-cta">
           {CTA_LABEL}
         </button>
         <p className="text-sm text-[var(--meder-ink-soft)]">Nincs kötelezettség.</p>
       </div>
-    </div>
-  );
-}
-
-const GHOSTS: LandingTeaserHit[] = [{ title: "Azonosítatlan tétel" }, { title: "Azonosítatlan tétel" }];
-
-function MederResultGroup({ group }: { group: LandingTeaserGroup }) {
-  const isFuzzy = group.confidence === "fuzzy";
-  const visibleHits = isFuzzy ? [] : group.hits;
-  const remaining = group.total - visibleHits.length;
-  const ghostCount = Math.min(2, Math.max(remaining, 0));
-  const ghostHits =
-    visibleHits.length > 0 ? group.hits.slice(0, ghostCount) : GHOSTS.slice(0, ghostCount);
-
-  return (
-    <div className="rounded-2xl bg-[var(--meder-white)] p-5 md:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <span className="text-xl leading-none">{group.flag}</span>
-          <span className="font-semibold">{group.region}</span>
-          <span
-            className={`meder-chip ${
-              group.right === "author"
-                ? "border-transparent bg-[var(--meder-river-light)] text-[var(--meder-river-deep)]"
-                : ""
-            }`}
-          >
-            {RIGHT_LABEL[group.right]}
-          </span>
-        </div>
-        <span className="text-sm tabular-nums text-[var(--meder-ink-soft)]">
-          {visibleHits.length === 0
-            ? `${group.total} tétel`
-            : remaining > 0
-              ? `Top ${visibleHits.length} / ${group.total}`
-              : `Mind a ${group.total}`}
-        </span>
-      </div>
-      {isFuzzy ? (
-        <p className="mt-3 text-sm text-[var(--meder-ink-soft)]">Csak névegyezés, ellenőrizzük.</p>
-      ) : null}
-      <div className="mt-4 space-y-2">
-        {visibleHits.map((hit, i) => (
-          <MederHitRow key={`${group.key}-${i}`} hit={hit} />
-        ))}
-        {remaining > 0 && ghostHits.length > 0 ? (
-          <div className="relative">
-            <div aria-hidden className="space-y-2 blur-[5px] select-none">
-              {ghostHits.map((hit, i) => (
-                <MederHitRow key={`g-${group.key}-${i}`} hit={hit} />
-              ))}
-            </div>
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--meder-line)] bg-[var(--meder-white)] px-3 py-1 text-xs font-semibold text-[var(--meder-ink-soft)]">
-                <Lock className="h-3 w-3" />+{remaining} további
-              </span>
-            </div>
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function MederHitRow({ hit }: { hit: LandingTeaserHit }) {
-  return (
-    <div className="flex items-center gap-2.5 text-[15px]">
-      <Music4 className="h-3.5 w-3.5 shrink-0 text-[var(--meder-river)]" />
-      <span className="truncate">{hit.title}</span>
-      {hit.type || hit.year ? (
-        <span className="ml-auto flex shrink-0 items-center gap-2 text-xs text-[var(--meder-ink-faint)]">
-          {hit.type ? <span>{hit.type}</span> : null}
-          {hit.year ? <span>{hit.year}</span> : null}
-        </span>
-      ) : null}
     </div>
   );
 }

@@ -11,11 +11,14 @@ export interface LandingTeaserHit {
   year?: number;
 }
 
-export type LandingRightType = "author" | "neighbouring";
+export type LandingRightType = "producer" | "performer" | "author";
+
+export const RIGHT_ORDER: readonly LandingRightType[] = ["producer", "performer", "author"];
 
 export const RIGHT_LABEL: Record<LandingRightType, string> = {
+  producer: "Hangfelvétel-előállítói jog",
+  performer: "Előadóművészi jog",
   author: "Szerzői jog",
-  neighbouring: "Szomszédos jog",
 };
 
 /**
@@ -38,31 +41,20 @@ export interface LandingTeaserResult {
   status: "found" | "none" | "unavailable";
   resolvedName: string;
   groups: LandingTeaserGroup[];
-  /** `societies` is for internal logging only. */
-  summary: { totalItems: number; societies: number; countries: number; rights: LandingRightType[] };
+  /**
+   * `societies` is for internal logging only.
+   * `rights` lists the ticked categories. `titles` is at most three, and never tied to a country.
+   */
+  summary: {
+    totalItems: number;
+    societies: number;
+    countries: number;
+    rights: LandingRightType[];
+    titles: string[];
+  };
 }
 
 const MAX_HITS = 3;
-
-const REGION_FLAG: Record<string, string> = {
-  Magyarország: "🇭🇺",
-  Ausztria: "🇦🇹",
-  Hollandia: "🇳🇱",
-  Svédország: "🇸🇪",
-  Szlovákia: "🇸🇰",
-  Románia: "🇷🇴",
-  Horvátország: "🇭🇷",
-  Észtország: "🇪🇪",
-  Csehország: "🇨🇿",
-  Finnország: "🇫🇮",
-  Németország: "🇩🇪",
-  Franciaország: "🇫🇷",
-  Lengyelország: "🇵🇱",
-  Dánia: "🇩🇰",
-  "Egyesült Királyság": "🇬🇧",
-  Spanyolország: "🇪🇸",
-  USA: "🇺🇸",
-};
 
 interface SourcePresentation {
   region: string;
@@ -72,18 +64,18 @@ interface SourcePresentation {
 const CMO_PRESENTATION: Record<CmoSourceId, SourcePresentation> = {
   "at-akm": { region: "Ausztria", right: "author" },
   "at-aume": { region: "Ausztria", right: "author" },
-  "nl-sena": { region: "Hollandia", right: "neighbouring" },
+  "nl-sena": { region: "Hollandia", right: "performer" },
   "se-stim": { region: "Svédország", right: "author" },
   "sk-soza": { region: "Szlovákia", right: "author" },
-  "ro-credidam": { region: "Románia", right: "neighbouring" },
+  "ro-credidam": { region: "Románia", right: "performer" },
   "hr-hds-zamp": { region: "Horvátország", right: "author" },
   "ro-ucmr-ada": { region: "Románia", right: "author" },
   "ee-eau": { region: "Észtország", right: "author" },
-  "ee-eel": { region: "Észtország", right: "neighbouring" },
-  "cz-intergram": { region: "Csehország", right: "neighbouring" },
-  "fi-gramex": { region: "Finnország", right: "neighbouring" },
-  "de-gvl": { region: "Németország", right: "neighbouring" },
-  "hu-mahasz": { region: "Magyarország", right: "neighbouring" },
+  "ee-eel": { region: "Észtország", right: "performer" },
+  "cz-intergram": { region: "Csehország", right: "performer" },
+  "fi-gramex": { region: "Finnország", right: "performer" },
+  "de-gvl": { region: "Németország", right: "performer" },
+  "hu-mahasz": { region: "Magyarország", right: "producer" },
   "de-gema": { region: "Németország", right: "author" },
   "hu-artisjus-fuggo": { region: "Magyarország", right: "author" },
 };
@@ -91,17 +83,13 @@ const CMO_PRESENTATION: Record<CmoSourceId, SourcePresentation> = {
 const CMO_WEB_PRESENTATION: Record<CmoWebSourceId, SourcePresentation> = {
   zaiks: { region: "Lengyelország", right: "author" },
   sacem: { region: "Franciaország", right: "author" },
-  spedidam: { region: "Franciaország", right: "neighbouring" },
-  sami: { region: "Svédország", right: "neighbouring" },
+  spedidam: { region: "Franciaország", right: "performer" },
+  sami: { region: "Svédország", right: "performer" },
   koda: { region: "Dánia", right: "author" },
   prs: { region: "Egyesült Királyság", right: "author" },
   sgae: { region: "Spanyolország", right: "author" },
   buma: { region: "Hollandia", right: "author" },
 };
-
-function flagFor(region: string): string {
-  return REGION_FLAG[region] ?? "🏳️";
-}
 
 const HTML_ENTITIES: Record<string, string> = { amp: "&", quot: '"', apos: "'", lt: "<", gt: ">" };
 
@@ -115,20 +103,62 @@ function decodeEntities(value: string): string {
   });
 }
 
-/** Readable, distinct titles first — placeholder titles ("(névtelen)") would hide real hits. */
-function pickHits(hits: LandingTeaserHit[]): LandingTeaserHit[] {
+const HU_MARK = /[áéíóöőúüű]/i;
+const TITLE_LIMIT = 28;
+
+/** "FOLYTASD BÁTRAN TOVÁBB" copied over and over becomes the phrase once. */
+function collapseRepeats(title: string): string {
+  const words = title.split(/\s+/).filter(Boolean);
+  const out: string[] = [];
+  let i = 0;
+  while (i < words.length) {
+    let bestSize = 1;
+    let bestReps = 1;
+    const maxSize = Math.min(8, Math.floor((words.length - i) / 2));
+    for (let size = 1; size <= maxSize; size++) {
+      const chunk = words.slice(i, i + size).join(" ").toLocaleLowerCase("hu");
+      let reps = 1;
+      while (i + (reps + 1) * size <= words.length) {
+        const next = words
+          .slice(i + reps * size, i + (reps + 1) * size)
+          .join(" ")
+          .toLocaleLowerCase("hu");
+        if (next !== chunk) break;
+        reps++;
+      }
+      if (reps >= 2 && size * reps > bestSize * bestReps) {
+        bestSize = size;
+        bestReps = reps;
+      }
+    }
+    out.push(...words.slice(i, i + bestSize));
+    i += bestSize * bestReps;
+  }
+  return out.join(" ");
+}
+
+function clipTitle(title: string): string {
+  if (title.length <= TITLE_LIMIT) return title;
+  const cut = title.slice(0, TITLE_LIMIT + 1);
+  const space = cut.lastIndexOf(" ");
+  const base = (space >= 16 ? cut.slice(0, space) : title.slice(0, TITLE_LIMIT)).replace(/[.,;:\-–—]+$/, "");
+  return `${base}…`;
+}
+
+/** At most three titles. Accented Hungarian titles come first, so a bare ASCII title cannot point at a foreign list. */
+function pickPublicTitles(hits: ScoredHit[]): string[] {
   const seen = new Set<string>();
-  const out: LandingTeaserHit[] = [];
+  const cleaned: { title: string; score: number; marked: number }[] = [];
   for (const hit of hits) {
-    const title = decodeEntities(hit.title ?? "").trim();
+    const title = clipTitle(collapseRepeats(decodeEntities(hit.title ?? "").trim()));
     if (!title || title.startsWith("(")) continue;
     const key = title.toLocaleLowerCase("hu");
     if (seen.has(key)) continue;
     seen.add(key);
-    out.push({ ...hit, title });
-    if (out.length >= MAX_HITS) break;
+    cleaned.push({ title, score: hit.score, marked: HU_MARK.test(title) ? 0 : 1 });
   }
-  return out;
+  cleaned.sort((a, b) => a.marked - b.marked || b.score - a.score);
+  return cleaned.slice(0, MAX_HITS).map((hit) => hit.title);
 }
 
 export interface BuildLandingTeaserInput {
@@ -149,7 +179,7 @@ export function buildLandingTeaser(input: BuildLandingTeaserInput): LandingTease
       status: "unavailable",
       resolvedName,
       groups: [],
-      summary: { totalItems: 0, societies: 0, countries: 0, rights: [] },
+      summary: { totalItems: 0, societies: 0, countries: 0, rights: [], titles: [] },
     };
   }
 
@@ -176,8 +206,8 @@ export function buildLandingTeaser(input: BuildLandingTeaserInput): LandingTease
       confidence: hasPerformer ? "high" : "fuzzy",
       hits: hasPerformer
         ? [
-            ...performerish.map((m) => ({ title: m.work.mucim })),
-            ...fuggoMatches.map((m) => ({ title: m.record.title })),
+            ...performerish.map((m) => ({ title: m.work.mucim, score: m.score })),
+            ...fuggoMatches.map((m) => ({ title: m.record.title, score: m.score })),
           ]
         : [],
     });
@@ -187,12 +217,12 @@ export function buildLandingTeaser(input: BuildLandingTeaserInput): LandingTease
   if (input.ejiHits.length > 0) {
     parts.push({
       region: "Magyarország",
-      right: "neighbouring",
+      right: "performer",
       total: input.ejiHits.length,
       confidence: "high",
       hits: input.ejiHits
         .filter((h): h is Extract<EjiHit, { kind: "track" }> => h.kind === "track")
-        .map((h) => ({ title: h.title, year: h.publicationYear ?? undefined })),
+        .map((h) => ({ title: h.title, score: 1 })),
     });
   }
 
@@ -215,7 +245,9 @@ export function buildLandingTeaser(input: BuildLandingTeaserInput): LandingTease
       confidence: foreignSingle ? "fuzzy" : "high",
       hits: foreignSingle
         ? []
-        : [...matches].sort((a, b) => b.score - a.score).map((m) => ({ title: m.record.title })),
+        : [...matches]
+            .sort((a, b) => b.score - a.score)
+            .map((m) => ({ title: m.record.title, score: m.score })),
     });
   }
 
@@ -226,51 +258,29 @@ export function buildLandingTeaser(input: BuildLandingTeaserInput): LandingTease
     parts.push({ ...CMO_WEB_PRESENTATION[sourceId], total, confidence: "fuzzy", hits: [] });
   }
 
-  const groups = groupByCountryAndRight(parts);
-  const totalItems = groups.reduce((sum, g) => sum + g.total, 0);
-  const countries = new Set(groups.map((g) => g.region)).size;
-  const rights = (["author", "neighbouring"] as const).filter((r) => groups.some((g) => g.right === r));
+  const totalItems = parts.reduce((sum, part) => sum + part.total, 0);
+  const countries = new Set(parts.map((part) => part.region)).size;
+  const rights = RIGHT_ORDER.filter((right) => parts.some((part) => part.right === right));
+  const titles = pickPublicTitles(
+    parts.filter((part) => part.confidence === "high" && rights.includes(part.right)).flatMap((part) => part.hits),
+  );
 
   return {
-    status: groups.length > 0 ? "found" : "none",
+    status: parts.length > 0 ? "found" : "none",
     resolvedName,
-    groups,
-    summary: { totalItems, societies: parts.length, countries, rights },
+    // Country and society stay off the response: the page only shows counts, ticks and titles.
+    groups: [],
+    summary: { totalItems, societies: parts.length, countries, rights, titles },
   };
+}
+
+interface ScoredHit {
+  title: string;
+  score: number;
 }
 
 interface SourcePart extends SourcePresentation {
   total: number;
   confidence: "high" | "fuzzy";
-  hits: LandingTeaserHit[];
-}
-
-function groupByCountryAndRight(parts: SourcePart[]): LandingTeaserGroup[] {
-  const byKey = new Map<string, SourcePart[]>();
-  for (const part of parts) {
-    const key = `${part.region}|${part.right}`;
-    byKey.set(key, [...(byKey.get(key) ?? []), part]);
-  }
-  const groups: LandingTeaserGroup[] = [];
-  for (const [key, members] of byKey) {
-    const { region, right } = members[0];
-    const high = members.filter((m) => m.confidence === "high").sort((a, b) => b.total - a.total);
-    groups.push({
-      key,
-      source: RIGHT_LABEL[right],
-      right,
-      region,
-      flag: flagFor(region),
-      total: members.reduce((sum, m) => sum + m.total, 0),
-      confidence: high.length > 0 ? "high" : "fuzzy",
-      hits: pickHits(high.flatMap((m) => m.hits)),
-    });
-  }
-  // Hungary first, then by volume.
-  return groups.sort((a, b) => {
-    const ah = a.region === "Magyarország" ? 0 : 1;
-    const bh = b.region === "Magyarország" ? 0 : 1;
-    if (ah !== bh) return ah - bh;
-    return b.total - a.total;
-  });
+  hits: ScoredHit[];
 }
